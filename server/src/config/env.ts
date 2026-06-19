@@ -17,6 +17,7 @@ const envSchema = z.object({
   SMS_SENDER_ID: z.string().optional().default(""),
   SMS_TEMPLATE_ID: z.string().optional().default(""),
   SMS_BASE_URL: z.string().optional().default("https://login.smsforyou.biz/V2/http-api.php"),
+  GOOGLE_GENERATIVE_AI_API_KEY: z.string().optional().default(""),
 });
 
 export type Env = z.infer<typeof envSchema>;
