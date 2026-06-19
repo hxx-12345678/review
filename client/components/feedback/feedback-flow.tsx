@@ -23,11 +23,15 @@ export function FeedbackFlow({ business, slug }: { business: any; slug?: string 
   const [highlights, setHighlights] = useState("")
   const [selectedTopics, setSelectedTopics] = useState<string[]>([])
   const [language, setLanguage] = useState<string>("english")
-  // combinedInput stores the final text (highlights + topics) built in handleDescribeContinue
-  // and reused for feedback submission so both AI and DB always see identical data.
+  // combinedInput = customer's typed notes + topic chips, built in handleDescribeContinue.
+  // Stored here so ReviewStep and PrivateStep both see the exact same text.
   const [combinedInput, setCombinedInput] = useState("")
+  // talkingPoints = AI memory-joggers (bullet reminders) shown in Step 3.
+  // The customer reads these and writes their own review in their own words on Google.
+  // We NEVER post AI text directly — that would violate FTC and Google policy.
   const [talkingPoints, setTalkingPoints] = useState<string[]>([])
   const [loadingPoints, setLoadingPoints] = useState(false)
+  const [lastFetchedInput, setLastFetchedInput] = useState("")
   const [authenticity, setAuthenticity] = useState<AuthenticityResult | null>(null)
   const [privateDone, setPrivateDone] = useState(false)
   const [feedbackId, setFeedbackId] = useState<string | null>(null)
@@ -47,8 +51,7 @@ export function FeedbackFlow({ business, slug }: { business: any; slug?: string 
   }
 
   async function handleDescribeContinue() {
-    // Build the canonical combined string ONCE so AI, authenticity scorer,
-    // and DB all receive exactly the same text — no divergence between steps.
+    // Build the canonical combined string from text + selected topic chips.
     const combined = [
       highlights.trim(),
       selectedTopics.length ? `(${selectedTopics.join(", ")})` : "",
@@ -59,9 +62,21 @@ export function FeedbackFlow({ business, slug }: { business: any; slug?: string 
 
     setCombinedInput(combined)
     setAuthenticity(scoreAuthenticity(combined))
+
+    // Submit feedback to the server before showing the Review step so the
+    // Google button can open immediately without any async wait.
+    if (!feedbackId) {
+      await submitFeedback({ liked: combined || undefined })
+    }
+
     setStep("review")
 
-    if (combined.length >= 3) {
+    // Generate AI talking-point reminders AFTER navigating to Review step.
+    // These are bullet-point memory-joggers shown to help the customer write
+    // their review in their OWN words. We never auto-post AI text to Google
+    // (that would violate FTC rules and Google's review policy).
+    // The call is skipped if the input hasn't changed (back-and-forth navigation).
+    if (combined.length >= 3 && combined !== lastFetchedInput) {
       setLoadingPoints(true)
       try {
         const res = await fetch("/api/talking-points", {
@@ -77,8 +92,8 @@ export function FeedbackFlow({ business, slug }: { business: any; slug?: string 
         if (!res.ok) throw new Error("API error")
         const data = await res.json()
         setTalkingPoints(Array.isArray(data.talkingPoints) ? data.talkingPoints : [])
+        setLastFetchedInput(combined)
       } catch {
-        // Fallback handled server-side; empty is fine here.
         setTalkingPoints([])
       } finally {
         setLoadingPoints(false)
@@ -88,29 +103,34 @@ export function FeedbackFlow({ business, slug }: { business: any; slug?: string 
 
   /**
    * Opens Google review URL and records the click server-side.
-   * The click endpoint is PUBLIC (no auth) — the server looks up the business
-   * from the feedbackId CUID so no sensitive data needs to be passed by the client.
+   *
+   * CRITICAL: window.open MUST be called synchronously inside a user-gesture
+   * handler. Any await before it causes the browser to treat it as
+   * non-user-initiated and popup-block it. So we open the URL FIRST, then
+   * fire tracking as a best-effort background request.
    */
-  async function openGoogle() {
-    if (feedbackId) {
-      try {
-        await api.reviews.trackClick({ feedbackId })
-      } catch {
-        // Best-effort — never block the user from getting to Google.
-      }
+  function openGoogle() {
+    // 1. Build & validate URL
+    const googleUrl = (business.googleReviewUrl || "").trim()
+    let targetUrl = googleUrl
+    if (targetUrl && !/^https?:\/\//i.test(targetUrl)) {
+      targetUrl = `https://${targetUrl}`
     }
 
-    // Security: validate that the URL is a Google domain before opening.
-    const googleUrl = business.googleReviewUrl || ""
-    if (googleUrl && isGoogleUrl(googleUrl)) {
-      window.open(googleUrl, "_blank", "noopener,noreferrer")
-    } else if (googleUrl) {
-      // Non-Google URL — still open but warn in console for debugging.
-      console.warn("ReviewOS: googleReviewUrl is not a Google domain:", googleUrl)
-      window.open(googleUrl, "_blank", "noopener,noreferrer")
+    // 2. Open synchronously in the click handler (avoids popup-blocker)
+    if (targetUrl) {
+      window.open(targetUrl, "_blank", "noopener,noreferrer")
     }
 
+    // 3. Advance step immediately
     setStep("done")
+
+    // 4. Fire tracking in background (best-effort, non-blocking)
+    if (feedbackId) {
+      api.reviews.trackClick({ feedbackId }).catch(() => {
+        // Silently ignore - tracking is non-critical
+      })
+    }
   }
 
   /**
@@ -147,7 +167,8 @@ export function FeedbackFlow({ business, slug }: { business: any; slug?: string 
   useEffect(() => {
     if (step === "loading") {
       const timer = setTimeout(() => {
-        setStep("welcome")
+        // Transit directly to rate step to reduce friction for scanning customers
+        setStep("rate")
       }, 2200)
       return () => clearTimeout(timer)
     }
@@ -212,19 +233,10 @@ export function FeedbackFlow({ business, slug }: { business: any; slug?: string 
             config={config}
             talkingPoints={talkingPoints}
             loadingPoints={loadingPoints}
+            combinedInput={combinedInput}
             authenticity={authenticity}
             submitting={submitting}
-            onOpenGoogle={() => {
-              if (!feedbackId) {
-                // Submit feedback first (using combinedInput so topics are included),
-                // then open Google only on success.
-                submitFeedback({ liked: combinedInput || highlights }).then((id) => {
-                  if (id) openGoogle()
-                })
-              } else {
-                openGoogle()
-              }
-            }}
+            onOpenGoogle={openGoogle}
             onPrivate={() => setStep("private")}
             onBack={() => setStep("describe")}
           />
@@ -271,49 +283,83 @@ export function FeedbackFlow({ business, slug }: { business: any; slug?: string 
 
 function LoadingStep({ business }: { business: any }) {
   return (
-    <div className="flex flex-1 flex-col items-center justify-between py-10 text-center animate-fade-in">
-      <div className="flex flex-col items-center justify-center flex-1 space-y-8 mt-6">
-        {/* Animated Scanning Circle */}
-        <div className="relative flex size-24 items-center justify-center rounded-full bg-primary/5 border border-primary/20">
-          {/* Pulsing ring */}
-          <div className="absolute inset-0 rounded-full border border-primary/30 animate-ping opacity-40" />
-          {/* Spinner ring */}
-          <div className="absolute -inset-1 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-          <Logo className="size-12 animate-pulse-subtle text-primary" />
+    <div className="flex flex-1 flex-col items-center justify-between py-6 text-center animate-fade-in overflow-hidden">
+      {/* Top spacer */}
+      <div className="flex-1" />
+
+      {/* Central branded animation */}
+      <div className="flex flex-col items-center space-y-8">
+        {/* Layered ring animation */}
+        <div className="relative flex size-28 items-center justify-center">
+          {/* Outermost slow pulse */}
+          <div className="absolute inset-0 rounded-full bg-primary/5 animate-ping opacity-20" style={{ animationDuration: "2s" }} />
+          {/* Mid ring */}
+          <div className="absolute -inset-3 rounded-full border border-primary/20 animate-spin opacity-60" style={{ animationDuration: "3s" }} />
+          {/* Inner fast spinner */}
+          <div className="absolute -inset-1 rounded-full border-2 border-transparent border-t-primary animate-spin" style={{ animationDuration: "0.9s" }} />
+          {/* Logo core */}
+          <div className="relative flex size-28 items-center justify-center rounded-full bg-gradient-to-br from-primary/15 to-primary/5 border border-primary/20">
+            <Logo className="size-14 text-primary" />
+          </div>
         </div>
 
-        {/* Brand visibility details */}
-        <div className="space-y-2 max-w-xs animate-fade-in-up">
-          <h2 className="text-xl font-bold tracking-tight text-foreground">
-            Connecting to {business.name}
-          </h2>
-          <p className="text-xs text-muted-foreground font-medium tracking-wide animate-pulse">
-            Verifying secure review channel...
+        {/* Business identity */}
+        <div className="space-y-3 animate-fade-in-up" style={{ animationDelay: "300ms" }}>
+          <div className="space-y-1">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+              Welcome to
+            </p>
+            <h1 className="text-2xl font-extrabold tracking-tight text-foreground leading-tight">
+              {business.name}
+            </h1>
+          </div>
+          <p className="text-xs text-muted-foreground/70 font-medium tracking-wide">
+            Setting up your review experience...
           </p>
         </div>
       </div>
 
-      {/* Trust badges representing Quality & Verified status */}
-      <div className="w-full pt-6 border-t border-border animate-fade-in-up [animation-delay:300ms]">
-        <div className="grid grid-cols-3 gap-2 px-1 text-center">
-          <div className="flex flex-col items-center space-y-1.5">
-            <div className="flex size-8 items-center justify-center rounded-full bg-primary/10">
-              <ShieldCheck className="size-4.5 text-primary" />
+      {/* Bottom trust section */}
+      <div className="flex-1 flex flex-col justify-end w-full">
+        {/* Animated dots progress */}
+        <div className="flex items-center justify-center gap-1.5 mb-6">
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className="size-1.5 rounded-full bg-primary animate-pulse"
+              style={{ animationDelay: `${i * 200}ms`, animationDuration: "1.2s" }}
+            />
+          ))}
+        </div>
+
+        {/* Trust badges */}
+        <div className="w-full border-t border-border/50 pt-4 animate-fade-in-up" style={{ animationDelay: "600ms" }}>
+          <div className="grid grid-cols-3 gap-3 px-1 text-center">
+            <div className="flex flex-col items-center space-y-1.5">
+              <div className="flex size-9 items-center justify-center rounded-full bg-emerald-500/10 ring-1 ring-emerald-500/20">
+                <ShieldCheck className="size-4 text-emerald-500" />
+              </div>
+              <span className="text-[9px] font-bold text-foreground/70 leading-tight uppercase tracking-wider">FTC Safe</span>
             </div>
-            <span className="text-[10px] font-bold text-foreground/80 leading-none uppercase tracking-wider">FTC Compliant</span>
-          </div>
-          <div className="flex flex-col items-center space-y-1.5">
-            <div className="flex size-8 items-center justify-center rounded-full bg-primary/10">
-              <Lock className="size-4.5 text-primary" />
+            <div className="flex flex-col items-center space-y-1.5">
+              <div className="flex size-9 items-center justify-center rounded-full bg-blue-500/10 ring-1 ring-blue-500/20">
+                <Lock className="size-4 text-blue-500" />
+              </div>
+              <span className="text-[9px] font-bold text-foreground/70 leading-tight uppercase tracking-wider">Encrypted</span>
             </div>
-            <span className="text-[10px] font-bold text-foreground/80 leading-none uppercase tracking-wider">100% Secure</span>
-          </div>
-          <div className="flex flex-col items-center space-y-1.5">
-            <div className="flex size-8 items-center justify-center rounded-full bg-primary/10">
-              <Award className="size-4.5 text-primary" />
+            <div className="flex flex-col items-center space-y-1.5">
+              <div className="flex size-9 items-center justify-center rounded-full bg-amber-500/10 ring-1 ring-amber-500/20">
+                <Award className="size-4 text-amber-500" />
+              </div>
+              <span className="text-[9px] font-bold text-foreground/70 leading-tight uppercase tracking-wider">Verified</span>
             </div>
-            <span className="text-[10px] font-bold text-foreground/80 leading-none uppercase tracking-wider">Verified Business</span>
           </div>
+        </div>
+
+        {/* Powered by */}
+        <div className="flex items-center justify-center gap-1 mt-4 text-[10px] text-muted-foreground/40 select-none">
+          <span>powered by</span>
+          <span className="font-extrabold text-foreground/60 tracking-tight">ReviewOS</span>
         </div>
       </div>
     </div>
@@ -551,13 +597,14 @@ function DescribeStep({
 }
 
 // ---------------------------------------------------------------------------
-// Step: Review (talking points + open Google)
+// Step: Review (AI reminders + customer notes + open Google)
 // ---------------------------------------------------------------------------
 
 function ReviewStep({
   config,
   talkingPoints,
   loadingPoints,
+  combinedInput,
   authenticity,
   submitting,
   onOpenGoogle,
@@ -567,17 +614,23 @@ function ReviewStep({
   config: ReturnType<typeof getReviewStepConfig>
   talkingPoints: string[]
   loadingPoints: boolean
+  combinedInput: string
   authenticity: AuthenticityResult | null
   submitting: boolean
   onOpenGoogle: () => void
   onPrivate: () => void
   onBack: () => void
 }) {
-  function copyPoints() {
-    const text = talkingPoints.map((p) => `• ${p}`).join("\n")
+  function copyReminders() {
+    const text = talkingPoints.length > 0
+      ? talkingPoints.map((p) => `• ${p}`).join("\n")
+      : combinedInput
     navigator.clipboard.writeText(text)
-    toast.success("Reminders copied — paste them as notes, then write in your own words.")
+    toast.success("Copied! Paste into Google and rewrite in your own words.")
   }
+
+  const hasReminders = talkingPoints.length > 0
+  const showBox = loadingPoints || hasReminders || combinedInput
 
   return (
     <div className="flex flex-1 flex-col">
@@ -586,51 +639,73 @@ function ReviewStep({
       </h2>
       <p className="mt-1 text-sm text-muted-foreground text-pretty">{config.subhead}</p>
 
-      <div className="mt-5 rounded-xl border border-border bg-muted/40 p-4">
-        <div className="flex items-center gap-2">
-          <Sparkles className="size-4 text-primary" />
-          <span className="text-sm font-medium text-foreground">Things you mentioned</span>
-        </div>
-        {loadingPoints ? (
-          <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="size-4 animate-spin" />
-            Pulling together your reminders…
+      {/* Reminders box — AI bullet points or customer's own notes as fallback */}
+      {showBox && (
+        <div className="mt-5 rounded-xl border border-border bg-muted/40 p-4">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Sparkles className="size-4 text-primary" />
+              <span className="text-sm font-medium text-foreground">
+                {loadingPoints ? "Building your reminders…" : "Things you mentioned"}
+              </span>
+            </div>
+            {!loadingPoints && (
+              <button
+                type="button"
+                onClick={copyReminders}
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+              >
+                <Copy className="size-3.5" />
+                Copy
+              </button>
+            )}
           </div>
-        ) : talkingPoints.length > 0 ? (
-          <>
-            <ul className="mt-3 space-y-2">
-              {talkingPoints.map((point, i) => (
-                <li key={i} className="flex gap-2 text-sm text-foreground">
-                  <Check className="mt-0.5 size-4 shrink-0 text-primary" />
-                  <span>{point}</span>
-                </li>
-              ))}
-            </ul>
-            <button
-              type="button"
-              onClick={copyPoints}
-              className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
-            >
-              <Copy className="size-3.5" />
-              Copy as notes
-            </button>
-            <p className="mt-3 text-xs text-muted-foreground text-pretty">
-              These are just reminders. Please write your review in your own words on Google.
-            </p>
-          </>
-        ) : (
-          <p className="mt-3 text-sm text-muted-foreground text-pretty">
-            Write a few words about what stood out — in your own voice.
-          </p>
-        )}
-      </div>
+
+          {loadingPoints ? (
+            <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="size-4 animate-spin" />
+              Pulling together your reminders…
+            </div>
+          ) : hasReminders ? (
+            <>
+              <ul className="mt-3 space-y-2">
+                {talkingPoints.map((point, i) => (
+                  <li key={i} className="flex gap-2 text-sm text-foreground">
+                    <Check className="mt-0.5 size-4 shrink-0 text-primary" />
+                    <span>{point}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-3 text-xs text-muted-foreground text-pretty">
+                These are just reminders based on what you told us. Write your review in your own words on Google — it carries more weight when it's personal.
+              </p>
+            </>
+          ) : combinedInput ? (
+            <>
+              <p className="mt-3 text-sm text-foreground leading-relaxed whitespace-pre-wrap break-words">
+                {combinedInput}
+              </p>
+              <p className="mt-3 text-xs text-muted-foreground text-pretty">
+                Use this as inspiration and write your review in your own words on Google.
+              </p>
+            </>
+          ) : null}
+        </div>
+      )}
 
       {authenticity && authenticity.warnings.length > 0 && (
         <p className="mt-3 text-xs text-muted-foreground text-pretty">{authenticity.warnings[0]}</p>
       )}
 
       <div className="mt-auto flex flex-col gap-3 pt-6">
-        <Button onClick={onOpenGoogle} size="lg" className="w-full" disabled={submitting}>
+        {/* Primary CTA — opens Google SYNCHRONOUSLY inside the click handler.
+            window.open after any await gets blocked by the browser popup-blocker. */}
+        <Button
+          onClick={onOpenGoogle}
+          size="lg"
+          className="w-full bg-gradient-to-r from-primary to-primary/90 hover:from-primary/95 hover:to-primary shadow-lg hover:shadow-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
+          disabled={submitting}
+        >
           {submitting ? (
             <Loader2 className="size-4 animate-spin" />
           ) : (
@@ -638,10 +713,12 @@ function ReviewStep({
           )}
           {submitting ? "Just a moment…" : "Write your review on Google"}
         </Button>
+
         <Button onClick={onPrivate} variant="outline" size="lg" className="w-full">
           <MessageSquareHeart className="size-4" />
           {config.emphasizePrivateFeedback ? "Tell the owner privately" : "Send private feedback instead"}
         </Button>
+
         <button
           type="button"
           onClick={onBack}

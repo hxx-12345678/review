@@ -177,7 +177,7 @@ export function ReviewInbox({ feedback, businessName, businessId }: { feedback: 
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-foreground">Your reply</span>
                     <div className="flex items-center gap-2">
-                      <Select value={replyTone} onValueChange={(v) => setReplyTone(v)}>
+                      <Select value={replyTone} onValueChange={(v) => v && setReplyTone(v)}>
                         <SelectTrigger className="h-8 w-36 text-xs">
                           <SelectValue />
                         </SelectTrigger>

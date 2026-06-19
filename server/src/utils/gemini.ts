@@ -77,8 +77,8 @@ export async function callGemini(
     throw new Error("GOOGLE_GENERATIVE_AI_API_KEY is not defined in server environment");
   }
 
-  // Use gemini-1.5-flash which is the long-term stable model (avoiding deprecated gemini-2.0-flash)
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+  // Use gemini-2.0-flash-001 (stable versioned release confirmed available for this API key)
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-001:generateContent?key=${apiKey}`;
 
   const payload: any = {
     contents: [

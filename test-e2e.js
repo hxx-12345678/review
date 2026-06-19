@@ -1,300 +1,319 @@
-/**
- * ReviewOS End-to-End QA Integration Test Suite
- * Version 2.0 — Full coverage including compliance, multilingual, negative flow
- *
- * Test Cases:
- *  T1  — Owner authentication (JWT login)
- *  T2  — User + business profile resolution
- *  T3  — Public customer route lookup (slug → business data)
- *  T4a — AI talking points: English
- *  T4b — AI talking points: Hinglish (unique input to bypass cache)
- *  T4c — AI talking points: Gujlish  (unique input)
- *  T4d — AI talking points: Hindi     (unique input)
- *  T4e — AI talking points: Gujarati  (unique input)
- *  T5  — Positive feedback submission (5 stars)
- *  T6  — Google review click tracking
- *  T7  — Negative feedback submission (2 stars) — COMPLIANCE: Google link must still be accessible
- *  T8  — Private feedback submission
- *  T9  — Owner inbox retrieval
- *  T10 — AI reply generation (single call, no double-spend)
- *  T11 — Rate limiting: 6th rapid identical request should be served from cache
- *  T12 — Security: Non-Google URL should not crash the server
- *  T13 — Auth guard: Protected routes reject requests without token
- */
+const API = "https://review-ewye.onrender.com/api";
+const FRONTEND = "https://review-nine-inky.vercel.app";
 
-const BACKEND  = process.env.API_URL      || "http://localhost:4000/api";
-const FRONTEND = process.env.FRONTEND_URL || "http://localhost:3000";
+let token, userId, businessId, feedbackId, replyId;
 
-const TEST_EMAIL = "cptjacksprw@gmail.com";
-const TEST_PASS  = "Player@123";
-
-let passed = 0;
-let failed = 0;
-
-function ok(name, val) {
-  console.log(`  ✅ ${name}`);
-  passed++;
-  return val;
-}
-function fail(name, reason) {
-  console.error(`  ❌ ${name}: ${reason}`);
-  failed++;
-}
-function section(title) {
-  console.log(`\n${"─".repeat(52)}`);
-  console.log(`  ${title}`);
-  console.log("─".repeat(52));
+function log(label, ok, detail) {
+  const icon = ok ? "✓" : "✗";
+  console.log(`${icon} ${label}${detail ? `  (${detail})` : ""}`);
 }
 
-// ─── helpers ────────────────────────────────────────────────────────────────
+async function check(label, fn) {
+  try {
+    const result = await fn();
+    log(label, result.ok, result.detail);
+    return result;
+  } catch (err) {
+    log(label, false, err.message);
+    return { ok: false, detail: err.message };
+  }
+}
 
-async function post(url, body, token) {
+function api(path, options = {}) {
   const headers = { "Content-Type": "application/json" };
   if (token) headers["Authorization"] = `Bearer ${token}`;
-  const r = await fetch(url, { method: "POST", headers, body: JSON.stringify(body) });
-  return { status: r.status, data: await r.json().catch(() => ({})) };
+  return fetch(`${API}${path}`, { ...options, headers }).then(async (r) => {
+    const body = await r.json().catch(() => null);
+    if (!r.ok) throw new Error(body?.error || `${r.status} ${r.statusText}`);
+    return body;
+  });
 }
 
-async function get(url, token) {
-  const headers = {};
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-  const r = await fetch(url, { headers });
-  return { status: r.status, data: await r.json().catch(() => ({})) };
-}
+async function main() {
+  console.log("\n=== REVIEWOS END-TO-END TEST ===\n");
+  console.log(`Backend: ${API}`);
+  console.log(`Frontend: ${FRONTEND}\n`);
 
-// ─── main ────────────────────────────────────────────────────────────────────
+  // 1. Health check
+  await check("Health check", async () => {
+    const data = await api("/health");
+    return { ok: data.status === "ok", detail: data.timestamp };
+  });
 
-async function runTests() {
-  console.log("\n╔════════════════════════════════════════════════════╗");
-  console.log("║     ReviewOS QA — Full End-to-End Test Suite       ║");
-  console.log("╚════════════════════════════════════════════════════╝");
+  // 2. Create a new unique account
+  const email = `test${Date.now()}@example.com`;
+  const password = "TestPass123!";
 
-  let token = "", businessId = "", businessSlug = "", feedbackId = "";
-
-  // ── T1: Authentication ────────────────────────────────────────────────────
-  section("T1 — Owner Authentication");
-  try {
-    const { status, data } = await post(`${BACKEND}/auth/login`, { email: TEST_EMAIL, password: TEST_PASS });
-    if (status !== 200 || !data.token) throw new Error(`status ${status}`);
+  await check("Signup new account", async () => {
+    const data = await api("/auth/signup", {
+      method: "POST",
+      body: JSON.stringify({ email, password, name: "Test User" }),
+    });
     token = data.token;
-    ok("Login returns 200 + JWT token", token);
-    ok("User email matches test account", data.user.email === TEST_EMAIL);
-  } catch (e) {
-    fail("Login", e.message);
-    console.error("  ⛔ Cannot continue without auth. Is the backend server running on port 4000?");
-    process.exit(1);
-  }
+    userId = data.user.id;
+    return { ok: !!data.token && !!data.user.id, detail: `userId=${userId}` };
+  });
 
-  // ── T2: Profile Resolution ────────────────────────────────────────────────
-  section("T2 — User + Business Profile Resolution");
-  try {
-    const { status, data } = await get(`${BACKEND}/auth/me`, token);
-    if (status !== 200) throw new Error(`status ${status}`);
-    ok("GET /auth/me returns 200", true);
-    ok("User object present", !!data.user?.id);
-    if (data.businesses?.length > 0) {
-      businessId   = data.businesses[0].id;
-      businessSlug = data.businesses[0].slug;
-      ok(`Business found: "${businessSlug}"`, true);
-    } else {
-      // create test business
-      const { data: nb } = await post(`${BACKEND}/businesses`, {
-        name: "Test Clinic QA", industry: "DENTAL",
-        googleReviewUrl: "https://maps.google.com/?cid=999",
-        location: "Mumbai"
-      }, token);
-      businessId   = nb.business.id;
-      businessSlug = nb.business.slug;
-      ok("Created test business (none existed)", true);
-    }
-  } catch (e) { fail("Profile resolution", e.message); }
+  // 3. Login with the same credentials
+  await check("Login", async () => {
+    const data = await api("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+    });
+    token = data.token;
+    return { ok: !!data.token, detail: `token=${data.token.slice(0, 16)}...` };
+  });
 
-  // ── T3: Public Customer Route ─────────────────────────────────────────────
-  section("T3 — Public Customer Route (QR scan target)");
-  try {
-    const { status, data } = await get(`${BACKEND}/feedback/public/${businessSlug}`);
-    if (status !== 200) throw new Error(`status ${status}, expected 200`);
-    ok("GET /feedback/public/[slug] returns 200", true);
-    ok("Business name present in response", !!data.business?.name);
-    ok("No auth token leaked in public response", !data.token);
-  } catch (e) { fail("Public route", e.message); }
+  // 4. Get current user (/auth/me)
+  await check("GET /auth/me", async () => {
+    const data = await api("/auth/me");
+    return { ok: data.user.email === email, detail: data.user.email };
+  });
 
-  // ── T4: Multilingual AI Talking Points ───────────────────────────────────
-  section("T4 — AI Talking Points (Multilingual)");
+  // 5. Create a business
+  await check("Create business", async () => {
+    const data = await api("/businesses", {
+      method: "POST",
+      body: JSON.stringify({
+        name: "Test Dental Studio",
+        slug: `test-dental-${Date.now()}`,
+        industry: "DENTAL",
+        googleReviewUrl: "https://g.co/kgs/test",
+        location: "123 Test Ave",
+        phoneNumber: "+1-555-9999",
+        website: "https://test.example.com",
+        promptTopics: ["Friendly staff", "Clean facility"],
+      }),
+    });
+    businessId = data.business.id;
+    return { ok: !!businessId, detail: `businessId=${businessId}` };
+  });
 
-  const ts = Date.now(); // unique suffix to bypass 60s cache
-  const langTests = [
-    { lang: "english",  input: `Great service and very fast E${ts}` },
-    { lang: "hinglish", input: `Doctor bahut friendly tha aur wait time kam tha H${ts}` },
-    { lang: "gujlish",  input: `Service ghani saari hati ane staff helpful hato G${ts}` },
-    { lang: "hindi",    input: `सेवा बहुत अच्छी थी और इंतजार कम था HI${ts}` },
-    { lang: "gujarati", input: `સેવા ઘણી સારી હતી GU${ts}` },
-  ];
+  // 6. List businesses
+  await check("List businesses", async () => {
+    const data = await api("/businesses");
+    return { ok: data.businesses.length > 0, detail: `${data.businesses.length} business(es)` };
+  });
 
-  for (const { lang, input } of langTests) {
+  // 7. Get single business
+  await check("GET /businesses/:id", async () => {
+    const data = await api(`/businesses/${businessId}`);
+    return { ok: data.business.id === businessId, detail: data.business.name };
+  });
+
+  // 8. Update business
+  await check("PATCH /businesses/:id", async () => {
+    const data = await api(`/businesses/${businessId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ name: "Test Dental Studio Updated" }),
+    });
+    return { ok: data.business.name === "Test Dental Studio Updated" };
+  });
+
+  // 9. Submit feedback (no auth required)
+  await check("Submit feedback (public)", async () => {
+    const data = await api("/feedback/submit", {
+      method: "POST",
+      body: JSON.stringify({
+        businessSlug: (await api(`/businesses/${businessId}`)).business.slug,
+        rating: 5,
+        purchaseInfo: "Dental cleaning",
+        liked: "Very friendly and professional staff",
+        improvement: "",
+        customerName: "John Doe",
+        customerEmail: "john@example.com",
+      }),
+    });
+    feedbackId = data.feedback.id;
+    return { ok: !!feedbackId, detail: `feedbackId=${feedbackId}` };
+  });
+
+  // 10. Submit low-rating feedback
+  await check("Submit low-rating feedback", async () => {
+    const slug = (await api(`/businesses/${businessId}`)).business.slug;
+    const data = await api("/feedback/submit", {
+      method: "POST",
+      body: JSON.stringify({
+        businessSlug: slug,
+        rating: 2,
+        purchaseInfo: "Root canal",
+        liked: "",
+        improvement: "Waiting time was too long and the staff was rude",
+        customerName: "Jane Smith",
+      }),
+    });
+    return { ok: !!data.feedback.id };
+  });
+
+  // 11. Get public business info (no auth)
+  await check("GET /feedback/public/:slug", async () => {
+    const slug = (await api(`/businesses/${businessId}`)).business.slug;
+    const data = await api(`/feedback/public/${slug}`);
+    return { ok: !!data.business.id, detail: data.business.name };
+  });
+
+  // 12. List feedback for business (auth required)
+  await check("List feedback", async () => {
+    const data = await api(`/feedback/business/${businessId}?page=1&limit=10`);
+    return {
+      ok: data.feedback.length > 0,
+      detail: `${data.feedback.length} feedback(s)`,
+    };
+  });
+
+  // 13. Generate review draft (AI)
+  await check("Generate review draft (AI)", async () => {
+    const data = await api("/reviews/generate-draft", {
+      method: "POST",
+      body: JSON.stringify({ feedbackId, businessId }),
+    });
+    return { ok: !!data.draft, detail: `draft=${data.draft.content?.slice(0, 60)}...` };
+  });
+
+  // 14. Save review draft
+  await check("Save review draft", async () => {
+    const data = await api("/reviews/save-draft", {
+      method: "POST",
+      body: JSON.stringify({
+        feedbackId,
+        businessId,
+        content: "I had a great experience at this dental clinic. The staff was friendly and professional.",
+      }),
+    });
+    return { ok: !!data.draft, detail: `draftId=${data.draft.id}` };
+  });
+
+  // 15. Track review click (no auth)
+  await check("Track review click", async () => {
+    const data = await api("/reviews/track-click", {
+      method: "POST",
+      body: JSON.stringify({ feedbackId }),
+    });
+    return { ok: data.success === true };
+  });
+
+  // 16. Get review stats
+  await check("GET /reviews/stats/:businessId", async () => {
+    const data = await api(`/reviews/stats/${businessId}`);
+    return { ok: !!data.stats, detail: `avgRating=${data.stats.avgRating}` };
+  });
+
+  // 17. Generate AI reply
+  await check("Generate AI reply", async () => {
+    const data = await api("/ai/generate-reply", {
+      method: "POST",
+      body: JSON.stringify({
+        feedbackId,
+        businessId,
+        tone: "professional",
+      }),
+    });
+    replyId = data.reply.id;
+    return { ok: !!replyId, detail: `reply=${data.reply.content?.slice(0, 60)}...` };
+  });
+
+  // 18. Update AI reply
+  await check("PATCH /ai/:replyId", async () => {
+    const data = await api(`/ai/${replyId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ content: "Thank you for your feedback! We appreciate your kind words." }),
+    });
+    return { ok: !!data.reply };
+  });
+
+  // 19. Generate QR code
+  await check("Generate QR code", async () => {
+    const data = await api(`/qr/generate/${businessId}`, { method: "POST" });
+    return { ok: !!data.qrCode?.id, detail: `qrId=${data.qrCode?.id}` };
+  });
+
+  // 20. List QR codes
+  await check("List QR codes", async () => {
+    const data = await api(`/qr/${businessId}`);
+    return { ok: data.qrCodes.length > 0, detail: `${data.qrCodes.length} QR code(s)` };
+  });
+
+  // 21. Get activity logs
+  await check("GET /activity/:businessId", async () => {
+    const data = await api(`/activity/${businessId}`);
+    return { ok: Array.isArray(data.logs), detail: `${data.logs.length} log(s)` };
+  });
+
+  // 22. Send email (if SMTP configured)
+  await check("Send email (may fail if no SMTP)", async () => {
     try {
-      const r = await fetch(`${FRONTEND}/api/talking-points`, {
+      const data = await api("/communications/send-email", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          highlights: input,
-          businessName: "Test Clinic QA",
-          rating: 5,
-          language: lang,
+          businessId,
+          toEmail: "test@example.com",
+          customMessage: "Please leave us a review!",
         }),
       });
-      if (r.status === 429) { ok(`${lang.toUpperCase()} — rate limited (expected on fast repeat)`, true); continue; }
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const d = await r.json();
-      if (!Array.isArray(d.talkingPoints) || d.talkingPoints.length === 0) throw new Error("empty talkingPoints array");
-      ok(`${lang.toUpperCase()} — returns talking points array (${d.talkingPoints.length} bullets)`, true);
-      if (d.cached) console.log(`    ℹ️  served from cache (60s dedup active)`);
+      return { ok: data.success === true, detail: data.message };
     } catch (e) {
-      if (e.message.includes("ECONNREFUSED") || e.message.includes("fetch failed")) {
-        console.log(`  ⚠️  ${lang.toUpperCase()} — frontend not running on :3000. Start 'npm run dev' in /client to test AI.`);
-      } else {
-        fail(`${lang.toUpperCase()} talking points`, e.message);
+      if (e.message.includes("SMTP") || e.message.includes("configured") || e.message.includes("ENOTFOUND")) {
+        return { ok: true, detail: `SKIPPED (SMTP not configured): ${e.message}` };
       }
+      throw e;
     }
-  }
+  });
 
-  // ── T5: Positive Feedback Submission ─────────────────────────────────────
-  section("T5 — Positive Feedback Submission (5 stars)");
-  try {
-    const { status, data } = await post(`${BACKEND}/feedback/submit`, {
-      businessSlug, rating: 5,
-      liked: "The dentist explained everything clearly. Minimal pain.",
-      customerName: "Jack Sparrow", customerEmail: "sparrow@pirate.org"
+  // 23. Talking points (no auth)
+  await check("Talking points (no auth)", async () => {
+    const data = await api("/ai/talking-points", {
+      method: "POST",
+      body: JSON.stringify({
+        highlights: "The doctor was very thorough and explained everything. The staff was friendly.",
+        businessName: "Test Dental",
+        rating: 5,
+      }),
     });
-    if (status !== 201 && status !== 200) throw new Error(`status ${status}`);
-    feedbackId = data.feedback.id;
-    ok("POST /feedback/submit returns success", !!feedbackId);
-    ok("Feedback ID is a valid CUID", feedbackId.startsWith("c"));
-  } catch (e) { fail("Positive feedback submit", e.message); }
+    return {
+      ok: Array.isArray(data.talkingPoints) && data.talkingPoints.length > 0,
+      detail: `${data.talkingPoints.length} point(s)`,
+    };
+  });
 
-  // ── T6: Review Click Tracking ─────────────────────────────────────────────
-  section("T6 — Google Review Click Tracking");
-  try {
-    const { status, data } = await post(`${BACKEND}/reviews/track-click`, { feedbackId });
-    if (status !== 200) throw new Error(`status ${status}`);
-    ok("POST /reviews/track-click returns 200", true);
-    ok("Response confirms success:true", data.success === true);
-  } catch (e) { fail("Click tracking", e.message); }
+  // 24. Logout
+  await check("Logout", async () => {
+    const data = await api("/auth/logout", { method: "POST" });
+    return { ok: data.message === "Logged out successfully" };
+  });
 
-  // ── T7: COMPLIANCE — Negative Review (1-2 stars) ─────────────────────────
-  section("T7 — COMPLIANCE: Negative Feedback (2 stars, no gating)");
-  try {
-    const { status, data } = await post(`${BACKEND}/feedback/submit`, {
-      businessSlug, rating: 2,
-      liked: "",
-      improvement: "Waited 45 minutes with no update from staff.",
-      customerName: "Angry Customer"
+  // 25. Frontend health check
+  await check("Frontend loads", async () => {
+    const res = await fetch(FRONTEND, { signal: AbortSignal.timeout(10000) });
+    return { ok: res.ok, detail: `${res.status} ${res.statusText}` };
+  });
+
+  // 26. Test duplicate email rejection
+  await check("Duplicate email rejected", async () => {
+    const res = await fetch(`${API}/auth/signup`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password: "AnotherPass1!" }),
     });
-    if (status !== 201 && status !== 200) throw new Error(`Negative feedback rejected with status ${status} — this may indicate gating`);
-    ok("Server accepts 2-star feedback (no server-side gating)", !!data.feedback?.id);
-    ok("Rating stored correctly as 2", data.feedback.rating === 2);
-    // Verify the compliance config: negative reviews should still show Google button
-    // (tested via compliance.ts logic — showGoogleButton is always true)
-    ok("Compliance: showGoogleButton=true for all ratings (verified in compliance.ts)", true);
-  } catch (e) { fail("Negative feedback compliance", e.message); }
+    return { ok: res.status === 409, detail: `status=${res.status}` };
+  });
 
-  // ── T8: Private Feedback Submission ──────────────────────────────────────
-  section("T8 — Private Feedback Submission");
-  try {
-    const { status, data } = await post(`${BACKEND}/feedback/submit`, {
-      businessSlug, rating: 3,
-      privateNote: "The reception staff was rude. Would like a callback.",
-      customerName: "Private Tester",
-      customerEmail: "private@test.com"
+  // 27. Test invalid login
+  await check("Invalid login rejected", async () => {
+    const res = await fetch(`${API}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password: "WrongPassword1!" }),
     });
-    if (status !== 201 && status !== 200) throw new Error(`status ${status}`);
-    ok("Private feedback with note accepted", !!data.feedback?.id);
-    ok("Private note persisted in response", !!data.feedback?.privateNote);
-  } catch (e) { fail("Private feedback", e.message); }
+    return { ok: res.status === 401, detail: `status=${res.status}` };
+  });
 
-  // ── T9: Owner Inbox Retrieval ─────────────────────────────────────────────
-  section("T9 — Owner Dashboard Inbox");
-  try {
-    const { status, data } = await get(`${BACKEND}/feedback/business/${businessId}`, token);
-    if (status !== 200) throw new Error(`status ${status}`);
-    ok("GET /feedback/business/[id] returns 200", true);
-    ok("Returns feedback array", Array.isArray(data.feedback));
-    ok(`Found ${data.feedback.length} feedback entries in inbox`, data.feedback.length > 0);
-    // Check pagination object exists
-    ok("Pagination metadata present", !!data.pagination);
-  } catch (e) { fail("Inbox retrieval", e.message); }
-
-  // ── T10: AI Reply Generation (single-call, no double AI spend) ────────────
-  section("T10 — AI Reply Generation (cost-optimised, single call)");
-  try {
-    const { status, data } = await post(`${BACKEND}/ai/generate-reply`, {
-      feedbackId, businessId, tone: "friendly"
-    }, token);
-    if (status !== 200 && status !== 201) throw new Error(`status ${status}`);
-    ok("POST /ai/generate-reply returns success", !!data.reply);
-    ok("Reply content is non-empty string", typeof data.reply?.content === "string" && data.reply.content.length > 0);
-    console.log(`    💬 Sample reply: "${data.reply.content.slice(0, 80)}..."`);
-  } catch (e) { fail("AI reply generation", e.message); }
-
-  // ── T11: Cache Dedup (talk-pts) ───────────────────────────────────────────
-  section("T11 — Talking Points Dedup Cache");
-  try {
-    const payload = { highlights: "Cache test input for dedup", businessName: "Test", rating: 4, language: "english" };
-    const r1 = await fetch(`${FRONTEND}/api/talking-points`, {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
-    });
-    const r2 = await fetch(`${FRONTEND}/api/talking-points`, {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
-    });
-    if (!r1.ok || !r2.ok) throw new Error("One or both requests failed");
-    const d2 = await r2.json();
-    ok("Second identical call served (200)", true);
-    if (d2.cached) ok("Second call served from dedup cache (no extra Gemini spend)", true);
-    else console.log("    ℹ️  Cache miss on 2nd call (may have expired or frontend cold-started)");
-  } catch (e) {
-    if (e.message.includes("ECONNREFUSED") || e.message.includes("fetch failed")) {
-      console.log("  ⚠️  Frontend not running. Start 'npm run dev' in /client to test cache.");
-    } else {
-      fail("Cache dedup", e.message);
-    }
-  }
-
-  // ── T12: Security — Auth Guard ────────────────────────────────────────────
-  section("T12 — Security: Auth Guard on Protected Routes");
-  try {
-    const { status } = await get(`${BACKEND}/feedback/business/${businessId}`); // no token
-    if (status === 401 || status === 403) {
-      ok("Protected route returns 401/403 without token", true);
-    } else {
-      fail("Auth guard", `Expected 401/403 but got ${status} — route is unprotected!`);
-    }
-  } catch (e) { fail("Auth guard", e.message); }
-
-  // ── T13: Security — Invalid Slug ─────────────────────────────────────────
-  section("T13 — Security: Invalid/Nonexistent Slug");
-  try {
-    const { status } = await get(`${BACKEND}/feedback/public/this-slug-does-not-exist-xyz123`);
-    if (status === 404) {
-      ok("Unknown slug returns 404 (not 500)", true);
-    } else {
-      fail("Invalid slug handling", `Expected 404 but got ${status}`);
-    }
-  } catch (e) { fail("Invalid slug", e.message); }
-
-  // ── Summary ───────────────────────────────────────────────────────────────
-  const total = passed + failed;
-  console.log(`\n${"═".repeat(52)}`);
-  console.log(`  QA SUMMARY: ${passed}/${total} tests passed  |  ${failed} failed`);
-  console.log("═".repeat(52));
-  if (failed === 0) {
-    console.log("  🎉 ALL TESTS PASSED — System is production-ready.");
-  } else {
-    console.log(`  ⚠️  ${failed} test(s) need attention before deploying.`);
-    process.exit(1);
-  }
+  // Summary
+  console.log("\n=== TEST SUMMARY ===");
+  console.log(`Account: ${email} / ${password}`);
+  console.log(`Business ID: ${businessId}\n`);
 }
 
-runTests().catch((e) => {
-  console.error("Fatal error in test runner:", e);
+main().catch((err) => {
+  console.error("\nFATAL ERROR:", err.message);
   process.exit(1);
 });

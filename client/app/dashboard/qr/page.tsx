@@ -85,7 +85,7 @@ export default function QrPage() {
         {businesses.length > 1 && (
           <div className="flex items-center gap-2">
             <Building2 className="size-4 text-muted-foreground" />
-            <Select value={selectedBusinessId} onValueChange={handleBusinessChange}>
+            <Select value={selectedBusinessId} onValueChange={(v) => v && handleBusinessChange(v)}>
               <SelectTrigger className="w-fit min-w-[180px]">
                 <SelectValue placeholder="Select business" />
               </SelectTrigger>

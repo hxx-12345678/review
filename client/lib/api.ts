@@ -62,6 +62,7 @@ export const api = {
       location?: string;
       phoneNumber?: string;
       website?: string;
+      promptTopics?: string[];
     }) =>
       request<{ business: any }>("/businesses", {
         method: "POST",

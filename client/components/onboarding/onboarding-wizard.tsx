@@ -126,7 +126,7 @@ export function OnboardingWizard() {
           <StepShell title="What kind of business?" subtitle="We'll tailor the questions we ask your customers.">
             <div className="space-y-2">
               <Label htmlFor="industry">Industry</Label>
-              <Select value={industry} onValueChange={(v) => selectIndustry(v)}>
+              <Select value={industry} onValueChange={(v) => v && selectIndustry(v)}>
                 <SelectTrigger id="industry">
                   <SelectValue placeholder="Select an industry" />
                 </SelectTrigger>
