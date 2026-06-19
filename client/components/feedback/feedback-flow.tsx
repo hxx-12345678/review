@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { ExternalLink, Sparkles, Loader2, Check, MessageSquareHeart, Copy, ArrowRight, ArrowLeft, Stethoscope, Scissors, Dumbbell, Home, Utensils, Car, ShieldCheck, Lock, Award } from "lucide-react"
+import { useState, useEffect, useRef } from "react"
+import { ExternalLink, Sparkles, Loader2, Check, MessageSquareHeart, Copy, ArrowRight, ArrowLeft, Stethoscope, Scissors, Dumbbell, Home, Utensils, Car, ShieldCheck, Lock, Award, Star, ThumbsUp, Meh, Frown, PenLine, RefreshCw, Lightbulb, SmilePlus } from "lucide-react"
 import { getReviewStepConfig, scoreAuthenticity, type AuthenticityResult } from "@/lib/compliance"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -23,12 +23,7 @@ export function FeedbackFlow({ business, slug }: { business: any; slug?: string 
   const [highlights, setHighlights] = useState("")
   const [selectedTopics, setSelectedTopics] = useState<string[]>([])
   const [language, setLanguage] = useState<string>("english")
-  // combinedInput = customer's typed notes + topic chips, built in handleDescribeContinue.
-  // Stored here so ReviewStep and PrivateStep both see the exact same text.
   const [combinedInput, setCombinedInput] = useState("")
-  // talkingPoints = AI memory-joggers (bullet reminders) shown in Step 3.
-  // The customer reads these and writes their own review in their own words on Google.
-  // We NEVER post AI text directly — that would violate FTC and Google policy.
   const [talkingPoints, setTalkingPoints] = useState<string[]>([])
   const [loadingPoints, setLoadingPoints] = useState(false)
   const [lastFetchedInput, setLastFetchedInput] = useState("")
@@ -51,7 +46,6 @@ export function FeedbackFlow({ business, slug }: { business: any; slug?: string 
   }
 
   async function handleDescribeContinue() {
-    // Build the canonical combined string from text + selected topic chips.
     const combined = [
       highlights.trim(),
       selectedTopics.length ? `(${selectedTopics.join(", ")})` : "",
@@ -63,8 +57,6 @@ export function FeedbackFlow({ business, slug }: { business: any; slug?: string 
     setCombinedInput(combined)
     setAuthenticity(scoreAuthenticity(combined))
 
-    // Submit feedback to the server before showing the Review step so the
-    // Google button can open immediately without any async wait.
     if (!feedbackId) {
       const id = await submitFeedback({ liked: combined || undefined })
       if (!id) return
@@ -72,11 +64,6 @@ export function FeedbackFlow({ business, slug }: { business: any; slug?: string 
 
     setStep("review")
 
-    // Generate AI talking-point reminders AFTER navigating to Review step.
-    // These are bullet-point memory-joggers shown to help the customer write
-    // their review in their OWN words. We never auto-post AI text to Google
-    // (that would violate FTC rules and Google's review policy).
-    // The call is skipped if the input hasn't changed (back-and-forth navigation).
     if (combined.length >= 3 && combined !== lastFetchedInput) {
       setLoadingPoints(true)
       try {
@@ -102,43 +89,24 @@ export function FeedbackFlow({ business, slug }: { business: any; slug?: string 
     }
   }
 
-  /**
-   * Opens Google review URL and records the click server-side.
-   *
-   * CRITICAL: window.open MUST be called synchronously inside a user-gesture
-   * handler. Any await before it causes the browser to treat it as
-   * non-user-initiated and popup-block it. So we open the URL FIRST, then
-   * fire tracking as a best-effort background request.
-   */
   function openGoogle() {
-    // 1. Build & validate URL
     const googleUrl = (business.googleReviewUrl || "").trim()
     let targetUrl = googleUrl
     if (targetUrl && !/^https?:\/\//i.test(targetUrl)) {
       targetUrl = `https://${targetUrl}`
     }
 
-    // 2. Open synchronously in the click handler (avoids popup-blocker)
     if (targetUrl) {
       window.open(targetUrl, "_blank", "noopener,noreferrer")
     }
 
-    // 3. Advance step immediately
     setStep("done")
 
-    // 4. Fire tracking in background (best-effort, non-blocking)
     if (feedbackId) {
-      api.reviews.trackClick({ feedbackId }).catch(() => {
-        // Silently ignore - tracking is non-critical
-      })
+      api.reviews.trackClick({ feedbackId }).catch(() => {})
     }
   }
 
-  /**
-   * Submits the customer's feedback to the server.
-   * Uses `combinedInput` (highlights + topics, built at handleDescribeContinue)
-   * so the DB record always matches what the AI saw.
-   */
   async function submitFeedback(data: {
     purchaseInfo?: string
     liked?: string
@@ -168,14 +136,12 @@ export function FeedbackFlow({ business, slug }: { business: any; slug?: string 
   useEffect(() => {
     if (step === "loading") {
       const timer = setTimeout(() => {
-        // Transit directly to rate step to reduce friction for scanning customers
         setStep("rate")
       }, 2200)
       return () => clearTimeout(timer)
     }
   }, [step])
 
-  // Progress bar: which operational step number are we on (1-4)
   const STEP_ORDER: Step[] = ["rate", "describe", "review", "private"]
   const stepIndex = STEP_ORDER.indexOf(step)
   const showProgress = stepIndex >= 0
@@ -204,16 +170,9 @@ export function FeedbackFlow({ business, slug }: { business: any; slug?: string 
       )}
 
       <Card className="flex flex-1 flex-col p-6 overflow-hidden min-h-[480px] justify-between shadow-xl border border-border bg-card">
-        {step === "loading" && (
-          <LoadingStep business={business} />
-        )}
-
-        {step === "welcome" && (
-          <WelcomeStep business={business} onStart={() => setStep("rate")} />
-        )}
-
+        {step === "loading" && <LoadingStep business={business} />}
+        {step === "welcome" && <WelcomeStep business={business} onStart={() => setStep("rate")} />}
         {step === "rate" && <RateStep business={business} onRate={handleRate} />}
-
         {step === "describe" && (
           <DescribeStep
             business={business}
@@ -229,7 +188,6 @@ export function FeedbackFlow({ business, slug }: { business: any; slug?: string 
             submitting={submitting}
           />
         )}
-
         {step === "review" && (
           <ReviewStep
             config={config}
@@ -241,9 +199,9 @@ export function FeedbackFlow({ business, slug }: { business: any; slug?: string 
             onOpenGoogle={openGoogle}
             onPrivate={() => setStep("private")}
             onBack={() => setStep("describe")}
+            businessName={business.name}
           />
         )}
-
         {step === "private" && (
           <PrivateStep
             business={business}
@@ -262,7 +220,6 @@ export function FeedbackFlow({ business, slug }: { business: any; slug?: string 
             onBackToReview={() => setStep("review")}
           />
         )}
-
         {step === "done" && <DoneStep business={business} onPrivate={() => setStep("private")} />}
       </Card>
 
@@ -278,63 +235,33 @@ export function FeedbackFlow({ business, slug }: { business: any; slug?: string 
   )
 }
 
-
-// ---------------------------------------------------------------------------
-// Step: Loading (Scanning Splash Screen)
-// ---------------------------------------------------------------------------
-
 function LoadingStep({ business }: { business: any }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-between py-6 text-center animate-fade-in overflow-hidden">
-      {/* Top spacer */}
       <div className="flex-1" />
-
-      {/* Central branded animation */}
       <div className="flex flex-col items-center space-y-8">
-        {/* Layered ring animation */}
         <div className="relative flex size-28 items-center justify-center">
-          {/* Outermost slow pulse */}
           <div className="absolute inset-0 rounded-full bg-primary/5 animate-ping opacity-20" style={{ animationDuration: "2s" }} />
-          {/* Mid ring */}
           <div className="absolute -inset-3 rounded-full border border-primary/20 animate-spin opacity-60" style={{ animationDuration: "3s" }} />
-          {/* Inner fast spinner */}
           <div className="absolute -inset-1 rounded-full border-2 border-transparent border-t-primary animate-spin" style={{ animationDuration: "0.9s" }} />
-          {/* Logo core */}
           <div className="relative flex size-28 items-center justify-center rounded-full bg-gradient-to-br from-primary/15 to-primary/5 border border-primary/20">
             <Logo className="size-14 text-primary" />
           </div>
         </div>
-
-        {/* Business identity */}
         <div className="space-y-3 animate-fade-in-up" style={{ animationDelay: "300ms" }}>
           <div className="space-y-1">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-              Welcome to
-            </p>
-            <h1 className="text-2xl font-extrabold tracking-tight text-foreground leading-tight">
-              {business.name}
-            </h1>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Welcome to</p>
+            <h1 className="text-2xl font-extrabold tracking-tight text-foreground leading-tight">{business.name}</h1>
           </div>
-          <p className="text-xs text-muted-foreground/70 font-medium tracking-wide">
-            Setting up your review experience...
-          </p>
+          <p className="text-xs text-muted-foreground/70 font-medium tracking-wide">Setting up your review experience...</p>
         </div>
       </div>
-
-      {/* Bottom trust section */}
       <div className="flex-1 flex flex-col justify-end w-full">
-        {/* Animated dots progress */}
         <div className="flex items-center justify-center gap-1.5 mb-6">
           {[0, 1, 2].map((i) => (
-            <div
-              key={i}
-              className="size-1.5 rounded-full bg-primary animate-pulse"
-              style={{ animationDelay: `${i * 200}ms`, animationDuration: "1.2s" }}
-            />
+            <div key={i} className="size-1.5 rounded-full bg-primary animate-pulse" style={{ animationDelay: `${i * 200}ms`, animationDuration: "1.2s" }} />
           ))}
         </div>
-
-        {/* Trust badges */}
         <div className="w-full border-t border-border/50 pt-4 animate-fade-in-up" style={{ animationDelay: "600ms" }}>
           <div className="grid grid-cols-3 gap-3 px-1 text-center">
             <div className="flex flex-col items-center space-y-1.5">
@@ -357,8 +284,6 @@ function LoadingStep({ business }: { business: any }) {
             </div>
           </div>
         </div>
-
-        {/* Powered by */}
         <div className="flex items-center justify-center gap-1 mt-4 text-[10px] text-muted-foreground/40 select-none">
           <span>powered by</span>
           <span className="font-extrabold text-foreground/60 tracking-tight">ReviewOS</span>
@@ -368,109 +293,47 @@ function LoadingStep({ business }: { business: any }) {
   )
 }
 
-// ---------------------------------------------------------------------------
-// Step: Welcome
-// ---------------------------------------------------------------------------
-
 function WelcomeStep({ business, onStart }: { business: any; onStart: () => void }) {
   const getBranding = (industry: string) => {
     switch (industry) {
       case "DENTAL":
-        return {
-          gradient: "from-cyan-500 to-blue-600 dark:from-cyan-600 dark:to-blue-700",
-          icon: <Stethoscope className="size-10 text-white" />,
-          tagline: "Your smile is our absolute priority. Share your experience with us!",
-        }
+        return { gradient: "from-cyan-500 to-blue-600 dark:from-cyan-600 dark:to-blue-700", icon: <Stethoscope className="size-10 text-white" />, tagline: "Your smile is our absolute priority. Share your experience with us!" }
       case "MEDICAL":
-        return {
-          gradient: "from-blue-500 to-indigo-600 dark:from-blue-600 dark:to-indigo-700",
-          icon: <Stethoscope className="size-10 text-white" />,
-          tagline: "We value your health and care. Let us know how we did today.",
-        }
+        return { gradient: "from-blue-500 to-indigo-600 dark:from-blue-600 dark:to-indigo-700", icon: <Stethoscope className="size-10 text-white" />, tagline: "We value your health and care. Let us know how we did today." }
       case "SALON":
-        return {
-          gradient: "from-pink-500 to-rose-600 dark:from-pink-600 dark:to-rose-700",
-          icon: <Scissors className="size-10 text-white" />,
-          tagline: "Love your new style? We'd love to hear your thoughts!",
-        }
+        return { gradient: "from-pink-500 to-rose-600 dark:from-pink-600 dark:to-rose-700", icon: <Scissors className="size-10 text-white" />, tagline: "Love your new style? We'd love to hear your thoughts!" }
       case "GYM":
       case "FITNESS":
-        return {
-          gradient: "from-amber-500 to-red-600 dark:from-amber-600 dark:to-red-700",
-          icon: <Dumbbell className="size-10 text-white" />,
-          tagline: "How was your workout and session? Help us keep improving!",
-        }
+        return { gradient: "from-amber-500 to-red-600 dark:from-amber-600 dark:to-red-700", icon: <Dumbbell className="size-10 text-white" />, tagline: "How was your workout? Help us keep improving!" }
       case "HOME_SERVICES":
-        return {
-          gradient: "from-orange-500 to-amber-600 dark:from-orange-600 dark:to-amber-700",
-          icon: <Home className="size-10 text-white" />,
-          tagline: "We take immense pride in our craftsmanship. Share your review!",
-        }
+        return { gradient: "from-orange-500 to-amber-600 dark:from-orange-600 dark:to-amber-700", icon: <Home className="size-10 text-white" />, tagline: "We take pride in our work. Share your review!" }
       case "RESTAURANT":
-        return {
-          gradient: "from-red-500 to-orange-600 dark:from-red-600 dark:to-orange-700",
-          icon: <Utensils className="size-10 text-white" />,
-          tagline: "Crafted with care. Let us know how your meal was!",
-        }
+        return { gradient: "from-red-500 to-orange-600 dark:from-red-600 dark:to-orange-700", icon: <Utensils className="size-10 text-white" />, tagline: "Crafted with care. How was your meal?" }
       case "AUTO":
-        return {
-          gradient: "from-slate-600 to-zinc-800 dark:from-slate-700 dark:to-zinc-900",
-          icon: <Car className="size-10 text-white" />,
-          tagline: "Keep driving safely. How was your vehicle service today?",
-        }
+        return { gradient: "from-slate-600 to-zinc-800 dark:from-slate-700 dark:to-zinc-900", icon: <Car className="size-10 text-white" />, tagline: "How was your vehicle service today?" }
       default:
-        return {
-          gradient: "from-indigo-500 to-purple-600 dark:from-indigo-600 dark:to-purple-700",
-          icon: <Sparkles className="size-10 text-white" />,
-          tagline: "We are committed to excellence. Help us serve you better!",
-        }
+        return { gradient: "from-indigo-500 to-purple-600 dark:from-indigo-600 dark:to-purple-700", icon: <Sparkles className="size-10 text-white" />, tagline: "We are committed to excellence. Help us serve you better!" }
     }
   }
-
   const brand = getBranding(business.industry)
-
   return (
     <div className="flex flex-1 flex-col items-center justify-between text-center py-6 animate-fade-in">
-      {/* Brand Emblem */}
       <div className="flex flex-col items-center space-y-6 mt-6 animate-fade-in-up">
-        <div className={cn(
-          "flex size-20 items-center justify-center rounded-2xl bg-gradient-to-br shadow-lg animate-pulse-subtle",
-          brand.gradient
-        )}>
+        <div className={cn("flex size-20 items-center justify-center rounded-2xl bg-gradient-to-br shadow-lg animate-pulse-subtle", brand.gradient)}>
           {brand.icon}
         </div>
-
-        {/* Business Name */}
         <div className="space-y-2">
-          <h1 className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
-            {business.name}
-          </h1>
-          {business.location && (
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
-              {business.location}
-            </p>
-          )}
+          <h1 className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">{business.name}</h1>
+          {business.location && <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">{business.location}</p>}
         </div>
-
-        {/* Tagline */}
-        <p className="max-w-xs text-muted-foreground text-sm leading-relaxed px-4">
-          {brand.tagline}
-        </p>
+        <p className="max-w-xs text-muted-foreground text-sm leading-relaxed px-4">{brand.tagline}</p>
       </div>
-
-      {/* Button & Attribution */}
-      <div className="w-full space-y-6 mt-8 animate-fade-in-up [animation-delay:200ms]">
-        <Button
-          onClick={onStart}
-          size="lg"
-          className="w-full bg-gradient-to-r from-primary to-primary/90 hover:from-primary/95 hover:to-primary text-primary-foreground font-semibold py-6 rounded-xl shadow-lg hover:shadow-xl transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
-        >
+      <div className="w-full space-y-6 mt-8 animate-fade-in-up" style={{ animationDelay: "200ms" }}>
+        <Button onClick={onStart} size="lg" className="w-full bg-gradient-to-r from-primary to-primary/90 hover:from-primary/95 hover:to-primary text-primary-foreground font-semibold py-6 rounded-xl shadow-lg hover:shadow-xl transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer">
           Share Feedback
           <ArrowRight className="ml-2 size-5" />
         </Button>
-
-        {/* Powered By Attribution */}
-        <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground/50 select-none animate-fade-in [animation-delay:400ms]">
+        <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground/50 select-none" style={{ animationDelay: "400ms" }}>
           <span>powered by</span>
           <span className="font-extrabold text-foreground tracking-tight bg-gradient-to-r from-primary to-blue-500 bg-clip-text text-transparent">ReviewOS</span>
         </div>
@@ -478,10 +341,6 @@ function WelcomeStep({ business, onStart }: { business: any; onStart: () => void
     </div>
   )
 }
-
-// ---------------------------------------------------------------------------
-// Step: Rate
-// ---------------------------------------------------------------------------
 
 function RateStep({ business, onRate }: { business: any; onRate: (v: number) => void }) {
   return (
@@ -497,86 +356,171 @@ function RateStep({ business, onRate }: { business: any; onRate: (v: number) => 
   )
 }
 
-// ---------------------------------------------------------------------------
-// Step: Describe
-// ---------------------------------------------------------------------------
+const MOOD_TAGS: Record<string, { icon: React.ReactNode; label: string; positive: string[]; negative: string[] }> = {
+  service: { icon: <ThumbsUp className="size-4" />, label: "Service", positive: ["Friendly staff", "Quick service", "Knowledgeable", "Attentive"], negative: ["Slow service", "Rude staff", "Unhelpful", "Unattentive"] },
+  quality: { icon: <Star className="size-4" />, label: "Quality", positive: ["Top quality", "Clean facility", "Great results", "Well maintained"], negative: ["Poor quality", "Unclean", "Bad results", "Outdated"] },
+  value: { icon: <SmilePlus className="size-4" />, label: "Value", positive: ["Fair pricing", "Worth it", "Good value", "Transparent"], negative: ["Overpriced", "Hidden fees", "Not worth it", "Expensive"] },
+  experience: { icon: <Sparkles className="size-4" />, label: "Experience", positive: ["Welcoming", "Comfortable", "Exceeded expectations", "Enjoyable"], negative: ["Uncomfortable", "Rushed", "Disappointing", "Stressful"] },
+}
 
 function DescribeStep({
-  business,
-  rating,
-  highlights,
-  setHighlights,
-  selectedTopics,
-  toggleTopic,
-  language,
-  setLanguage,
-  onContinue,
-  onBack,
-  submitting,
+  business, rating, highlights, setHighlights, selectedTopics, toggleTopic, language, setLanguage, onContinue, onBack, submitting,
 }: {
-  business: any
-  rating: number
-  highlights: string
-  setHighlights: (v: string) => void
-  selectedTopics: string[]
-  toggleTopic: (t: string) => void
-  language: string
-  setLanguage: (v: string) => void
-  onContinue: () => void
-  onBack: () => void
-  submitting: boolean
+  business: any; rating: number; highlights: string; setHighlights: (v: string) => void; selectedTopics: string[]; toggleTopic: (t: string) => void; language: string; setLanguage: (v: string) => void; onContinue: () => void; onBack: () => void; submitting: boolean
 }) {
   const config = getReviewStepConfig(rating)
-  // Enable Continue if there is enough text OR at least one topic selected.
   const canContinue = highlights.trim().length >= 3 || selectedTopics.length > 0
+  const charCount = highlights.length
+  const isPositive = rating >= 4
+  const [activeCategory, setActiveCategory] = useState<string | null>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  const quickTags = isPositive
+    ? ["Friendly staff", "Great service", "Clean environment", "Professional", "Highly skilled", "Convenient", "Good value", "Would come back"]
+    : ["Slow service", "Rude staff", "Unclean", "Too expensive", "Long wait", "Unprofessional", "Misleading", "Would not return"]
 
   return (
-    <div className="flex flex-1 flex-col">
-      <h2 className="text-balance text-lg font-semibold tracking-tight text-foreground">
+    <div className="flex flex-1 flex-col animate-fade-in-up gap-0">
+      <div className="text-center mb-4">
+        <div className={cn("inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold", isPositive ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-amber-500/10 text-amber-600 dark:text-amber-400")}>
+          {isPositive ? <ThumbsUp className="size-4" /> : <Frown className="size-4" />}
+          {isPositive ? "You had a great experience!" : "We'd love to hear more"}
+        </div>
+      </div>
+
+      <h2 className="text-balance text-xl font-bold tracking-tight text-foreground text-center">
         {config.describePrompt}
       </h2>
-      <p className="mt-1 text-sm text-muted-foreground text-pretty">{config.describeHint}</p>
+      <p className="mt-1 text-sm text-muted-foreground text-pretty text-center">{config.describeHint}</p>
+
+      <div className="mt-5 space-y-2">
+        <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+          <SmilePlus className="size-3.5 text-primary" />
+          <span>Quick select what fits</span>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {Object.entries(MOOD_TAGS).map(([key, tag]) => {
+            const isActive = activeCategory === key
+            const tagTopics = isPositive ? tag.positive : tag.negative
+            const hasSelected = tagTopics.some(t => selectedTopics.includes(t))
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setActiveCategory(isActive ? null : key)}
+                className={cn(
+                  "rounded-xl border px-3 py-2.5 text-xs font-semibold transition-all duration-200 flex items-center gap-2 shadow-sm",
+                  isActive
+                    ? "border-primary bg-primary/10 text-primary ring-1 ring-primary/30"
+                    : hasSelected
+                      ? "border-primary/40 bg-primary/5 text-primary"
+                      : "border-border bg-card/50 text-muted-foreground hover:border-foreground/30 hover:bg-card"
+                )}
+              >
+                {tag.icon}
+                <span className="flex-1 text-left">{tag.label}</span>
+                {hasSelected && <Check className="size-3 text-primary shrink-0" />}
+              </button>
+            )
+          })}
+        </div>
+
+        {activeCategory && (
+          <div className="flex flex-wrap gap-1.5 mt-2 p-3 rounded-xl bg-muted/30 border border-border/50 animate-fade-in-up">
+            {(isPositive ? MOOD_TAGS[activeCategory].positive : MOOD_TAGS[activeCategory].negative).map((topic) => {
+              const isSelected = selectedTopics.includes(topic)
+              return (
+                <button
+                  key={topic}
+                  type="button"
+                  onClick={() => toggleTopic(topic)}
+                  aria-pressed={isSelected}
+                  className={cn(
+                    "rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-all duration-200 flex items-center gap-1",
+                    isSelected
+                      ? "border-primary bg-primary text-primary-foreground shadow-sm scale-[1.02]"
+                      : "border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground"
+                  )}
+                >
+                  {isSelected && <Check className="size-3" />}
+                  {topic}
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </div>
 
       {business.promptTopics && business.promptTopics.length > 0 && (
-        <div className="mt-4 flex flex-wrap gap-1.5">
-          {business.promptTopics.map((topic: string) => (
-            <button
-              key={topic}
-              type="button"
-              onClick={() => toggleTopic(topic)}
-              aria-pressed={selectedTopics.includes(topic)}
-              className={cn(
-                "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                selectedTopics.includes(topic)
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-border bg-card text-muted-foreground hover:border-foreground/30",
-              )}
-            >
-              {topic}
-            </button>
-          ))}
+        <div className="mt-4 space-y-2">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            <MessageSquareHeart className="size-3.5 text-primary" />
+            <span>Or select what stood out</span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {business.promptTopics.map((topic: string) => {
+              const isSelected = selectedTopics.includes(topic)
+              return (
+                <button
+                  key={topic}
+                  type="button"
+                  onClick={() => toggleTopic(topic)}
+                  aria-pressed={isSelected}
+                  className={cn(
+                    "rounded-xl border px-3 py-2 text-xs font-semibold transition-all duration-300 flex items-center gap-1.5 shadow-sm",
+                    isSelected
+                      ? "border-primary bg-gradient-to-br from-primary/15 to-primary/5 text-primary scale-[1.03] ring-1 ring-primary/30"
+                      : "border-border bg-card/50 text-muted-foreground hover:border-foreground/30 hover:text-foreground hover:bg-card"
+                  )}
+                >
+                  {isSelected && <Check className="size-3 text-primary animate-scale-in" />}
+                  {topic}
+                </button>
+              )
+            })}
+          </div>
         </div>
       )}
 
-      <Textarea
-        value={highlights}
-        onChange={(e) => setHighlights(e.target.value)}
-        placeholder="e.g. Dr. Lee explained everything before starting, and I barely waited."
-        className="mt-4 min-h-24 resize-none"
-        autoFocus
-        maxLength={500}
-      />
+      <div className="mt-4 space-y-1.5 relative">
+        <div className="flex justify-between items-center px-0.5">
+          <label htmlFor="describe-highlights" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Share details in your own words
+          </label>
+          <span className={cn("text-[10px] font-bold tracking-tight", charCount > 450 ? "text-destructive" : charCount >= 3 ? "text-primary" : "text-muted-foreground")}>
+            {charCount}/500
+          </span>
+        </div>
+        <Textarea
+          ref={textareaRef}
+          id="describe-highlights"
+          value={highlights}
+          onChange={(e) => setHighlights(e.target.value)}
+          placeholder={isPositive ? "e.g. Dr. Lee explained everything clearly, and the staff was incredibly welcoming." : "e.g. I had to wait over an hour and the front desk was not helpful."}
+          className="min-h-24 resize-none rounded-xl border border-border bg-card/30 p-3 shadow-inner focus:bg-card focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all duration-200"
+          autoFocus
+          maxLength={500}
+        />
+      </div>
 
-      {/* Language / Dialect Selection */}
-      <div className="mt-4 space-y-1">
-        <label htmlFor="language-select" className="text-xs font-semibold text-muted-foreground uppercase tracking-widest block">
+      <div className="mt-3 flex items-start gap-2 text-xs text-muted-foreground/80 bg-muted/40 border border-border/40 rounded-xl p-3 shadow-sm">
+        <Lightbulb className="size-4 text-amber-500 shrink-0 mt-0.5" />
+        <span className="leading-relaxed">
+          {selectedTopics.length > 0
+            ? "Great choices! We'll turn your selections into personalized talking points for your review."
+            : "Select a few options or type your own details above to get started."}
+        </span>
+      </div>
+
+      <div className="mt-4 space-y-1.5">
+        <label htmlFor="language-select" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
           Preferred Language for Suggestions
         </label>
         <select
           id="language-select"
           value={language}
           onChange={(e) => setLanguage(e.target.value)}
-          className="w-full rounded-lg border border-border bg-card px-3 py-2 text-xs text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors"
+          className="w-full rounded-xl border border-border bg-card/60 px-3.5 py-2.5 text-xs text-foreground focus:border-primary focus:ring-1 focus:ring-primary focus:bg-card outline-none transition-all shadow-sm cursor-pointer"
         >
           <option value="english">Standard English</option>
           <option value="hinglish">Hinglish (Hindi + English)</option>
@@ -587,21 +531,15 @@ function DescribeStep({
       </div>
 
       <div className="mt-auto flex gap-3 pt-6">
-        <Button variant="outline" onClick={onBack} disabled={submitting} className="flex-1">
+        <Button variant="outline" onClick={onBack} disabled={submitting} className="flex-1 rounded-xl py-6 font-semibold">
           <ArrowLeft className="size-4" />
           Back
         </Button>
-        <Button onClick={onContinue} disabled={!canContinue || submitting} className="flex-1">
+        <Button onClick={onContinue} disabled={!canContinue || submitting} className="flex-1 rounded-xl py-6 font-semibold bg-gradient-to-r from-primary to-primary/95 hover:from-primary/95 hover:to-primary text-primary-foreground shadow-md hover:shadow-lg transition-all transform active:scale-95">
           {submitting ? (
-            <>
-              <Loader2 className="mr-2 size-4 animate-spin" />
-              Continuing...
-            </>
+            <><Loader2 className="mr-2 size-4 animate-spin" />Continuing...</>
           ) : (
-            <>
-              Continue
-              <ArrowRight className="size-4" />
-            </>
+            <><span>Continue</span><ArrowRight className="size-4" /></>
           )}
         </Button>
       </div>
@@ -609,20 +547,8 @@ function DescribeStep({
   )
 }
 
-// ---------------------------------------------------------------------------
-// Step: Review (AI reminders + customer notes + open Google)
-// ---------------------------------------------------------------------------
-
 function ReviewStep({
-  config,
-  talkingPoints,
-  loadingPoints,
-  combinedInput,
-  authenticity,
-  submitting,
-  onOpenGoogle,
-  onPrivate,
-  onBack,
+  config, talkingPoints, loadingPoints, combinedInput, authenticity, submitting, onOpenGoogle, onPrivate, onBack, businessName,
 }: {
   config: ReturnType<typeof getReviewStepConfig>
   talkingPoints: string[]
@@ -633,13 +559,19 @@ function ReviewStep({
   onOpenGoogle: () => void
   onPrivate: () => void
   onBack: () => void
+  businessName: string
 }) {
+  const [customerReview, setCustomerReview] = useState("")
+  const [copied, setCopied] = useState(false)
+
   function copyReminders() {
     const text = talkingPoints.length > 0
       ? talkingPoints.map((p) => `• ${p}`).join("\n")
       : combinedInput
     navigator.clipboard.writeText(text)
+    setCopied(true)
     toast.success("Copied! Paste into Google and rewrite in your own words.")
+    setTimeout(() => setCopied(false), 2000)
   }
 
   const hasReminders = talkingPoints.length > 0
@@ -647,19 +579,22 @@ function ReviewStep({
 
   return (
     <div className="flex flex-1 flex-col">
-      <h2 className="text-balance text-lg font-semibold tracking-tight text-foreground">
+      <h2 className="text-balance text-lg font-semibold tracking-tight text-foreground text-center">
         {config.headline}
       </h2>
-      <p className="mt-1 text-sm text-muted-foreground text-pretty">{config.subhead}</p>
+      <p className="mt-1 text-sm text-muted-foreground text-pretty text-center">{config.subhead}</p>
 
-      {/* Reminders box — AI bullet points or customer's own notes as fallback */}
       {showBox && (
-        <div className="mt-5 rounded-xl border border-border bg-muted/40 p-4">
+        <div className={cn("mt-4 rounded-xl border p-4 transition-all duration-300", loadingPoints ? "border-primary/30 bg-primary/5" : "border-border bg-muted/40")}>
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <Sparkles className="size-4 text-primary" />
+              {loadingPoints ? (
+                <Loader2 className="size-4 text-primary animate-spin" />
+              ) : (
+                <Sparkles className="size-4 text-primary" />
+              )}
               <span className="text-sm font-medium text-foreground">
-                {loadingPoints ? "Building your reminders…" : "Things you mentioned"}
+                {loadingPoints ? "AI is generating your reminders..." : hasReminders ? "Your personalized talking points" : "Your notes"}
               </span>
             </div>
             {!loadingPoints && (
@@ -668,16 +603,18 @@ function ReviewStep({
                 onClick={copyReminders}
                 className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
               >
-                <Copy className="size-3.5" />
-                Copy
+                {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+                {copied ? "Copied!" : "Copy"}
               </button>
             )}
           </div>
 
           {loadingPoints ? (
-            <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="size-4 animate-spin" />
-              Pulling together your reminders…
+            <div className="mt-3 space-y-2">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-4 bg-primary/10 rounded animate-pulse" style={{ width: `${60 + i * 15}%`, animationDelay: `${i * 200}ms` }} />
+              ))}
+              <p className="mt-2 text-xs text-muted-foreground italic">Analyzing your feedback to create helpful reminders...</p>
             </div>
           ) : hasReminders ? (
             <>
@@ -689,42 +626,56 @@ function ReviewStep({
                   </li>
                 ))}
               </ul>
-              <p className="mt-3 text-xs text-muted-foreground text-pretty">
-                These are just reminders based on what you told us. Write your review in your own words on Google — it carries more weight when it's personal.
-              </p>
+              <div className="mt-3 flex items-center gap-2 rounded-lg bg-amber-500/10 border border-amber-500/20 p-2.5 text-xs text-amber-700 dark:text-amber-300">
+                <Lightbulb className="size-4 shrink-0 text-amber-500" />
+                <span>These are reminders based on what you told us. Write your review in your own words on Google — personal reviews carry more trust.</span>
+              </div>
             </>
           ) : combinedInput ? (
             <>
-              <p className="mt-3 text-sm text-foreground leading-relaxed whitespace-pre-wrap break-words">
-                {combinedInput}
-              </p>
-              <p className="mt-3 text-xs text-muted-foreground text-pretty">
-                Use this as inspiration and write your review in your own words on Google.
-              </p>
+              <p className="mt-3 text-sm text-foreground leading-relaxed whitespace-pre-wrap break-words">{combinedInput}</p>
+              <div className="mt-3 flex items-center gap-2 rounded-lg bg-muted/50 p-2.5 text-xs text-muted-foreground">
+                <PenLine className="size-4 shrink-0" />
+                <span>Use this as a starting point. Write in your own voice on Google for maximum impact.</span>
+              </div>
             </>
           ) : null}
         </div>
       )}
 
       {authenticity && authenticity.warnings.length > 0 && (
-        <p className="mt-3 text-xs text-muted-foreground text-pretty">{authenticity.warnings[0]}</p>
+        <div className="mt-3 flex items-start gap-2 rounded-lg bg-amber-500/5 border border-amber-500/20 p-3 text-xs text-amber-700 dark:text-amber-300">
+          <Lightbulb className="size-4 shrink-0 mt-0.5" />
+          <span>{authenticity.warnings[0]}</span>
+        </div>
       )}
 
+      <div className="mt-4 space-y-2">
+        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+          <PenLine className="size-3.5" />
+          Write your review draft below (optional)
+        </label>
+        <Textarea
+          value={customerReview}
+          onChange={(e) => setCustomerReview(e.target.value)}
+          placeholder="Start typing your review in your own words..."
+          className="min-h-20 resize-none rounded-xl border border-border bg-card/30 p-3 text-sm focus:bg-card focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all duration-200"
+          maxLength={2000}
+        />
+        <div className="flex justify-end">
+          <span className="text-[10px] text-muted-foreground">{customerReview.length}/2000</span>
+        </div>
+      </div>
+
       <div className="mt-auto flex flex-col gap-3 pt-6">
-        {/* Primary CTA — opens Google SYNCHRONOUSLY inside the click handler.
-            window.open after any await gets blocked by the browser popup-blocker. */}
         <Button
           onClick={onOpenGoogle}
           size="lg"
           className="w-full bg-gradient-to-r from-primary to-primary/90 hover:from-primary/95 hover:to-primary shadow-lg hover:shadow-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
           disabled={submitting}
         >
-          {submitting ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            <ExternalLink className="size-4" />
-          )}
-          {submitting ? "Just a moment…" : "Write your review on Google"}
+          {submitting ? <Loader2 className="size-4 animate-spin" /> : <ExternalLink className="size-4" />}
+          {submitting ? "Just a moment..." : "Post your review on Google"}
         </Button>
 
         <Button onClick={onPrivate} variant="outline" size="lg" className="w-full">
@@ -745,35 +696,10 @@ function ReviewStep({
   )
 }
 
-// ---------------------------------------------------------------------------
-// Step: Private feedback
-// ---------------------------------------------------------------------------
-
 function PrivateStep({
-  business,
-  rating,
-  combinedInput,
-  selectedTopics,
-  done,
-  slug,
-  onSubmit,
-  onBackToReview,
+  business, rating, combinedInput, selectedTopics, done, slug, onSubmit, onBackToReview,
 }: {
-  business: any
-  rating: number
-  combinedInput: string
-  selectedTopics: string[]
-  done: boolean
-  slug?: string
-  onSubmit: (data: {
-    purchaseInfo?: string
-    liked?: string
-    improvement?: string
-    customerName?: string
-    customerEmail?: string
-    privateNote?: string
-  }) => Promise<void>
-  onBackToReview: () => void
+  business: any; rating: number; combinedInput: string; selectedTopics: string[]; done: boolean; slug?: string; onSubmit: (data: { purchaseInfo?: string; liked?: string; improvement?: string; customerName?: string; customerEmail?: string; privateNote?: string }) => Promise<void>; onBackToReview: () => void
 }) {
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
@@ -788,13 +714,8 @@ function PrivateStep({
           <Check className="size-7" />
         </div>
         <h2 className="mt-4 text-lg font-semibold text-foreground">Thank you</h2>
-        <p className="mt-2 text-sm text-muted-foreground text-pretty">
-          {business.name} received your note and will follow up if needed. You can still post a public
-          review any time.
-        </p>
-        <Button variant="outline" className="mt-6" onClick={onBackToReview}>
-          Back
-        </Button>
+        <p className="mt-2 text-sm text-muted-foreground text-pretty">{business.name} received your note and will follow up if needed.</p>
+        <Button variant="outline" className="mt-6" onClick={onBackToReview}>Back</Button>
       </div>
     )
   }
@@ -807,7 +728,6 @@ function PrivateStep({
         liked: combinedInput,
         improvement: "",
         customerName: name.trim() || undefined,
-        // Only pass email if it looks valid — extra client-side guard.
         customerEmail: email.trim() && email.includes("@") ? email.trim() : undefined,
         privateNote: message.trim(),
       })
@@ -818,146 +738,74 @@ function PrivateStep({
 
   return (
     <div className="flex flex-1 flex-col">
-      <h2 className="text-balance text-lg font-semibold tracking-tight text-foreground">
-        Send private feedback
-      </h2>
-      <p className="mt-1 text-sm text-muted-foreground text-pretty">
-        This goes straight to the owner of {business.name} — it is not posted publicly.
-      </p>
+      <h2 className="text-balance text-lg font-semibold tracking-tight text-foreground">Send private feedback</h2>
+      <p className="mt-1 text-sm text-muted-foreground text-pretty">This goes straight to the owner of {business.name} — it is not posted publicly.</p>
 
       <div className="mt-4 space-y-3">
         <div className="space-y-1.5">
           <Label htmlFor="pf-name">Name (optional)</Label>
-          <Input
-            id="pf-name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Your name"
-            maxLength={100}
-            autoComplete="name"
-          />
+          <Input id="pf-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" maxLength={100} autoComplete="name" />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="pf-email">Email (optional)</Label>
-          <Input
-            id="pf-email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@example.com"
-            maxLength={200}
-            autoComplete="email"
-          />
+          <Input id="pf-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" maxLength={200} autoComplete="email" />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="pf-message">Your feedback</Label>
-          <Textarea
-            id="pf-message"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            className="min-h-28 resize-none"
-            placeholder="Tell us what happened so we can make it right."
-            maxLength={2000}
-          />
+          <Textarea id="pf-message" value={message} onChange={(e) => setMessage(e.target.value)} className="min-h-28 resize-none" placeholder="Tell us what happened so we can make it right." maxLength={2000} />
         </div>
         <div className="flex items-start gap-2">
-          <input
-            type="checkbox"
-            id="pf-consent"
-            checked={consent}
-            onChange={(e) => setConsent(e.target.checked)}
-            className="mt-1 size-4 rounded border-gray-300 text-primary focus:ring-primary"
-          />
+          <input type="checkbox" id="pf-consent" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-1 size-4 rounded border-gray-300 text-primary focus:ring-primary" />
           <Label htmlFor="pf-consent" className="text-xs text-muted-foreground leading-relaxed">
             I consent to ReviewOS processing my feedback and sharing it with {business.name}. See our{" "}
-            <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-              Privacy Policy
-            </a>
-            .
+            <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Privacy Policy</a>.
           </Label>
         </div>
       </div>
 
       <div className="mt-auto flex gap-3 pt-6">
-        <Button variant="outline" onClick={onBackToReview} className="flex-1">
-          Back
-        </Button>
-        <Button
-          onClick={handleSubmit}
-          disabled={message.trim().length < 3 || !consent || submitting}
-          className="flex-1"
-        >
-          {submitting ? (
-            <>
-              <Loader2 className="size-4 animate-spin" />
-              Sending…
-            </>
-          ) : (
-            "Send feedback"
-          )}
+        <Button variant="outline" onClick={onBackToReview} className="flex-1">Back</Button>
+        <Button onClick={handleSubmit} disabled={message.trim().length < 3 || !consent || submitting} className="flex-1">
+          {submitting ? <><Loader2 className="size-4 animate-spin" />Sending...</> : "Send feedback"}
         </Button>
       </div>
     </div>
   )
 }
 
-// ---------------------------------------------------------------------------
-// Step: Done
-// ---------------------------------------------------------------------------
-
 function DoneStep({ business, onPrivate }: { business: any; onPrivate: () => void }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center text-center space-y-4 py-4 animate-fade-in">
-      {/* Animated success emblem */}
       <div className="relative flex size-20 items-center justify-center">
         <div className="absolute inset-0 rounded-full bg-primary/10 animate-ping opacity-30" />
         <div className="relative flex size-20 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 to-primary/5 border-2 border-primary/30">
           <Check className="size-9 text-primary" strokeWidth={2.5} />
         </div>
       </div>
-
       <div className="space-y-2 animate-fade-in-up">
-        <h2 className="text-2xl font-extrabold tracking-tight text-foreground">You're amazing! 🎉</h2>
+        <h2 className="text-2xl font-extrabold tracking-tight text-foreground">You're amazing!</h2>
         <p className="text-sm text-muted-foreground text-pretty max-w-xs mx-auto leading-relaxed">
           Your honest review helps {business.name} grow and helps future customers make better decisions.
         </p>
       </div>
-
-      {/* Confirmation badge */}
-      <div className="flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-2 text-xs font-semibold text-primary animate-fade-in-up [animation-delay:150ms]">
+      <div className="flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-2 text-xs font-semibold text-primary animate-fade-in-up" style={{ animationDelay: "150ms" }}>
         <Check className="size-3.5" />
         Google review tab opened
       </div>
-
-      {/* Stars decoration */}
-      <div className="flex gap-1 animate-fade-in-up [animation-delay:250ms]">
+      <div className="flex gap-1 animate-fade-in-up" style={{ animationDelay: "250ms" }}>
         {[1, 2, 3, 4, 5].map((s) => (
           <svg key={s} className="size-5 fill-amber-400 text-amber-400" viewBox="0 0 20 20" aria-hidden="true">
             <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
           </svg>
         ))}
       </div>
-
-      <button
-        type="button"
-        onClick={onPrivate}
-        className="mt-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors underline underline-offset-4 animate-fade-in-up [animation-delay:350ms]"
-      >
+      <button type="button" onClick={onPrivate} className="mt-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors underline underline-offset-4 animate-fade-in-up" style={{ animationDelay: "350ms" }}>
         Want to tell the owner something privately?
       </button>
     </div>
   )
 }
 
-// ---------------------------------------------------------------------------
-// Utility
-// ---------------------------------------------------------------------------
-
-/**
- * Validates that a URL belongs to a known Google domain before window.open.
- * Prevents open-redirect attacks where a malicious googleReviewUrl could send
- * the customer to a phishing page.
- */
 function isGoogleUrl(url: string): boolean {
   try {
     const { hostname } = new URL(url)
