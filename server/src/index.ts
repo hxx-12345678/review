@@ -18,6 +18,7 @@ const env = loadEnv();
 
 const app = express();
 
+app.set("trust proxy", 1);
 app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
 app.use(cors({
   origin: [

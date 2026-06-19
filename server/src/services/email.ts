@@ -6,7 +6,7 @@ let transporter: nodemailer.Transporter | null = null;
 
 function getTransporter(): nodemailer.Transporter | null {
   const env = getEnv();
-  if (!env.SMTP_HOST || !env.SMTP_USER) {
+  if (!env.SMTP_HOST || !env.SMTP_USER || !env.SMTP_PASS || env.SMTP_PASS.startsWith("NEED_")) {
     return null;
   }
 
