@@ -66,7 +66,8 @@ export function FeedbackFlow({ business, slug }: { business: any; slug?: string 
     // Submit feedback to the server before showing the Review step so the
     // Google button can open immediately without any async wait.
     if (!feedbackId) {
-      await submitFeedback({ liked: combined || undefined })
+      const id = await submitFeedback({ liked: combined || undefined })
+      if (!id) return
     }
 
     setStep("review")
@@ -224,7 +225,8 @@ export function FeedbackFlow({ business, slug }: { business: any; slug?: string 
             language={language}
             setLanguage={setLanguage}
             onContinue={handleDescribeContinue}
-            onBack={() => setStep("welcome")}
+            onBack={() => setStep("rate")}
+            submitting={submitting}
           />
         )}
 
@@ -510,6 +512,7 @@ function DescribeStep({
   setLanguage,
   onContinue,
   onBack,
+  submitting,
 }: {
   business: any
   rating: number
@@ -521,6 +524,7 @@ function DescribeStep({
   setLanguage: (v: string) => void
   onContinue: () => void
   onBack: () => void
+  submitting: boolean
 }) {
   const config = getReviewStepConfig(rating)
   // Enable Continue if there is enough text OR at least one topic selected.
@@ -583,13 +587,22 @@ function DescribeStep({
       </div>
 
       <div className="mt-auto flex gap-3 pt-6">
-        <Button variant="outline" onClick={onBack} className="flex-1">
+        <Button variant="outline" onClick={onBack} disabled={submitting} className="flex-1">
           <ArrowLeft className="size-4" />
           Back
         </Button>
-        <Button onClick={onContinue} disabled={!canContinue} className="flex-1">
-          Continue
-          <ArrowRight className="size-4" />
+        <Button onClick={onContinue} disabled={!canContinue || submitting} className="flex-1">
+          {submitting ? (
+            <>
+              <Loader2 className="mr-2 size-4 animate-spin" />
+              Continuing...
+            </>
+          ) : (
+            <>
+              Continue
+              <ArrowRight className="size-4" />
+            </>
+          )}
         </Button>
       </div>
     </div>

@@ -52,11 +52,9 @@ router.post("/submit", authOptional, async (req: AuthRequest, res: Response) => 
       },
     });
 
-    try {
-      await sendFeedbackNotification(business.userId, business.name, data.rating);
-    } catch {
-      // Email notification is best-effort
-    }
+    sendFeedbackNotification(business.userId, business.name, data.rating).catch((err) => {
+      console.error("Feedback notification email failure:", err);
+    });
 
     res.status(201).json({ feedback });
   } catch (err) {

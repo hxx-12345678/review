@@ -22,7 +22,10 @@ function getTransporter(): nodemailer.Transporter | null {
       tls: {
         ciphers: "SSLv3",
         rejectUnauthorized: false
-      }
+      },
+      connectionTimeout: 5000,
+      greetingTimeout: 5000,
+      socketTimeout: 5000
     });
   }
   return transporter;

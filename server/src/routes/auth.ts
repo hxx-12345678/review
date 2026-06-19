@@ -54,11 +54,9 @@ router.post("/signup", authLimiter, async (req: AuthRequest, res: Response) => {
       },
     });
 
-    try {
-      await sendWelcomeEmail(user.email, user.name || "");
-    } catch (e) {
+    sendWelcomeEmail(user.email, user.name || "").catch((e) => {
       console.error("Welcome email send failure:", e);
-    }
+    });
 
     res.status(201).json({
       token,
