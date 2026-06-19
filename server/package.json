@@ -9,8 +9,11 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "render:build": "npm install && npx prisma generate && npm run build",
+    "render:start": "npx prisma migrate deploy && node dist/index.js"
   },
   "dependencies": {
     "@prisma/client": "^6.6.0",
