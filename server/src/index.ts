@@ -20,7 +20,11 @@ const app = express();
 
 app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
 app.use(cors({
-  origin: [env.FRONTEND_URL, "http://localhost:3000"],
+  origin: [
+    env.FRONTEND_URL,
+    "http://localhost:3000",
+    "https://review-nine-inky.vercel.app",
+  ].filter(Boolean) as string[],
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"],
