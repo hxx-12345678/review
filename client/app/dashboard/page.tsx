@@ -16,6 +16,7 @@ export default function DashboardPage() {
   const [business, setBusiness] = useState<any>(null);
   const [stats, setStats] = useState<any>(null);
   const [feedback, setFeedback] = useState<any[]>([]);
+  const [trend, setTrend] = useState<{ day: string; requests: number; reviews: number }[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -26,12 +27,14 @@ export default function DashboardPage() {
         setBusiness(biz);
 
         if (biz) {
-          const [statsRes, feedbackRes] = await Promise.all([
+          const [statsRes, feedbackRes, trendRes] = await Promise.all([
             api.reviews.stats(biz.id),
             api.feedback.list(biz.id, { limit: 10 }),
+            api.reviews.trend(biz.id),
           ]);
           setStats(statsRes.stats);
           setFeedback(feedbackRes.feedback);
+          setTrend(trendRes.trend);
         }
       } catch {
         // Handle error
@@ -51,6 +54,7 @@ export default function DashboardPage() {
             <div key={i} className="h-24 animate-pulse rounded-lg bg-muted" />
           ))}
         </div>
+        <div className="mt-6 h-[260px] animate-pulse rounded-lg bg-muted" />
       </div>
     );
   }
@@ -81,7 +85,7 @@ export default function DashboardPage() {
 
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2">
-            <TrendChart />
+            <TrendChart data={trend} />
           </div>
           <RatingBreakdown
             reviews={(stats?.ratingDistribution || []).map((r: any) => ({ rating: r.rating, count: r.count }))}

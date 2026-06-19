@@ -126,6 +126,8 @@ export const api = {
       }).then((r) => r.json() as Promise<{ success: boolean }>),
     stats: (businessId: string) =>
       request<{ stats: any; recentFeedback: any[] }>(`/reviews/stats/${businessId}`),
+    trend: (businessId: string) =>
+      request<{ trend: { day: string; requests: number; reviews: number }[] }>(`/reviews/trend/${businessId}`),
   },
   qr: {
     list: (businessId: string) =>

@@ -233,6 +233,64 @@ router.get("/stats/:businessId", authRequired, async (req: AuthRequest, res: Res
   }
 });
 
+router.get("/trend/:businessId", authRequired, async (req: AuthRequest, res: Response) => {
+  try {
+    const businessId = req.params.businessId as string;
+    const business = await prisma.business.findFirst({
+      where: { id: businessId, userId: req.userId },
+    });
+    if (!business) {
+      return res.status(404).json({ error: "Business not found" });
+    }
+
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const [allFeedback, allClicks] = await Promise.all([
+      prisma.feedback.findMany({
+        where: { businessId, createdAt: { gte: thirtyDaysAgo } },
+        select: { createdAt: true },
+      }),
+      prisma.reviewClick.findMany({
+        where: { businessId, createdAt: { gte: thirtyDaysAgo } },
+        select: { createdAt: true },
+      }),
+    ]);
+
+    const feedbackMap = new Map<string, number>();
+    const clickMap = new Map<string, number>();
+
+    for (const f of allFeedback) {
+      const key = f.createdAt.toISOString().slice(0, 10);
+      feedbackMap.set(key, (feedbackMap.get(key) || 0) + 1);
+    }
+    for (const c of allClicks) {
+      const key = c.createdAt.toISOString().slice(0, 10);
+      clickMap.set(key, (clickMap.get(key) || 0) + 1);
+    }
+
+    const result: { day: string; requests: number; reviews: number }[] = [];
+    const now = new Date();
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      const dateKey = d.toISOString().slice(0, 10);
+      const month = d.toLocaleString("en-US", { month: "short" });
+      const day = d.getDate();
+      result.push({
+        day: `${month} ${day}`,
+        requests: feedbackMap.get(dateKey) || 0,
+        reviews: clickMap.get(dateKey) || 0,
+      });
+    }
+
+    res.json({ trend: result });
+  } catch (err) {
+    console.error("Get trend error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 function buildDraftFromFeedback(feedback: any): string {
   const parts: string[] = [];
 
