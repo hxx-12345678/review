@@ -1,0 +1,160 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Industry {
+  DENTAL
+  MEDICAL
+  SALON
+  GYM
+  HOME_SERVICES
+  RESTAURANT
+  AUTO
+  FITNESS
+  OTHER
+}
+
+enum ReviewStatus {
+  REDIRECTED_TO_GOOGLE
+  PRIVATE_FEEDBACK
+  ABANDONED
+}
+
+enum ReplyStatus {
+  NEEDS_REPLY
+  DRAFT
+  REPLIED
+}
+
+model User {
+  id             String     @id @default(cuid())
+  email          String     @unique
+  passwordHash   String
+  name           String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  businesses     Business[]
+  sessions       Session[]
+  activityLogs   ActivityLog[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Business {
+  id              String   @id @default(cuid())
+  userId          String
+  name            String
+  slug            String   @unique
+  industry        Industry @default(OTHER)
+  googleReviewUrl String?
+  location        String?
+  phoneNumber     String?
+  website         String?
+  promptTopics    String[]
+  emailTemplate   String?
+  smsTemplate     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  qrCodes         QrCode[]
+  feedback        Feedback[]
+  reviewDrafts    ReviewDraft[]
+  reviewClicks    ReviewClick[]
+  generatedReplies GeneratedReply[]
+  activityLogs    ActivityLog[]
+}
+
+model QrCode {
+  id         String   @id @default(cuid())
+  businessId String
+  type       String   @default("review")
+  url        String
+  createdAt  DateTime @default(now())
+
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+}
+
+model Feedback {
+  id           String       @id @default(cuid())
+  businessId   String
+  rating       Int
+  purchaseInfo String?
+  liked        String?
+  improvement  String?
+  voiceNoteUrl String?
+  customerName String?
+  customerEmail String?
+  privateNote  String?
+  status       ReviewStatus @default(PRIVATE_FEEDBACK)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  business      Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  reviewDraft   ReviewDraft?
+  reviewClicks  ReviewClick[]
+  generatedReply GeneratedReply?
+}
+
+model ReviewDraft {
+  id         String   @id @default(cuid())
+  feedbackId String   @unique
+  businessId String
+  content    String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  feedback   Feedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+}
+
+model ReviewClick {
+  id         String       @id @default(cuid())
+  feedbackId String
+  businessId String
+  type       String       @default("google_redirect")
+  createdAt  DateTime     @default(now())
+
+  feedback   Feedback     @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+  business   Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
+}
+
+model GeneratedReply {
+  id         String      @id @default(cuid())
+  feedbackId String      @unique
+  businessId String
+  content    String
+  tone       String      @default("professional")
+  status     ReplyStatus @default(DRAFT)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  feedback   Feedback    @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+  business   Business    @relation(fields: [businessId], references: [id], onDelete: Cascade)
+}
+
+model ActivityLog {
+  id         String   @id @default(cuid())
+  userId     String
+  businessId String
+  action     String
+  details    Json?
+  createdAt  DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+}

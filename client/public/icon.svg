@@ -1,0 +1,14 @@
+<svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    @media (prefers-color-scheme: light) {
+      .background { fill: black; }
+      .foreground { fill: #facc15; } /* Yellow star */
+    }
+    @media (prefers-color-scheme: dark) {
+      .background { fill: white; }
+      .foreground { fill: #facc15; }
+    }
+  </style>
+  <rect class="background" width="180" height="180" rx="37" />
+  <path class="foreground" d="M90 25L108.541 68.8788L155.631 73.123L120 104.121L130.267 150.877L90 126.5L49.7326 150.877L60 104.121L24.3688 73.123L71.459 68.8788L90 25Z" />
+</svg>
