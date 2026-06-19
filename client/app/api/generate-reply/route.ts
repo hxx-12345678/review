@@ -53,7 +53,7 @@ export async function POST(req: Request) {
 
   try {
     const { text } = await generateText({
-      model: google("gemini-2.0-flash"),
+      model: google("gemini-2.5-flash"),
       system: SYSTEM_PROMPT,
       prompt: `Business: ${businessName}
 Star rating: ${rating}/5

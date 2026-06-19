@@ -12,6 +12,7 @@
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
+    "prebuild": "node -e \"const fs = require('fs'); if (fs.existsSync('dist')) { fs.rmSync('dist', { recursive: true }); }\"",
     "render:build": "npm install && npx prisma generate && npm run build",
     "render:start": "npx prisma migrate deploy && node dist/index.js"
   },
