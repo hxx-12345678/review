@@ -1,5 +1,36 @@
 import { getEnv } from "../config/env";
 
+export function buildFallbackReview(opts: {
+  highlights?: string;
+  businessName?: string;
+  rating?: number;
+  talkingPoints?: string[];
+}): string {
+  const { highlights, businessName, rating, talkingPoints } = opts;
+  const name = businessName || "this business";
+
+  if (talkingPoints && talkingPoints.length > 0) {
+    const points = talkingPoints.slice(0, 3).join(", ");
+    return `I recently visited ${name} and wanted to share my experience. ${points}. Overall, it was a memorable visit and I appreciate what they offer.`;
+  }
+
+  if (highlights && highlights.trim().length >= 3) {
+    return `I recently visited ${name}. ${highlights}. I hope this helps others looking for honest feedback about this place.`;
+  }
+
+  if (rating && rating >= 4) {
+    return `I had a great experience at ${name}! The service was wonderful and I would definitely recommend checking them out.`;
+  }
+  if (rating && rating === 3) {
+    return `My experience at ${name} was decent overall. There were some good points and some areas for improvement.`;
+  }
+  if (rating && rating <= 2) {
+    return `I recently visited ${name} and unfortunately my experience didn't meet expectations. I hope they can use this feedback constructively.`;
+  }
+
+  return `I recently visited ${name} and wanted to share my thoughts. It was an interesting experience worth noting.`;
+}
+
 const GENERIC_BLOCKLIST = [
   "highly recommend",
   "amazing service",

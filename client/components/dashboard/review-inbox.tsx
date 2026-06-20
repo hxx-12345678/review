@@ -25,7 +25,7 @@ export function ReviewInbox({ feedback, businessName, businessId }: { feedback: 
   const [activeId, setActiveId] = useState<string | null>(null)
   const [drafts, setDrafts] = useState<Record<string, string>>({})
   const [loadingId, setLoadingId] = useState<string | null>(null)
-  const [replyTone, setReplyTone] = useState<string>("professional")
+  const [replyTones, setReplyTones] = useState<Record<string, string>>({})
 
   const filtered = items.filter((f: any) => {
     if (filter === "all") return true
@@ -49,14 +49,12 @@ export function ReviewInbox({ feedback, businessName, businessId }: { feedback: 
     setLoadingId(feedbackItem.id)
     try {
       const reviewText = buildReviewText(feedbackItem)
+      const tone = replyTones[feedbackItem.id] || "professional"
 
-      // Single AI call via backend route (which calls Gemini internally).
-      // Previously two sequential Gemini calls were made here — this was
-      // wasteful and cost 2x tokens per reply. Now one call handles both.
       const res = await api.ai.generateReply({
         feedbackId: feedbackItem.id,
         businessId,
-        tone: replyTone,
+        tone,
         content: reviewText.length >= 3 ? reviewText : undefined,
       })
 
@@ -174,10 +172,10 @@ export function ReviewInbox({ feedback, businessName, businessId }: { feedback: 
                 </div>
               ) : (
                 <div className="mt-4 space-y-3">
-                  <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-foreground">Your reply</span>
                     <div className="flex items-center gap-2">
-                      <Select value={replyTone} onValueChange={(v) => v && setReplyTone(v)}>
+                      <Select value={replyTones[item.id] || "professional"} onValueChange={(v) => v && setReplyTones((prev) => ({ ...prev, [item.id]: v }))}>
                         <SelectTrigger className="h-8 w-36 text-xs">
                           <SelectValue />
                         </SelectTrigger>

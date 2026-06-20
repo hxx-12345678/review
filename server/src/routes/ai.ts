@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "../config/database";
 import { authRequired, AuthRequest } from "../middleware/auth";
 import { aiLimiter } from "../middleware/rate-limit";
-import { callGemini, deriveTalkingPoints, buildFallbackReply } from "../utils/gemini";
+import { callGemini, deriveTalkingPoints, buildFallbackReply, buildFallbackReview } from "../utils/gemini";
 
 const router = Router();
 
@@ -41,24 +41,45 @@ router.post("/generate-reply", authRequired, aiLimiter, async (req: AuthRequest,
 
     let reply = "";
     try {
+      const toneGuide = data.tone === "friendly"
+        ? "Warm, conversational, and personal — like a grateful business owner writing to a valued customer."
+        : data.tone === "formal"
+          ? "Polished, respectful, and professional — suitable for a formal business correspondence."
+          : "Balanced and professional with a personal touch — approachable but not overly casual.";
+
+      const likedText = feedback.liked || "";
+      const improvementText = feedback.improvement || "";
+      const allCustomerText = [likedText, improvementText, data.content].filter(Boolean).join(" ");
+
       const systemInstruction = `You are an AI assistant helping a local business owner reply to customer reviews.
-Keep replies polite, professional, and relatively brief (1-3 sentences).
-Tone requested: ${data.tone}
-If the review was positive, thank them.
-If the review was negative, apologize sincerely and offer to make it right.
-Ground your response strictly in the customer's comments. Do not make up facts.`;
+
+CRITICAL RULES:
+1. Sound like a real human business owner — warm, specific, and genuine. Never robotic.
+2. Reference specific details from the customer's feedback to show you actually read it.
+3. Tone: ${toneGuide}
+4. Keep replies 2-4 sentences — long enough to be personal, short enough to read at a glance.
+5. Match the LANGUAGE of the customer's review. If they wrote in Hindi, reply in Hindi. If Hinglish, reply in Hinglish. If English, reply in English. Detect the language automatically from their text.
+6. NEVER use generic phrases like "Thank you for your feedback", "We appreciate your business", "We value your input", "We take your feedback seriously", or "We look forward to seeing you again". Every reply must be unique and specific.
+7. If the review is positive, express genuine gratitude and mention something specific they liked.
+8. If the review is negative, apologize sincerely for the specific issue they mentioned and briefly state how you'll address it.
+9. Do NOT mention the star rating number. Do NOT use emojis.
+10. Output ONLY the reply text — no labels, no prefixes, no quotation marks.`;
 
       const prompt = `Business Name: ${business.name}
-Customer Rating: ${feedback.rating}/5
-What customer liked: ${feedback.liked ?? "N/A"}
-What customer wanted improved: ${feedback.improvement ?? "N/A"}
-Additional customer comments: ${data.content ?? "N/A"}`;
+Customer's star rating: ${feedback.rating}/5
+What customer liked: "${likedText || "N/A"}"
+What customer wanted improved: "${improvementText || "N/A"}"
+Additional customer comments: "${data.content ?? "N/A"}"
+
+DETECT the language of the customer's text above and write your ENTIRE reply in that same language. If the customer wrote in Hindi, reply in Hindi (Devanagari script). If they wrote in Hinglish or mixed Hindi/English, reply in Hinglish. If they wrote in Gujarati, reply in Gujarati. If English, reply in standard English.
+
+Write a personal, specific reply from the business owner that references at least one specific detail from the customer's feedback. Sound like a real person, not a template.`;
 
       reply = await callGemini(prompt, systemInstruction);
       reply = reply.trim();
     } catch (err) {
       console.warn("Gemini reply generation failed, falling back to deterministic template:", err);
-      reply = data.content ?? buildFallbackReply(feedback.rating, feedback.liked, feedback.improvement, data.tone);
+      reply = buildFallbackReply(feedback.rating, feedback.liked, feedback.improvement, data.tone);
     }
 
     const generatedReply = await prisma.generatedReply.upsert({
@@ -180,6 +201,81 @@ Produce 2-5 short reminder bullets grounded strictly in what the customer wrote 
       return res.status(400).json({ error: "Invalid input", details: err.errors });
     }
     console.error("Talking points API error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── T5: AI Review Draft Generation Route ──────────────────────────────────────
+const generateReviewSchema = z.object({
+  highlights: z.string().max(500).optional().default(""),
+  selectedTopics: z.array(z.string()).optional().default([]),
+  businessName: z.string().max(100).optional().default("a local business"),
+  rating: z.number().min(1).max(5).optional(),
+  language: z.string().max(30).optional().default("english"),
+  talkingPoints: z.array(z.string()).optional().default([]),
+});
+
+router.post("/generate-review", aiLimiter, async (req: Request, res: Response) => {
+  try {
+    const { highlights, selectedTopics, businessName, rating, language, talkingPoints } = generateReviewSchema.parse(req.body);
+
+    const sentiment = !rating ? "neutral" : rating >= 4 ? "positive" : rating === 3 ? "neutral" : "negative";
+
+    let languageInstruction = "Write the review draft in clear standard English.";
+    if (language === "hinglish") {
+      languageInstruction = "Write the review draft in Hinglish (a natural mix of Hindi and English, using Hindi words spelled with the English/Latin alphabet, e.g., 'Food bohot tasty tha aur service bhi bahut acchi thi'). Do not use Devanagari script.";
+    } else if (language === "gujlish") {
+      languageInstruction = "Write the review draft in Gujlish (a natural mix of Gujarati and English, using Gujarati words spelled with the English/Latin alphabet, e.g., 'Service ghani saari hati ane staff badha helpful hati'). Do not use Gujarati script.";
+    } else if (language === "hindi") {
+      languageInstruction = "Write the review draft in pure Hindi using the Devanagari script (e.g., 'भोजन बहुत स्वादिष्ट था और सेवा भी बहुत अच्छी थी').";
+    } else if (language === "gujarati") {
+      languageInstruction = "Write the review draft in pure Gujarati using the Gujarati script (e.g., 'ભોજન ખૂબ સ્વાદિષ્ટ હતું અને સેવા પણ ખૂબ સારી હતી').";
+    }
+
+    const SYSTEM_PROMPT = `You are a helpful assistant that generates a review DRAFT for a customer.
+
+CRITICAL RULES:
+1. You generate a DRAFT — the customer will review, edit, and own every word before posting.
+2. Ground EVERY claim in the specific details the customer provided. Never fabricate names, dishes, or experiences.
+3. Sound like a real person wrote it — use natural, conversational language. Vary sentence structure.
+4. Keep it between 2-5 sentences (roughly 40-80 words).
+5. Do NOT use generic marketing phrases like "highly recommend", "amazing service", "10/10", "best ever", "five stars".
+6. If the rating is available, reflect the sentiment appropriately (positive for 4-5, neutral for 3, constructive for 1-2).
+7. Weave the customer's selected topics and talking points into a natural-sounding review — do NOT list them like bullet points.
+8. If the customer wrote their own notes in "highlights", incorporate them as if the reviewer is describing their experience.
+9. Output ONLY the review text — no labels, no prefixes, no quotation marks.`;
+
+    let prompt = `Business: ${businessName}
+Customer's rating: ${rating ?? "unknown"}/5
+Customer's own words: "${highlights || "(none provided)"}"`;
+
+    if (selectedTopics.length > 0) {
+      prompt += `\nTopics the customer selected that describe their experience: ${selectedTopics.join(", ")}`;
+    }
+    if (talkingPoints.length > 0) {
+      prompt += `\nTalking points to reference:\n${talkingPoints.map((p) => `- ${p}`).join("\n")}`;
+    }
+
+    prompt += `\n\nMANDATORY OUTPUT LANGUAGE (every word must be in this language):
+${languageInstruction}
+
+Write a natural, authentic-sounding review draft (2-5 sentences) that sounds like a real customer wrote it. Weave the topics and details smoothly into a personal story — do NOT list them.`;
+
+    let review = "";
+    try {
+      review = await callGemini(prompt, SYSTEM_PROMPT);
+      review = review.trim().replace(/^["']|["']$/g, "");
+    } catch (err) {
+      console.warn("Gemini review generation failed, falling back to deterministic builder:", err);
+      review = buildFallbackReview({ highlights, businessName, rating, talkingPoints });
+    }
+
+    res.json({ review });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return res.status(400).json({ error: "Invalid input", details: err.errors });
+    }
+    console.error("Generate review error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });

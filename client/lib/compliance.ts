@@ -22,9 +22,9 @@
 
 export const COMPLIANCE_RULES = [
   {
-    id: "no-ai-reviews",
-    title: "No AI-written reviews",
-    body: "ReviewOS never writes the review for the customer. The AI only creates personal reminders from the customer's own answers. The customer writes every word on Google themselves.",
+    id: "ai-assisted-drafts",
+    title: "AI-assisted, user-approved",
+    body: "ReviewOS generates a helpful draft from the customer's own answers. The customer always has full control — they can edit, rewrite, or regenerate until it sounds like them. Nothing gets posted without the customer's final approval.",
   },
   {
     id: "no-gating",

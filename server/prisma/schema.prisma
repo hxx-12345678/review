@@ -77,6 +77,8 @@ model Business {
   reviewClicks    ReviewClick[]
   generatedReplies GeneratedReply[]
   activityLogs    ActivityLog[]
+  googleAccount   GoogleAccount?
+  googleReviews   GoogleReview[]
 }
 
 model QrCode {
@@ -145,6 +147,41 @@ model GeneratedReply {
 
   feedback   Feedback    @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
   business   Business    @relation(fields: [businessId], references: [id], onDelete: Cascade)
+}
+
+model GoogleAccount {
+  id              String   @id @default(cuid())
+  businessId      String   @unique
+  googleAccountId String
+  accessToken     String
+  refreshToken    String?
+  tokenExpiresAt  DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  business        Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  googleReviews   GoogleReview[]
+}
+
+model GoogleReview {
+  id             String   @id @default(cuid())
+  googleReviewId String   @unique
+  googleAccountId String
+  businessId     String
+  reviewerName   String?
+  reviewerPhotoUrl String?
+  starRating     Int
+  comment        String?
+  commentLanguage String?
+  createTime     DateTime
+  reviewReply    String?
+  replyStatus    String   @default("NEEDS_REPLY")
+  syncedAt       DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  googleAccount  GoogleAccount @relation(fields: [googleAccountId], references: [id], onDelete: Cascade)
+  business       Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
 }
 
 model ActivityLog {

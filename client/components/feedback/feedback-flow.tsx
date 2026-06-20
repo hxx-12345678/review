@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { ExternalLink, Sparkles, Loader2, Check, MessageSquareHeart, Copy, ArrowRight, ArrowLeft, Stethoscope, Scissors, Dumbbell, Home, Utensils, Car, ShieldCheck, Lock, Award, Star, ThumbsUp, Meh, Frown, PenLine, RefreshCw, Lightbulb, SmilePlus } from "lucide-react"
+import { ExternalLink, Sparkles, Loader2, Check, MessageSquareHeart, ArrowRight, ArrowLeft, Stethoscope, Scissors, Dumbbell, Home, Utensils, Car, ShieldCheck, Lock, Award, Star, ThumbsUp, Meh, Frown, PenLine, RefreshCw, Lightbulb, SmilePlus, ChevronDown } from "lucide-react"
 import { getReviewStepConfig, scoreAuthenticity, type AuthenticityResult } from "@/lib/compliance"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -194,12 +194,16 @@ export function FeedbackFlow({ business, slug }: { business: any; slug?: string 
             talkingPoints={talkingPoints}
             loadingPoints={loadingPoints}
             combinedInput={combinedInput}
+            rawHighlights={highlights}
+            selectedTopics={selectedTopics}
             authenticity={authenticity}
             submitting={submitting}
             onOpenGoogle={openGoogle}
             onPrivate={() => setStep("private")}
             onBack={() => setStep("describe")}
             businessName={business.name}
+            language={language}
+            rating={rating}
           />
         )}
         {step === "private" && (
@@ -226,8 +230,8 @@ export function FeedbackFlow({ business, slug }: { business: any; slug?: string 
       {step !== "welcome" && step !== "loading" && (
         <footer className="mt-6 text-center text-xs text-muted-foreground">
           <p className="text-pretty">
-            ReviewOS never writes reviews for you. We only help you remember what to say — you write it in
-            your own words.
+            A helpful draft based on what you shared — <span className="font-semibold text-foreground/70">you're in control</span>. Edit
+            freely, regenerate, or write from scratch. Your review, your voice.
           </p>
         </footer>
       )}
@@ -548,125 +552,244 @@ function DescribeStep({
 }
 
 function ReviewStep({
-  config, talkingPoints, loadingPoints, combinedInput, authenticity, submitting, onOpenGoogle, onPrivate, onBack, businessName,
+  config, talkingPoints, loadingPoints, combinedInput, rawHighlights, selectedTopics, authenticity, submitting, onOpenGoogle, onPrivate, onBack, businessName, language, rating,
 }: {
   config: ReturnType<typeof getReviewStepConfig>
   talkingPoints: string[]
   loadingPoints: boolean
   combinedInput: string
+  rawHighlights: string
+  selectedTopics: string[]
   authenticity: AuthenticityResult | null
   submitting: boolean
   onOpenGoogle: () => void
   onPrivate: () => void
   onBack: () => void
   businessName: string
+  language: string
+  rating: number
 }) {
   const [customerReview, setCustomerReview] = useState("")
-  const [copied, setCopied] = useState(false)
-
-  function copyReminders() {
-    const text = talkingPoints.length > 0
-      ? talkingPoints.map((p) => `• ${p}`).join("\n")
-      : combinedInput
-    navigator.clipboard.writeText(text)
-    setCopied(true)
-    toast.success("Copied! Paste into Google and rewrite in your own words.")
-    setTimeout(() => setCopied(false), 2000)
-  }
+  const [generatingReview, setGeneratingReview] = useState(false)
+  const [reviewGenerated, setReviewGenerated] = useState(false)
+  const [talkingPointsExpanded, setTalkingPointsExpanded] = useState(true)
+  const [copiedReview, setCopiedReview] = useState(false)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const hasReminders = talkingPoints.length > 0
-  const showBox = loadingPoints || hasReminders || combinedInput
+
+  async function generateReview() {
+    if (!combinedInput && !hasReminders && !rawHighlights) return
+    setGeneratingReview(true)
+    try {
+      const res = await fetch("/api/generate-review", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          highlights: rawHighlights || combinedInput,
+          selectedTopics,
+          businessName,
+          rating,
+          language,
+          talkingPoints,
+        }),
+      })
+      if (!res.ok) throw new Error("API error")
+      const data = await res.json()
+      if (data.review) {
+        setCustomerReview(data.review)
+        setReviewGenerated(true)
+      }
+    } catch {
+      // Fallback already handled by the API route
+    } finally {
+      setGeneratingReview(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!reviewGenerated && (combinedInput || hasReminders)) {
+      const timer = setTimeout(() => {
+        generateReview()
+      }, 400)
+      return () => clearTimeout(timer)
+    }
+  }, [])
+
+  function copyReviewText() {
+    if (!customerReview.trim()) return
+    navigator.clipboard.writeText(customerReview)
+    setCopiedReview(true)
+    toast.success("Review copied! Paste it on Google and make any final edits.")
+    setTimeout(() => setCopiedReview(false), 2000)
+  }
+
+  const hasContent = customerReview.trim().length > 0
 
   return (
     <div className="flex flex-1 flex-col">
-      <h2 className="text-balance text-lg font-semibold tracking-tight text-foreground text-center">
-        {config.headline}
-      </h2>
-      <p className="mt-1 text-sm text-muted-foreground text-pretty text-center">{config.subhead}</p>
+      <div className="text-center mb-3">
+        <h2 className="text-balance text-lg font-semibold tracking-tight text-foreground">
+          {config.headline}
+        </h2>
+        <p className="mt-1 text-sm text-muted-foreground text-pretty">{config.subhead}</p>
+      </div>
 
-      {showBox && (
-        <div className={cn("mt-4 rounded-xl border p-4 transition-all duration-300", loadingPoints ? "border-primary/30 bg-primary/5" : "border-border bg-muted/40")}>
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              {loadingPoints ? (
-                <Loader2 className="size-4 text-primary animate-spin" />
-              ) : (
-                <Sparkles className="size-4 text-primary" />
-              )}
-              <span className="text-sm font-medium text-foreground">
-                {loadingPoints ? "AI is generating your reminders..." : hasReminders ? "Your personalized talking points" : "Your notes"}
-              </span>
-            </div>
-            {!loadingPoints && (
+      {/* MAIN REVIEW TEXTAREA */}
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between px-0.5">
+          <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+            <Sparkles className={cn("size-3.5", reviewGenerated && "text-primary")} />
+            Your Review
+          </label>
+          <div className="flex items-center gap-2">
+            {reviewGenerated && (
+              <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 font-normal uppercase tracking-wider border">
+                <Sparkles className="size-2.5 mr-0.5" />
+                AI draft
+              </Badge>
+            )}
+            {hasContent && (
               <button
                 type="button"
-                onClick={copyReminders}
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+                onClick={copyReviewText}
+                className="inline-flex items-center gap-1 text-[10px] font-medium text-primary hover:underline"
               >
-                {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
-                {copied ? "Copied!" : "Copy"}
+                {copiedReview ? <Check className="size-3" /> : <PenLine className="size-3" />}
+                {copiedReview ? "Copied" : "Copy"}
               </button>
             )}
           </div>
+        </div>
 
-          {loadingPoints ? (
-            <div className="mt-3 space-y-2">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="h-4 bg-primary/10 rounded animate-pulse" style={{ width: `${60 + i * 15}%`, animationDelay: `${i * 200}ms` }} />
-              ))}
-              <p className="mt-2 text-xs text-muted-foreground italic">Analyzing your feedback to create helpful reminders...</p>
+        <div className="relative">
+          <Textarea
+            ref={textareaRef}
+            value={customerReview}
+            onChange={(e) => setCustomerReview(e.target.value)}
+            placeholder={
+              generatingReview
+                ? "Crafting your review draft..."
+                : hasReminders
+                  ? "Write your review here, or tap \"Generate with AI\" for a draft..."
+                  : "Start typing your review in your own words..."
+            }
+            className={cn(
+              "min-h-[140px] resize-none rounded-xl border-2 p-4 text-sm leading-relaxed transition-all duration-200",
+              "focus:bg-card focus:ring-2 focus:ring-primary/20 outline-none",
+              hasContent
+                ? "border-primary/40 bg-card shadow-sm"
+                : "border-dashed border-muted-foreground/30 bg-muted/20",
+              generatingReview && "animate-pulse"
+            )}
+            maxLength={2000}
+            disabled={generatingReview}
+          />
+          {generatingReview && (
+            <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-background/60 backdrop-blur-[1px]">
+              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <Loader2 className="size-4 animate-spin text-primary" />
+                Generating your review draft...
+              </div>
             </div>
-          ) : hasReminders ? (
-            <>
-              <ul className="mt-3 space-y-2">
+          )}
+        </div>
+
+        <div className="flex items-center justify-between px-0.5">
+          <span className="text-[10px] text-muted-foreground">
+            {hasContent
+              ? "Edit freely or regenerate for a new version"
+              : "Write your own or let AI help you start"}
+          </span>
+          <span className={cn("text-[10px] font-bold tabular-nums", customerReview.length > 1900 ? "text-destructive" : "text-muted-foreground")}>
+            {customerReview.length}/2000
+          </span>
+        </div>
+      </div>
+
+      {/* GENERATE / REGENERATE BUTTON */}
+      <div className="mt-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant={hasContent ? "outline" : "default"}
+            size="sm"
+            onClick={generateReview}
+            disabled={generatingReview || (!combinedInput && !hasReminders)}
+            className={cn(
+              "rounded-lg text-xs h-9 px-3 transition-all",
+              !hasContent && !generatingReview && "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-sm hover:shadow-md"
+            )}
+          >
+            {generatingReview ? (
+              <Loader2 className="size-3.5 animate-spin mr-1.5" />
+            ) : (
+              <RefreshCw className={cn("size-3.5 mr-1.5", !hasContent && !generatingReview && "text-primary-foreground")} />
+            )}
+            {generatingReview
+              ? "Generating..."
+              : hasContent
+                ? "Regenerate with AI"
+                : "Generate with AI"}
+          </Button>
+
+          {authenticity && authenticity.warnings.length > 0 && (
+            <div className="flex items-center gap-1.5 rounded-md bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 text-[10px] text-amber-700 dark:text-amber-300">
+              <Lightbulb className="size-3 shrink-0" />
+              <span>{authenticity.warnings[0]}</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* TALKING POINTS REFERENCE */}
+      {hasReminders && (
+        <div className="mt-4 rounded-xl border border-border/60 bg-muted/30 overflow-hidden transition-all duration-200">
+          <button
+            type="button"
+            onClick={() => setTalkingPointsExpanded(!talkingPointsExpanded)}
+            className="flex w-full items-center justify-between px-4 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <MessageSquareHeart className="size-3.5 text-primary shrink-0" />
+              <span>Your talking points</span>
+            </div>
+            <ChevronDown className={cn("size-3.5 transition-transform", talkingPointsExpanded && "rotate-180")} />
+          </button>
+          {talkingPointsExpanded && (
+            <div className="px-4 pb-3 animate-fade-in-up border-t border-border/40 pt-2.5">
+              <ul className="space-y-1.5">
                 {talkingPoints.map((point, i) => (
-                  <li key={i} className="flex gap-2 text-sm text-foreground">
-                    <Check className="mt-0.5 size-4 shrink-0 text-primary" />
+                  <li key={i} className="flex gap-2 text-xs text-foreground/80">
+                    <Check className="mt-0.5 size-3.5 shrink-0 text-primary" />
                     <span>{point}</span>
                   </li>
                 ))}
               </ul>
-              <div className="mt-3 flex items-center gap-2 rounded-lg bg-amber-500/10 border border-amber-500/20 p-2.5 text-xs text-amber-700 dark:text-amber-300">
-                <Lightbulb className="size-4 shrink-0 text-amber-500" />
-                <span>These are reminders based on what you told us. Write your review in your own words on Google — personal reviews carry more trust.</span>
-              </div>
-            </>
-          ) : combinedInput ? (
-            <>
-              <p className="mt-3 text-sm text-foreground leading-relaxed whitespace-pre-wrap break-words">{combinedInput}</p>
-              <div className="mt-3 flex items-center gap-2 rounded-lg bg-muted/50 p-2.5 text-xs text-muted-foreground">
-                <PenLine className="size-4 shrink-0" />
-                <span>Use this as a starting point. Write in your own voice on Google for maximum impact.</span>
-              </div>
-            </>
-          ) : null}
+              <p className="mt-2 text-[10px] text-muted-foreground italic leading-relaxed">
+                These are reminders from what you told us. Weave them into your review naturally.
+              </p>
+            </div>
+          )}
         </div>
       )}
 
-      {authenticity && authenticity.warnings.length > 0 && (
-        <div className="mt-3 flex items-start gap-2 rounded-lg bg-amber-500/5 border border-amber-500/20 p-3 text-xs text-amber-700 dark:text-amber-300">
-          <Lightbulb className="size-4 shrink-0 mt-0.5" />
-          <span>{authenticity.warnings[0]}</span>
+      {/* LOADING SKELETON FOR TALKING POINTS */}
+      {loadingPoints && (
+        <div className="mt-4 rounded-xl border border-primary/30 bg-primary/5 p-4">
+          <div className="flex items-center gap-2">
+            <Loader2 className="size-4 text-primary animate-spin" />
+            <span className="text-sm font-medium text-foreground">AI is preparing your talking points...</span>
+          </div>
+          <div className="mt-3 space-y-2">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-4 bg-primary/10 rounded animate-pulse" style={{ width: `${60 + i * 15}%`, animationDelay: `${i * 200}ms` }} />
+            ))}
+          </div>
         </div>
       )}
 
-      <div className="mt-4 space-y-2">
-        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-          <PenLine className="size-3.5" />
-          Write your review draft below (optional)
-        </label>
-        <Textarea
-          value={customerReview}
-          onChange={(e) => setCustomerReview(e.target.value)}
-          placeholder="Start typing your review in your own words..."
-          className="min-h-20 resize-none rounded-xl border border-border bg-card/30 p-3 text-sm focus:bg-card focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all duration-200"
-          maxLength={2000}
-        />
-        <div className="flex justify-end">
-          <span className="text-[10px] text-muted-foreground">{customerReview.length}/2000</span>
-        </div>
-      </div>
-
+      {/* ACTION BUTTONS */}
       <div className="mt-auto flex flex-col gap-3 pt-6">
         <Button
           onClick={onOpenGoogle}

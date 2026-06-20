@@ -18,6 +18,9 @@ const envSchema = z.object({
   SMS_TEMPLATE_ID: z.string().optional().default(""),
   SMS_BASE_URL: z.string().optional().default("https://login.smsforyou.biz/V2/http-api.php"),
   GOOGLE_GENERATIVE_AI_API_KEY: z.string().optional().default(""),
+  GOOGLE_OAUTH_CLIENT_ID: z.string().optional().default(""),
+  GOOGLE_OAUTH_CLIENT_SECRET: z.string().optional().default(""),
+  GOOGLE_OAUTH_REDIRECT_URI: z.string().optional().default("http://localhost:4000/api/google-reviews/oauth/callback"),
 });
 
 export type Env = z.infer<typeof envSchema>;

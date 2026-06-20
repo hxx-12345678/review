@@ -52,11 +52,12 @@ export async function POST(req: Request) {
   tone = tone ? sanitizeTextInput(tone, 50) : "warm and professional"
 
   try {
+    const ratingStr = rating !== undefined ? `${rating}/5` : "N/A"
     const { text } = await generateText({
       model: google("gemini-2.5-flash"),
       system: SYSTEM_PROMPT,
       prompt: `Business: ${businessName}
-Star rating: ${rating}/5
+Star rating: ${ratingStr}
 Desired tone: ${tone}
 Customer review: "${reviewText}"
 
