@@ -33,7 +33,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
+    <div className="flex min-h-screen min-w-0 items-center justify-center bg-muted/40 p-4 overflow-hidden">
       <Card className="w-full max-w-sm">
         <CardHeader className="items-center text-center">
           <Link href="/" className="mb-2">

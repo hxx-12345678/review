@@ -148,9 +148,10 @@ export function SettingsForm({ business }: { business: any }) {
     try {
       const formData = new FormData()
       formData.append("logo", file)
+      const token = localStorage.getItem("reviewos_token")
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api"}/upload/logo`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${document.cookie.split("token=")[1]?.split(";")[0] || ""}` },
+        headers: { Authorization: `Bearer ${token}` },
         body: formData,
       })
       if (!res.ok) {
@@ -158,8 +159,7 @@ export function SettingsForm({ business }: { business: any }) {
         throw new Error(data.error || "Upload failed")
       }
       const data = await res.json()
-      const fullUrl = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000"}${data.url}`
-      setLogoUrl(fullUrl)
+      setLogoUrl(data.url)
       toast.success("Logo uploaded and optimized")
     } catch (err: any) {
       toast.error(err.message || "Failed to upload logo")
@@ -170,7 +170,7 @@ export function SettingsForm({ business }: { business: any }) {
   }
 
   return (
-    <div className="space-y-6 p-4 sm:p-8">
+    <div className="space-y-6 overflow-hidden p-4 sm:p-8">
       <Card className="p-6">
         <h2 className="font-medium text-foreground">Business details</h2>
         <p className="text-sm text-muted-foreground">Shown to customers in your review flow.</p>

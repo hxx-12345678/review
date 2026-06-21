@@ -154,10 +154,13 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground overflow-x-clip;
   }
   html {
-    @apply font-sans;
+    @apply font-sans overflow-x-clip;
+  }
+  img, video, svg {
+    @apply max-w-full h-auto;
   }
 }
 

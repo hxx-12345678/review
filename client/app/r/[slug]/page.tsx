@@ -28,7 +28,7 @@ export default async function FeedbackPage({
   }
 
   return (
-    <main className="flex min-h-dvh flex-col bg-muted/40">
+    <main className="flex min-h-dvh min-w-0 flex-col overflow-hidden bg-muted/40">
       <FeedbackFlow business={business} slug={slug} />
     </main>
   )

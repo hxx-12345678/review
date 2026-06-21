@@ -51,9 +51,9 @@ const PLANS = [
 
 export default function PricingPage() {
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen min-w-0 flex-col">
       <MarketingHeader />
-      <main className="flex-1">
+      <main className="flex-1 min-w-0 overflow-hidden">
         <section className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
           <div className="mx-auto max-w-2xl text-center">
             <h1 className="text-balance text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">

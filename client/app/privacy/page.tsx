@@ -3,9 +3,9 @@ import { MarketingFooter } from "@/components/marketing/marketing-footer";
 
 export default function PrivacyPage() {
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen min-w-0 flex-col">
       <MarketingHeader />
-      <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-10 sm:px-6 sm:py-16">
+      <main className="mx-auto w-full max-w-3xl flex-1 min-w-0 overflow-hidden px-4 py-10 sm:px-6 sm:py-16">
         <h1 className="mb-8 text-3xl font-bold">Privacy Policy</h1>
         <p className="mb-4 text-sm text-muted-foreground">Last updated: June 12, 2026</p>
 

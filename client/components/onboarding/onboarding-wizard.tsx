@@ -85,7 +85,7 @@ export function OnboardingWizard() {
   }
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-xl flex-col px-4 py-8 sm:px-6">
+    <div className="mx-auto flex min-h-screen min-w-0 w-full max-w-xl flex-col overflow-hidden px-4 py-8 sm:px-6">
       <div className="flex items-center justify-between">
         <Link href="/" aria-label="ReviewOS home">
           <Logo />

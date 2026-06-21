@@ -7,9 +7,9 @@ import { CtaSection } from "@/components/marketing/cta-section"
 
 export default function Page() {
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen min-w-0 flex-col">
       <MarketingHeader />
-      <main className="flex-1">
+      <main className="flex-1 min-w-0 overflow-hidden">
         <Hero />
         <HowItWorks />
         <ComplianceSection />
