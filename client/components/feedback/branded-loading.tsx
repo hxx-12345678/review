@@ -35,8 +35,9 @@ export function BrandedLoading({
   const [contentReady, setContentReady] = useState(false)
   const [imageFailed, setImageFailed] = useState(false)
 
-  const brandColor = business.primaryColor || "#1c3a35"
-  const textColor = useMemo(() => getContrastTextColor(brandColor), [brandColor])
+  const bgColor = business.backgroundColor || "#ffffff"
+  const accentColor = business.primaryColor || "#1c3a35"
+  const textColor = useMemo(() => getContrastTextColor(bgColor), [bgColor])
   const isDarkBg = textColor === "#ffffff"
 
   const showLogo = business.logoUrl && !imageFailed
@@ -91,7 +92,7 @@ export function BrandedLoading({
     <div
       className="fixed inset-0 z-50 flex flex-col items-center justify-center"
       style={{
-        backgroundColor: brandColor,
+        backgroundColor: bgColor,
         // Use dvh for mobile viewport that adapts to Safari toolbar
         height: "100dvh",
         opacity: isExiting ? 0 : 1,
@@ -125,8 +126,8 @@ export function BrandedLoading({
               style={{
                 width: "min(30vw, 150px)",
                 height: "min(30vw, 150px)",
-                backgroundColor: isDarkBg ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.06)",
-                border: `2px solid ${isDarkBg ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.1)"}`,
+                backgroundColor: isDarkBg ? "rgba(255,255,255,0.12)" : `${accentColor}15`,
+                border: `2px solid ${isDarkBg ? "rgba(255,255,255,0.2)" : `${accentColor}30`}`,
                 opacity: isEntering ? 0 : 1,
                 transform: isEntering ? "scale(0.96)" : "scale(1)",
                 transition: "opacity 200ms cubic-bezier(0.0, 0, 0.2, 1), transform 200ms cubic-bezier(0.0, 0, 0.2, 1)",
@@ -175,7 +176,7 @@ export function BrandedLoading({
             style={{
               width: "7px",
               height: "7px",
-              backgroundColor: isDarkBg ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.25)",
+              backgroundColor: isDarkBg ? "rgba(255,255,255,0.45)" : `${accentColor}70`,
               animation: `loadingDot 1.2s ease-in-out ${i * 200}ms infinite`,
             }}
           />
@@ -191,7 +192,7 @@ export function BrandedLoading({
             bottom: "max(1.5rem, env(safe-area-inset-bottom, 1.5rem))",
             transform: "translateX(-50%)",
             borderRadius: "9999px",
-            backgroundColor: isDarkBg ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)",
+            backgroundColor: isDarkBg ? "rgba(255,255,255,0.08)" : `${accentColor}10`,
           }}
         >
           <span

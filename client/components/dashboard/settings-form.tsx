@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Save, ShieldCheck, Lock, MessageSquare, Mail, Palette, Eye, AlertTriangle, CheckCircle2 } from "lucide-react"
+import { Save, ShieldCheck, Lock, MessageSquare, Mail, Palette, Eye, AlertTriangle, CheckCircle2, Upload, X, Loader2 } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -110,6 +110,7 @@ export function SettingsForm({ business }: { business: any }) {
   const [splashTagline, setSplashTagline] = useState(business?.splashTagline || "")
   const [showPoweredBy, setShowPoweredBy] = useState(business?.showPoweredBy !== false)
   const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState(false)
 
   async function save() {
     if (!business?.id) return
@@ -137,6 +138,34 @@ export function SettingsForm({ business }: { business: any }) {
       toast.error(err.message || "Failed to save settings")
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append("logo", file)
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api"}/upload/logo`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${document.cookie.split("token=")[1]?.split(";")[0] || ""}` },
+        body: formData,
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || "Upload failed")
+      }
+      const data = await res.json()
+      const fullUrl = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000"}${data.url}`
+      setLogoUrl(fullUrl)
+      toast.success("Logo uploaded and optimized")
+    } catch (err: any) {
+      toast.error(err.message || "Failed to upload logo")
+    } finally {
+      setUploading(false)
+      e.target.value = ""
     }
   }
 
@@ -185,13 +214,31 @@ export function SettingsForm({ business }: { business: any }) {
         </p>
         <div className="mt-5 grid gap-5 sm:grid-cols-2">
           <div className="space-y-2 sm:col-span-2">
-            <Label htmlFor="logo-url">Logo URL</Label>
-            <Input
-              id="logo-url"
-              value={logoUrl}
-              onChange={(e) => setLogoUrl(e.target.value)}
-              placeholder="https://your-brand.com/logo.png"
-            />
+            <Label htmlFor="logo-url">Logo</Label>
+            <div className="flex gap-2">
+              <Input
+                id="logo-url"
+                value={logoUrl}
+                onChange={(e) => setLogoUrl(e.target.value)}
+                placeholder="https://your-brand.com/logo.png"
+                className="flex-1"
+              />
+              <label className="flex items-center gap-1.5 rounded-lg border border-border bg-muted/50 px-3 text-sm text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer transition-colors shrink-0">
+                {uploading ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Upload className="size-4" />
+                )}
+                <span className="hidden sm:inline">{uploading ? "Uploading..." : "Upload"}</span>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/svg+xml"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                  disabled={uploading}
+                />
+              </label>
+            </div>
             {logoUrl && (() => {
               const status = getImageUrlStatus(logoUrl)
               const extracted = extractImageUrl(logoUrl)
@@ -222,8 +269,7 @@ export function SettingsForm({ business }: { business: any }) {
               )
             })()}
             <p className="text-[11px] text-muted-foreground">
-              Paste a direct link to your logo image. Works with PNG, JPG, SVG, WebP.
-              Google Image search links are auto-extracted.
+              Upload an image or paste a direct link. JPG, PNG, WebP, SVG. Images are optimized to WebP and resized to 400px.
             </p>
           </div>
           <div className="space-y-2">
@@ -290,6 +336,7 @@ export function SettingsForm({ business }: { business: any }) {
           </div>
           <PreviewBox
             primaryColor={primaryColor}
+            bgColor={bgColor}
             logoUrl={extractImageUrl(logoUrl)}
             name={name}
             splashTagline={splashTagline}
@@ -407,19 +454,21 @@ function LockedToggle({ title, body }: { title: string; body: string }) {
 
 function PreviewBox({
   primaryColor,
+  bgColor,
   logoUrl,
   name,
   splashTagline,
   showPoweredBy,
 }: {
   primaryColor: string
+  bgColor: string
   logoUrl: string
   name: string
   splashTagline: string
   showPoweredBy: boolean
 }) {
-  // Contrast-aware text color (same logic as BrandedLoading)
-  const h = primaryColor.replace("#", "")
+  // Contrast-aware text color based on background
+  const h = bgColor.replace("#", "")
   const r = parseInt(h.substring(0, 2), 16)
   const g = parseInt(h.substring(2, 4), 16)
   const b = parseInt(h.substring(4, 6), 16)
@@ -430,7 +479,7 @@ function PreviewBox({
   return (
     <div
       className="flex flex-col items-center justify-center py-10 px-4"
-      style={{ backgroundColor: primaryColor }}
+      style={{ backgroundColor: bgColor }}
     >
       {logoUrl ? (
         <img
@@ -443,8 +492,8 @@ function PreviewBox({
         <div
           className="flex size-16 items-center justify-center rounded-full"
           style={{
-            backgroundColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.06)",
-            border: `2px solid ${isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.1)"}`,
+            backgroundColor: isDark ? "rgba(255,255,255,0.12)" : `${primaryColor}15`,
+            border: `2px solid ${isDark ? "rgba(255,255,255,0.2)" : `${primaryColor}30`}`,
           }}
         >
           <span className="text-xl font-bold" style={{ color: textColor }}>

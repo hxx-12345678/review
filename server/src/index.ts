@@ -1,4 +1,5 @@
 import express from "express";
+import path from "path";
 import cors from "cors";
 import helmet from "helmet";
 import { loadEnv } from "./config/env";
@@ -14,6 +15,7 @@ import aiRoutes from "./routes/ai";
 import activityRoutes from "./routes/activity";
 import communicationRoutes from "./routes/communications";
 import googleReviewsRoutes from "./routes/google-reviews";
+import uploadRoutes from "./routes/upload";
 
 const env = loadEnv();
 
@@ -47,6 +49,13 @@ app.use("/api/ai", aiRoutes);
 app.use("/api/activity", activityRoutes);
 app.use("/api/communications", communicationRoutes);
 app.use("/api/google-reviews", googleReviewsRoutes);
+app.use("/api/upload", uploadRoutes);
+
+// Serve uploaded files statically
+app.use("/api/uploads", express.static(path.join(process.cwd(), "uploads"), {
+  maxAge: "1y",
+  immutable: true,
+}));
 
 if (env.SENTRY_DSN) {
   try {

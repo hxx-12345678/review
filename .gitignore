@@ -9,3 +9,5 @@ node_modules/
 dist/
 build/
 *.tsbuildinfo
+server/uploads/*
+!server/uploads/.gitkeep
