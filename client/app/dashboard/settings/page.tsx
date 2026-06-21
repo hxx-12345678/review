@@ -25,7 +25,7 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="p-8">
+      <div className="p-4 sm:p-6 lg:p-8">
         <div className="h-8 w-48 animate-pulse rounded bg-muted" />
         <div className="mt-6 h-48 animate-pulse rounded-lg bg-muted" />
       </div>

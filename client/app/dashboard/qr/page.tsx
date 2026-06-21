@@ -46,7 +46,7 @@ export default function QrPage() {
 
   if (loading) {
     return (
-      <div className="p-8">
+      <div className="p-4 sm:p-6 lg:p-8">
         <div className="h-8 w-48 animate-pulse rounded bg-muted" />
         <div className="mt-6 h-64 animate-pulse rounded-lg bg-muted" />
       </div>
@@ -60,7 +60,7 @@ export default function QrPage() {
           title="QR & links"
           description="Share your QR code and link to start collecting reviews."
         />
-        <div className="flex flex-col items-center justify-center gap-4 p-12 text-center">
+        <div className="flex flex-col items-center justify-center gap-4 px-4 py-12 text-center sm:px-12">
           <div className="flex size-16 items-center justify-center rounded-full bg-muted">
             <AlertCircle className="size-8 text-muted-foreground" />
           </div>
@@ -83,10 +83,10 @@ export default function QrPage() {
         description="Share your QR code and link to start collecting reviews."
       >
         {businesses.length > 1 && (
-          <div className="flex items-center gap-2">
-            <Building2 className="size-4 text-muted-foreground" />
+          <div className="flex w-full items-center gap-2 sm:w-auto">
+            <Building2 className="size-4 shrink-0 text-muted-foreground" />
             <Select value={selectedBusinessId} onValueChange={(v) => v && handleBusinessChange(v)}>
-              <SelectTrigger className="w-fit min-w-[180px]">
+              <SelectTrigger className="w-full min-w-0 sm:w-fit sm:min-w-[180px]">
                 <SelectValue placeholder="Select business" />
               </SelectTrigger>
               <SelectContent>

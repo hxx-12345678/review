@@ -20,12 +20,12 @@ export function TrendChart({ data }: { data?: { day: string; requests: number; r
 
   return (
     <Card className="p-5">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="font-medium text-foreground">Review activity</h2>
           <p className="text-sm text-muted-foreground">Last 30 days</p>
         </div>
-        <div className="flex items-center gap-4 text-xs">
+        <div className="flex items-center gap-3 text-xs sm:gap-4">
           <Legend color="var(--chart-2)" label="Requests sent" />
           <Legend color="var(--chart-1)" label="Reviews posted" />
         </div>

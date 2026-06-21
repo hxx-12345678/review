@@ -47,9 +47,9 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="p-8">
+      <div className="p-4 sm:p-6 lg:p-8">
         <div className="h-8 w-48 animate-pulse rounded bg-muted" />
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-6 grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
           {[1, 2, 3, 4].map((i) => (
             <div key={i} className="h-24 animate-pulse rounded-lg bg-muted" />
           ))}
@@ -70,11 +70,12 @@ export default function DashboardPage() {
       >
         <Button render={<Link href="/dashboard/qr" />} nativeButton={false}>
           <QrCode className="size-4" />
-          Get QR code
+          <span className="hidden sm:inline">Get QR code</span>
+          <span className="sm:hidden">QR code</span>
         </Button>
       </PageHeader>
 
-      <div className="space-y-6 p-4 sm:p-8">
+      <div className="space-y-6 p-4 sm:p-6 lg:p-8">
         <StatCards
           rating={avgRating}
           reviewCount={stats?.totalFeedback || 0}

@@ -31,7 +31,7 @@ export default function InboxPage() {
 
   if (loading) {
     return (
-      <div className="p-8">
+      <div className="p-4 sm:p-6 lg:p-8">
         <div className="h-8 w-48 animate-pulse rounded bg-muted" />
         <div className="mt-6 space-y-4">
           {[1, 2, 3].map((i) => (

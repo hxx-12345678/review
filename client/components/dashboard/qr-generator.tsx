@@ -140,7 +140,7 @@ export function QrGenerator({ slug, businessName, businessId }: { slug: string; 
   return (
     <div className="grid gap-6 p-4 sm:p-8 lg:grid-cols-2">
       {/* QR & NFC card */}
-      <Card className="p-6 flex flex-col items-center text-center justify-between">
+      <Card className="flex flex-col items-center justify-between p-5 text-center sm:p-6">
         <div>
           <h2 className="font-semibold text-lg text-foreground">In-Store QR & NFC</h2>
           <p className="text-sm text-muted-foreground">For table stands, checkouts, or programmable NFC tags</p>
@@ -148,22 +148,23 @@ export function QrGenerator({ slug, businessName, businessId }: { slug: string; 
         <div className="my-5 rounded-2xl border border-border bg-white p-4">
           <canvas ref={canvasRef} aria-label={`QR code for ${businessName} reviews`} />
         </div>
-        <div className="flex flex-col w-full gap-2 mt-auto">
+        <div className="mt-5 flex w-full flex-col gap-2 sm:mt-auto">
           <div className="flex gap-2">
             <Button className="flex-1" onClick={download}>
               <Download className="size-4" />
-              Download PNG
+              <span className="hidden sm:inline">Download PNG</span>
+              <span className="sm:hidden">Download</span>
             </Button>
             <Button variant="outline" className="flex-1" onClick={copyLink}>
               <Copy className="size-4" />
               Copy link
             </Button>
           </div>
-          <Button variant="secondary" onClick={handleGenerate} disabled={generating} className="w-full flex items-center justify-center gap-2">
+          <Button variant="secondary" onClick={handleGenerate} disabled={generating} className="flex w-full items-center justify-center gap-2">
             {generating ? <Loader2 className="size-4 animate-spin" /> : <QrIcon className="size-4" />}
             {generating ? "Saving…" : "Save QR code to account"}
           </Button>
-          <Button variant="ghost" className="w-full flex items-center justify-center gap-2" onClick={programNfcInstructions}>
+          <Button variant="ghost" className="flex w-full items-center justify-center gap-2" onClick={programNfcInstructions}>
             <Nfc className="size-4 text-emerald-600" />
             NFC Write Instructions
           </Button>

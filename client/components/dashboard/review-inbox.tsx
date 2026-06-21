@@ -100,9 +100,9 @@ export function ReviewInbox({ feedback, businessName, businessId }: { feedback: 
           {needsReplyCount} feedback{needsReplyCount === 1 ? "" : "s"} awaiting a reply
         </div>
         <div className="flex items-center gap-2">
-          <Filter className="size-4 text-muted-foreground" />
+          <Filter className="size-4 shrink-0 text-muted-foreground" />
           <Select value={filter} onValueChange={(v) => setFilter(v as FilterKey)}>
-            <SelectTrigger className="w-44">
+            <SelectTrigger className="w-full sm:w-44">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -121,21 +121,22 @@ export function ReviewInbox({ feedback, businessName, businessId }: { feedback: 
           const draft = drafts[item.id] ?? item.generatedReply?.content ?? ""
           const replyStatus = item.generatedReply?.status || "NEEDS_REPLY"
           return (
-            <Card key={item.id} className="gap-0 p-5">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-start gap-3">
-                  <Avatar className="size-9">
+            <Card key={item.id} className="gap-0 p-4 sm:p-5">
+              <div className="flex items-start justify-between gap-2 sm:gap-3">
+                <div className="flex items-start gap-2.5 sm:gap-3 min-w-0">
+                  <Avatar className="size-9 shrink-0">
                     <AvatarFallback className="bg-secondary text-secondary-foreground">
                       {getInitial(item.customerName || item.id)}
                     </AvatarFallback>
                   </Avatar>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-foreground">{item.customerName || "Anonymous"}</span>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 sm:gap-2">
+                      <span className="truncate font-medium text-foreground">{item.customerName || "Anonymous"}</span>
                       {item.reviewDraft && (
-                        <Badge variant="secondary" className="gap-1 text-xs">
+                        <Badge variant="secondary" className="shrink-0 gap-1 text-xs">
                           <Sparkles className="size-3" />
-                          Draft ready
+                          <span className="hidden sm:inline">Draft ready</span>
+                          <span className="sm:hidden">Draft</span>
                         </Badge>
                       )}
                     </div>
@@ -172,11 +173,11 @@ export function ReviewInbox({ feedback, businessName, businessId }: { feedback: 
                 </div>
               ) : (
                 <div className="mt-4 space-y-3">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <span className="text-sm font-medium text-foreground">Your reply</span>
                     <div className="flex items-center gap-2">
                       <Select value={replyTones[item.id] || "professional"} onValueChange={(v) => v && setReplyTones((prev) => ({ ...prev, [item.id]: v }))}>
-                        <SelectTrigger className="h-8 w-36 text-xs">
+                        <SelectTrigger className="h-8 w-full sm:w-36 text-xs">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -190,13 +191,15 @@ export function ReviewInbox({ feedback, businessName, businessId }: { feedback: 
                         variant="ghost"
                         onClick={() => generateReply(item)}
                         disabled={loadingId === item.id}
+                        className="shrink-0"
                       >
                         {loadingId === item.id ? (
                           <Loader2 className="size-4 animate-spin" />
                         ) : (
                           <Sparkles className="size-4" />
                         )}
-                        {draft ? "Regenerate" : "Generate"}
+                        <span className="hidden sm:inline">{draft ? "Regenerate" : "Generate"}</span>
+                        <span className="sm:hidden">{draft ? "Re-gen" : "Generate"}</span>
                       </Button>
                     </div>
                   </div>
@@ -209,7 +212,7 @@ export function ReviewInbox({ feedback, businessName, businessId }: { feedback: 
                   <p className="text-xs text-muted-foreground">
                     AI drafts a starting point — edit it to sound like you before posting.
                   </p>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <Button size="sm" onClick={() => postReply(item)} disabled={!draft.trim()}>
                       <Check className="size-4" />
                       Save reply
