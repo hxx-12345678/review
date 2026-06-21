@@ -40,6 +40,29 @@ function generateSlug(name: string): string {
     .slice(0, 100);
 }
 
+/**
+ * Extracts a direct image URL from wrapper URLs (Google imgres, etc.)
+ */
+function extractImageUrl(url: string): string | null {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    // Google imgres: https://www.google.com/imgres?imgurl=ENCODED_URL
+    if (parsed.hostname.includes("google.") && parsed.pathname.includes("/imgres")) {
+      const imgurl = parsed.searchParams.get("imgurl");
+      if (imgurl) return decodeURIComponent(imgurl);
+    }
+    // Google image search: tbm=isch
+    if (parsed.hostname.includes("google.") && parsed.searchParams.get("tbm") === "isch") {
+      const imgurl = parsed.searchParams.get("imgurl");
+      if (imgurl) return decodeURIComponent(imgurl);
+    }
+    return url;
+  } catch {
+    return url;
+  }
+}
+
 router.get("/", authRequired, async (req: AuthRequest, res: Response) => {
   try {
     const businesses = await prisma.business.findMany({
@@ -132,7 +155,12 @@ router.patch("/:id", authRequired, async (req: AuthRequest, res: Response) => {
     // Convert empty strings to null for clean DB values
     const cleaned: Record<string, any> = {};
     for (const [key, value] of Object.entries(data)) {
-      cleaned[key] = value === "" ? null : value;
+      let v = value === "" ? null : value;
+      // Extract direct image URL from wrapper URLs (Google imgres, etc.)
+      if (key === "logoUrl" && typeof v === "string") {
+        v = extractImageUrl(v);
+      }
+      cleaned[key] = v;
     }
 
     const business = await prisma.business.findFirst({

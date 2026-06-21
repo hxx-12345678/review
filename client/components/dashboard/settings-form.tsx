@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Save, ShieldCheck, Lock, MessageSquare, Mail, Palette, Eye } from "lucide-react"
+import { Save, ShieldCheck, Lock, MessageSquare, Mail, Palette, Eye, AlertTriangle, CheckCircle2 } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,6 +10,90 @@ import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
 import { toast } from "sonner"
 import { api } from "@/lib/api"
+
+/**
+ * Extracts a direct image URL from various URL formats.
+ * Handles Google imgres, Pinterest, Bing, and other search result pages
+ * that wrap the actual image URL in query parameters.
+ */
+function extractImageUrl(url: string): string {
+  const trimmed = url.trim()
+  if (!trimmed) return ""
+
+  try {
+    const parsed = new URL(trimmed)
+
+    // Google imgres format: https://www.google.com/imgres?imgurl=ENCODED_URL
+    if (parsed.hostname.includes("google.") && parsed.pathname.includes("/imgres")) {
+      const imgurl = parsed.searchParams.get("imgurl")
+      if (imgurl) return decodeURIComponent(imgurl)
+    }
+
+    // Google search with tbm=isch (image search) — extract from imgurl param
+    if (parsed.hostname.includes("google.") && parsed.searchParams.get("tbm") === "isch") {
+      const imgurl = parsed.searchParams.get("imgurl")
+      if (imgurl) return decodeURIComponent(imgurl)
+    }
+
+    // Pinterest pin format: extract from pin image URL
+    if (parsed.hostname.includes("pinterest.") && parsed.pathname.includes("/pin/")) {
+      // Pinterest pins have the image in the page, return original for now
+      return trimmed
+    }
+
+    // If it already looks like a direct image URL, return as-is
+    if (/\.(png|jpe?g|gif|webp|svg|bmp|ico|tiff?)(\?.*)?$/i.test(parsed.pathname)) {
+      return trimmed
+    }
+
+    // Common image CDNs that use non-extension paths
+    if (
+      parsed.hostname.includes("images.unsplash.com") ||
+      parsed.hostname.includes("cdn.") ||
+      parsed.hostname.includes("storage.googleapis.com") ||
+      parsed.hostname.includes("raw.githubusercontent.com")
+    ) {
+      return trimmed
+    }
+
+    // Return as-is — let the browser attempt to load it
+    return trimmed
+  } catch {
+    // Not a valid URL, return as-is
+    return trimmed
+  }
+}
+
+/**
+ * Validates if a URL looks like it could be a direct image link
+ * (as opposed to a search results page or HTML page).
+ */
+function getImageUrlStatus(url: string): { valid: boolean; message: string; extracted?: string } {
+  const trimmed = url.trim()
+  if (!trimmed) return { valid: true, message: "" }
+
+  const extracted = extractImageUrl(trimmed)
+  const isDirectImage = /\.(png|jpe?g|gif|webp|svg|bmp|ico|tiff?)(\?.*)?$/i.test(extracted)
+
+  // Check if it was extracted from a wrapper URL
+  if (extracted !== trimmed) {
+    return {
+      valid: true,
+      message: `Auto-extracted image URL from search page`,
+      extracted,
+    }
+  }
+
+  if (isDirectImage) {
+    return { valid: true, message: "Direct image URL detected" }
+  }
+
+  // Could be a CDN without extension — allow it but warn
+  return {
+    valid: true,
+    message: "Make sure this is a direct link to an image file (PNG, JPG, SVG, etc.), not a web page",
+  }
+}
 
 export function SettingsForm({ business }: { business: any }) {
   const [name, setName] = useState(business?.name || "")
@@ -31,6 +115,8 @@ export function SettingsForm({ business }: { business: any }) {
     if (!business?.id) return
     setSaving(true)
     try {
+      // Extract actual image URL from search page URLs
+      const finalLogoUrl = extractImageUrl(logoUrl)
       await api.businesses.update(business.id, {
         name,
         googleReviewUrl: googleUrl || undefined,
@@ -40,7 +126,7 @@ export function SettingsForm({ business }: { business: any }) {
         emailTemplate: emailTemplate || undefined,
         smsTemplate: smsTemplate || undefined,
         // Branding
-        logoUrl: logoUrl || undefined,
+        logoUrl: finalLogoUrl || undefined,
         primaryColor: primaryColor || undefined,
         backgroundColor: bgColor || undefined,
         splashTagline: splashTagline || undefined,
@@ -106,7 +192,39 @@ export function SettingsForm({ business }: { business: any }) {
               onChange={(e) => setLogoUrl(e.target.value)}
               placeholder="https://your-brand.com/logo.png"
             />
-            <p className="text-[11px] text-muted-foreground">Paste a direct link to your logo (PNG, SVG, or JPG). Best size: 400x400px or larger.</p>
+            {logoUrl && (() => {
+              const status = getImageUrlStatus(logoUrl)
+              const extracted = extractImageUrl(logoUrl)
+              const wasExtracted = extracted !== logoUrl.trim()
+              return (
+                <div className="flex items-start gap-1.5 text-[11px]">
+                  {wasExtracted ? (
+                    <>
+                      <CheckCircle2 className="size-3.5 mt-0.5 shrink-0 text-emerald-500" />
+                      <span className="text-emerald-600 dark:text-emerald-400">
+                        Extracted direct image: <span className="font-mono text-[10px] break-all">{extracted}</span>
+                      </span>
+                    </>
+                  ) : /\.(png|jpe?g|gif|webp|svg|bmp|ico|tiff?)(\?.*)?$/i.test(extracted) ? (
+                    <>
+                      <CheckCircle2 className="size-3.5 mt-0.5 shrink-0 text-emerald-500" />
+                      <span className="text-muted-foreground">Direct image URL — looks good</span>
+                    </>
+                  ) : (
+                    <>
+                      <AlertTriangle className="size-3.5 mt-0.5 shrink-0 text-amber-500" />
+                      <span className="text-amber-600 dark:text-amber-400">
+                        Paste a direct image link (ends in .png, .jpg, .svg, etc.), not a search results page
+                      </span>
+                    </>
+                  )}
+                </div>
+              )
+            })()}
+            <p className="text-[11px] text-muted-foreground">
+              Paste a direct link to your logo image. Works with PNG, JPG, SVG, WebP.
+              Google Image search links are auto-extracted.
+            </p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="primary-color">Primary color</Label>
@@ -172,7 +290,7 @@ export function SettingsForm({ business }: { business: any }) {
           </div>
           <PreviewBox
             primaryColor={primaryColor}
-            logoUrl={logoUrl}
+            logoUrl={extractImageUrl(logoUrl)}
             name={name}
             splashTagline={splashTagline}
             showPoweredBy={showPoweredBy}
