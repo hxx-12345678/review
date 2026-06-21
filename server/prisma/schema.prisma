@@ -67,6 +67,14 @@ model Business {
   promptTopics    String[]
   emailTemplate   String?
   smsTemplate     String?
+
+  // Branding
+  logoUrl         String?
+  primaryColor    String?    @default("#1c3a35")
+  backgroundColor String?    @default("#ffffff")
+  splashTagline   String?
+  showPoweredBy   Boolean?   @default(true)
+
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

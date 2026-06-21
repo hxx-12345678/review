@@ -31,6 +31,12 @@ export interface Business {
   slug: string
   // Custom prompt topics the AI uses to jog the customer's memory.
   promptTopics: string[]
+  // Branding
+  logoUrl?: string
+  primaryColor?: string
+  backgroundColor?: string
+  splashTagline?: string
+  showPoweredBy?: boolean
   createdAt: string
   ownerEmail: string
 }

@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { StarRatingInput } from "@/components/star-rating"
 import { Logo } from "@/components/logo"
+import { BrandedLoading } from "@/components/feedback/branded-loading"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { api } from "@/lib/api"
@@ -33,6 +34,19 @@ export function FeedbackFlow({ business, slug }: { business: any; slug?: string 
   const [submitting, setSubmitting] = useState(false)
 
   const config = getReviewStepConfig(rating || 5)
+
+  // Inject brand colors as CSS custom properties for the entire review flow
+  useEffect(() => {
+    const root = document.documentElement
+    if (business.primaryColor) root.style.setProperty("--brand-primary", business.primaryColor)
+    if (business.backgroundColor) root.style.setProperty("--brand-bg", business.backgroundColor)
+    root.style.setProperty("--brand-name", `"${business.name}"`)
+    return () => {
+      root.style.removeProperty("--brand-primary")
+      root.style.removeProperty("--brand-bg")
+      root.style.removeProperty("--brand-name")
+    }
+  }, [business])
 
   function handleRate(value: number) {
     setRating(value)
@@ -133,14 +147,8 @@ export function FeedbackFlow({ business, slug }: { business: any; slug?: string 
     }
   }
 
-  useEffect(() => {
-    if (step === "loading") {
-      const timer = setTimeout(() => {
-        setStep("rate")
-      }, 2200)
-      return () => clearTimeout(timer)
-    }
-  }, [step])
+  // Brand colors are injected via useEffect above
+  // Loading is handled by BrandedLoading component with onReady callback
 
   const STEP_ORDER: Step[] = ["rate", "describe", "review", "private"]
   const stepIndex = STEP_ORDER.indexOf(step)
@@ -160,8 +168,11 @@ export function FeedbackFlow({ business, slug }: { business: any; slug?: string 
               </div>
               <div className="h-1 w-full rounded-full bg-border overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-primary transition-all duration-500 ease-out"
-                  style={{ width: `${progressPct}%` }}
+                  className="h-full rounded-full transition-all duration-500 ease-out"
+                  style={{
+                    width: `${progressPct}%`,
+                    backgroundColor: business.primaryColor || undefined,
+                  }}
                 />
               </div>
             </div>
@@ -170,7 +181,13 @@ export function FeedbackFlow({ business, slug }: { business: any; slug?: string 
       )}
 
       <Card className="flex flex-1 flex-col p-6 overflow-hidden min-h-[480px] justify-between shadow-xl border border-border bg-card">
-        {step === "loading" && <LoadingStep business={business} />}
+        {step === "loading" && (
+          <BrandedLoading
+            business={business}
+            onReady={() => setStep("rate")}
+            minDuration={1500}
+          />
+        )}
         {step === "welcome" && <WelcomeStep business={business} onStart={() => setStep("rate")} />}
         {step === "rate" && <RateStep business={business} onRate={handleRate} />}
         {step === "describe" && (
@@ -230,69 +247,16 @@ export function FeedbackFlow({ business, slug }: { business: any; slug?: string 
       {step !== "welcome" && step !== "loading" && (
         <footer className="mt-6 text-center text-xs text-muted-foreground">
           <p className="text-pretty">
-            A helpful draft based on what you shared — <span className="font-semibold text-foreground/70">you're in control</span>. Edit
+            A helpful draft based on what you shared — <span className="font-semibold text-foreground/70">you&apos;re in control</span>. Edit
             freely, regenerate, or write from scratch. Your review, your voice.
           </p>
+          {business.showPoweredBy !== false && (
+            <p className="mt-2 text-[10px] text-muted-foreground/40 select-none">
+              powered by <span className="font-extrabold text-foreground/50 tracking-tight">ReviewOS</span>
+            </p>
+          )}
         </footer>
       )}
-    </div>
-  )
-}
-
-function LoadingStep({ business }: { business: any }) {
-  return (
-    <div className="flex flex-1 flex-col items-center justify-between py-6 text-center animate-fade-in overflow-hidden">
-      <div className="flex-1" />
-      <div className="flex flex-col items-center space-y-8">
-        <div className="relative flex size-28 items-center justify-center">
-          <div className="absolute inset-0 rounded-full bg-primary/5 animate-ping opacity-20" style={{ animationDuration: "2s" }} />
-          <div className="absolute -inset-3 rounded-full border border-primary/20 animate-spin opacity-60" style={{ animationDuration: "3s" }} />
-          <div className="absolute -inset-1 rounded-full border-2 border-transparent border-t-primary animate-spin" style={{ animationDuration: "0.9s" }} />
-          <div className="relative flex size-28 items-center justify-center rounded-full bg-gradient-to-br from-primary/15 to-primary/5 border border-primary/20">
-            <Logo className="size-14 text-primary" />
-          </div>
-        </div>
-        <div className="space-y-3 animate-fade-in-up" style={{ animationDelay: "300ms" }}>
-          <div className="space-y-1">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Welcome to</p>
-            <h1 className="text-2xl font-extrabold tracking-tight text-foreground leading-tight">{business.name}</h1>
-          </div>
-          <p className="text-xs text-muted-foreground/70 font-medium tracking-wide">Setting up your review experience...</p>
-        </div>
-      </div>
-      <div className="flex-1 flex flex-col justify-end w-full">
-        <div className="flex items-center justify-center gap-1.5 mb-6">
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="size-1.5 rounded-full bg-primary animate-pulse" style={{ animationDelay: `${i * 200}ms`, animationDuration: "1.2s" }} />
-          ))}
-        </div>
-        <div className="w-full border-t border-border/50 pt-4 animate-fade-in-up" style={{ animationDelay: "600ms" }}>
-          <div className="grid grid-cols-3 gap-3 px-1 text-center">
-            <div className="flex flex-col items-center space-y-1.5">
-              <div className="flex size-9 items-center justify-center rounded-full bg-emerald-500/10 ring-1 ring-emerald-500/20">
-                <ShieldCheck className="size-4 text-emerald-500" />
-              </div>
-              <span className="text-[9px] font-bold text-foreground/70 leading-tight uppercase tracking-wider">FTC Safe</span>
-            </div>
-            <div className="flex flex-col items-center space-y-1.5">
-              <div className="flex size-9 items-center justify-center rounded-full bg-blue-500/10 ring-1 ring-blue-500/20">
-                <Lock className="size-4 text-blue-500" />
-              </div>
-              <span className="text-[9px] font-bold text-foreground/70 leading-tight uppercase tracking-wider">Encrypted</span>
-            </div>
-            <div className="flex flex-col items-center space-y-1.5">
-              <div className="flex size-9 items-center justify-center rounded-full bg-amber-500/10 ring-1 ring-amber-500/20">
-                <Award className="size-4 text-amber-500" />
-              </div>
-              <span className="text-[9px] font-bold text-foreground/70 leading-tight uppercase tracking-wider">Verified</span>
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center justify-center gap-1 mt-4 text-[10px] text-muted-foreground/40 select-none">
-          <span>powered by</span>
-          <span className="font-extrabold text-foreground/60 tracking-tight">ReviewOS</span>
-        </div>
-      </div>
     </div>
   )
 }

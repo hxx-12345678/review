@@ -24,6 +24,12 @@ const updateBusinessSchema = z.object({
   promptTopics: z.array(z.string()).optional(),
   emailTemplate: z.string().max(500).optional().or(z.literal("")),
   smsTemplate: z.string().max(300).optional().or(z.literal("")),
+  // Branding
+  logoUrl: z.string().url().optional().or(z.literal("")),
+  primaryColor: z.string().max(7).optional().or(z.literal("")),
+  backgroundColor: z.string().max(7).optional().or(z.literal("")),
+  splashTagline: z.string().max(200).optional().or(z.literal("")),
+  showPoweredBy: z.boolean().optional(),
 });
 
 function generateSlug(name: string): string {
@@ -123,6 +129,12 @@ router.patch("/:id", authRequired, async (req: AuthRequest, res: Response) => {
     const businessId = req.params.id as string;
     const data = updateBusinessSchema.parse(req.body);
 
+    // Convert empty strings to null for clean DB values
+    const cleaned: Record<string, any> = {};
+    for (const [key, value] of Object.entries(data)) {
+      cleaned[key] = value === "" ? null : value;
+    }
+
     const business = await prisma.business.findFirst({
       where: { id: businessId, userId: req.userId },
     });
@@ -133,7 +145,7 @@ router.patch("/:id", authRequired, async (req: AuthRequest, res: Response) => {
 
     const updated = await prisma.business.update({
       where: { id: businessId },
-      data,
+      data: cleaned,
     });
 
     await prisma.activityLog.create({

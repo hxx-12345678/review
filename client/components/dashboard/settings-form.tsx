@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Save, ShieldCheck, Lock, MessageSquare, Mail } from "lucide-react"
+import { Save, ShieldCheck, Lock, MessageSquare, Mail, Palette, Eye } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,6 +19,12 @@ export function SettingsForm({ business }: { business: any }) {
   const [website, setWebsite] = useState(business?.website || "")
   const [emailTemplate, setEmailTemplate] = useState(business?.emailTemplate || "")
   const [smsTemplate, setSmsTemplate] = useState(business?.smsTemplate || "")
+  // Branding
+  const [logoUrl, setLogoUrl] = useState(business?.logoUrl || "")
+  const [primaryColor, setPrimaryColor] = useState(business?.primaryColor || "#1c3a35")
+  const [bgColor, setBgColor] = useState(business?.backgroundColor || "#ffffff")
+  const [splashTagline, setSplashTagline] = useState(business?.splashTagline || "")
+  const [showPoweredBy, setShowPoweredBy] = useState(business?.showPoweredBy !== false)
   const [saving, setSaving] = useState(false)
 
   async function save() {
@@ -33,6 +39,12 @@ export function SettingsForm({ business }: { business: any }) {
         website: website || undefined,
         emailTemplate: emailTemplate || undefined,
         smsTemplate: smsTemplate || undefined,
+        // Branding
+        logoUrl: logoUrl || undefined,
+        primaryColor: primaryColor || undefined,
+        backgroundColor: bgColor || undefined,
+        splashTagline: splashTagline || undefined,
+        showPoweredBy,
       })
       toast.success("Settings saved")
     } catch (err: any) {
@@ -73,6 +85,104 @@ export function SettingsForm({ business }: { business: any }) {
           <Button onClick={save} disabled={saving}>
             <Save className="size-4" />
             {saving ? "Saving..." : "Save changes"}
+          </Button>
+        </div>
+      </Card>
+
+      <Card className="p-6">
+        <div className="flex items-center gap-2">
+          <Palette className="size-5 text-violet-500" />
+          <h2 className="font-medium text-foreground">Branding</h2>
+        </div>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Customize the branded loading screen your customers see when they scan your QR code.
+        </p>
+        <div className="mt-5 grid gap-5 sm:grid-cols-2">
+          <div className="space-y-2 sm:col-span-2">
+            <Label htmlFor="logo-url">Logo URL</Label>
+            <Input
+              id="logo-url"
+              value={logoUrl}
+              onChange={(e) => setLogoUrl(e.target.value)}
+              placeholder="https://your-brand.com/logo.png"
+            />
+            <p className="text-[11px] text-muted-foreground">Paste a direct link to your logo (PNG, SVG, or JPG). Best size: 400x400px or larger.</p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="primary-color">Primary color</Label>
+            <div className="flex items-center gap-2">
+              <input
+                id="primary-color"
+                type="color"
+                value={primaryColor}
+                onChange={(e) => setPrimaryColor(e.target.value)}
+                className="size-10 cursor-pointer rounded-lg border border-border p-0.5"
+              />
+              <Input
+                value={primaryColor}
+                onChange={(e) => setPrimaryColor(e.target.value)}
+                className="font-mono text-sm"
+                maxLength={7}
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="bg-color">Background color</Label>
+            <div className="flex items-center gap-2">
+              <input
+                id="bg-color"
+                type="color"
+                value={bgColor}
+                onChange={(e) => setBgColor(e.target.value)}
+                className="size-10 cursor-pointer rounded-lg border border-border p-0.5"
+              />
+              <Input
+                value={bgColor}
+                onChange={(e) => setBgColor(e.target.value)}
+                className="font-mono text-sm"
+                maxLength={7}
+              />
+            </div>
+          </div>
+          <div className="space-y-2 sm:col-span-2">
+            <Label htmlFor="splash-tagline">Tagline (optional)</Label>
+            <Input
+              id="splash-tagline"
+              value={splashTagline}
+              onChange={(e) => setSplashTagline(e.target.value)}
+              placeholder="Welcome to"
+              maxLength={200}
+            />
+            <p className="text-[11px] text-muted-foreground">Shown below your logo on the loading screen. Leave empty for default.</p>
+          </div>
+          <div className="flex items-center justify-between gap-4 rounded-lg border border-border p-4 sm:col-span-2">
+            <div>
+              <p className="text-sm font-medium text-foreground">Show &quot;Powered by ReviewOS&quot;</p>
+              <p className="text-sm text-muted-foreground">Display subtle attribution on the loading screen.</p>
+            </div>
+            <Switch checked={showPoweredBy} onCheckedChange={setShowPoweredBy} />
+          </div>
+        </div>
+
+        {/* Live preview */}
+        <div className="mt-5 rounded-xl border border-border overflow-hidden">
+          <div className="flex items-center gap-2 bg-muted/50 px-4 py-2 border-b border-border">
+            <Eye className="size-3.5 text-muted-foreground" />
+            <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Preview</span>
+          </div>
+          <PreviewBox
+            primaryColor={primaryColor}
+            logoUrl={logoUrl}
+            name={name}
+            splashTagline={splashTagline}
+            showPoweredBy={showPoweredBy}
+          />
+        </div>
+
+        <div className="mt-5">
+          <Button onClick={save} disabled={saving}>
+            <Save className="size-4" />
+            {saving ? "Saving..." : "Save branding"}
           </Button>
         </div>
       </Card>
@@ -173,6 +283,65 @@ function LockedToggle({ title, body }: { title: string; body: string }) {
         <Lock className="size-3.5 text-muted-foreground" />
         <Switch checked disabled aria-label={`${title} (locked on)`} />
       </div>
+    </div>
+  )
+}
+
+function PreviewBox({
+  primaryColor,
+  logoUrl,
+  name,
+  splashTagline,
+  showPoweredBy,
+}: {
+  primaryColor: string
+  logoUrl: string
+  name: string
+  splashTagline: string
+  showPoweredBy: boolean
+}) {
+  // Contrast-aware text color (same logic as BrandedLoading)
+  const h = primaryColor.replace("#", "")
+  const r = parseInt(h.substring(0, 2), 16)
+  const g = parseInt(h.substring(2, 4), 16)
+  const b = parseInt(h.substring(4, 6), 16)
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+  const textColor = luminance > 0.5 ? "#1a1a1a" : "#ffffff"
+  const isDark = textColor === "#ffffff"
+
+  return (
+    <div
+      className="flex flex-col items-center justify-center py-10 px-4"
+      style={{ backgroundColor: primaryColor }}
+    >
+      {logoUrl ? (
+        <img
+          src={logoUrl}
+          alt="Logo preview"
+          className="max-h-[80px] w-auto object-contain"
+          onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}
+        />
+      ) : (
+        <div
+          className="flex size-16 items-center justify-center rounded-full"
+          style={{
+            backgroundColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.06)",
+            border: `2px solid ${isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.1)"}`,
+          }}
+        >
+          <span className="text-xl font-bold" style={{ color: textColor }}>
+            {name.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase()}
+          </span>
+        </div>
+      )}
+      <p className="mt-4 text-xs font-medium" style={{ color: textColor, opacity: 0.6 }}>
+        {splashTagline || "Welcome to"}
+      </p>
+      {showPoweredBy && (
+        <p className="mt-4 text-[9px] font-medium" style={{ color: textColor, opacity: 0.3 }}>
+          powered by ReviewOS
+        </p>
+      )}
     </div>
   )
 }

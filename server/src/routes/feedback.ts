@@ -131,6 +131,11 @@ router.get("/public/:slug", async (req: AuthRequest, res: Response) => {
         googleReviewUrl: true,
         industry: true,
         promptTopics: true,
+        logoUrl: true,
+        primaryColor: true,
+        backgroundColor: true,
+        splashTagline: true,
+        showPoweredBy: true,
       },
     });
 
