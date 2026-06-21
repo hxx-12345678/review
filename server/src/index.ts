@@ -22,7 +22,11 @@ const env = loadEnv();
 const app = express();
 
 app.set("trust proxy", 1);
-app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: false,
+}));
 app.use(cors({
   origin: [
     env.FRONTEND_URL,
@@ -51,8 +55,12 @@ app.use("/api/communications", communicationRoutes);
 app.use("/api/google-reviews", googleReviewsRoutes);
 app.use("/api/upload", uploadRoutes);
 
-// Serve uploaded files statically
-app.use("/api/uploads", express.static(path.join(process.cwd(), "uploads"), {
+// Serve uploaded files statically — allow cross-origin image loading
+app.use("/api/uploads", (_req, res, next) => {
+  res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  next();
+}, express.static(path.join(process.cwd(), "uploads"), {
   maxAge: "1y",
   immutable: true,
 }));

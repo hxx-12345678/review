@@ -5,8 +5,11 @@ import path from "path";
 import fs from "fs";
 import crypto from "crypto";
 import { authRequired, AuthRequest } from "../middleware/auth";
+import { prisma } from "../config/database";
 
 const router = Router();
+
+const UPLOADS_DIR = path.join(process.cwd(), "uploads");
 
 // Memory storage — process with Sharp, never write raw to disk
 const upload = multer({
@@ -26,11 +29,32 @@ interface UploadRequest extends AuthRequest {
   file?: Express.Multer.File;
 }
 
+function deleteOldLogo(logoUrl: string | null) {
+  if (!logoUrl) return;
+  // Extract filename from URL: /api/uploads/xxx.webp → xxx.webp
+  const match = logoUrl.match(/\/api\/uploads\/(.+)$/);
+  if (!match) return;
+  const filename = match[1];
+  // Never delete the .gitkeep sentinel
+  if (filename === ".gitkeep") return;
+  const filePath = path.join(UPLOADS_DIR, filename);
+  try {
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+  } catch {
+    // Non-fatal — log and continue
+    console.warn("Failed to delete old logo:", filePath);
+  }
+}
+
 /**
  * POST /api/upload/logo
  * Accepts multipart/form-data with field name 'logo'
- * Processes image: resize to 400x400 max, convert to WebP, strip EXIF
- * Returns the public URL of the uploaded image
+ * - Deletes previous logo file from disk (if any)
+ * - Processes image: resize to 400x400 max, convert to WebP, strip EXIF
+ * - Updates the business logoUrl in the database
+ * Returns the new public URL
  */
 router.post("/logo", authRequired, upload.single("logo"), async (req: UploadRequest, res: Response) => {
   try {
@@ -38,46 +62,54 @@ router.post("/logo", authRequired, upload.single("logo"), async (req: UploadRequ
       return res.status(400).json({ error: "No file uploaded" });
     }
 
+    // Find the business for this user
+    const user = await prisma.user.findUnique({
+      where: { id: req.userId! },
+      include: { businesses: { select: { id: true, logoUrl: true } } },
+    });
+    if (!user?.businesses.length) {
+      return res.status(404).json({ error: "No business found for this account" });
+    }
+    const business = user.businesses[0];
+
     const uniqueId = crypto.randomBytes(16).toString("hex");
 
-    // For SVGs, just save as-is
+    let filename: string;
+
+    // For SVGs, save as-is
     if (req.file.mimetype === "image/svg+xml") {
-      const svgFilename = `${uniqueId}.svg`;
-      const svgPath = path.join(process.cwd(), "uploads", svgFilename);
-      fs.writeFileSync(svgPath, req.file.buffer);
-      return res.status(201).json({
-        url: `/api/uploads/${svgFilename}`,
-        filename: svgFilename,
-        width: null,
-        height: null,
-      });
+      filename = `${uniqueId}.svg`;
+      const outputPath = path.join(UPLOADS_DIR, filename);
+      fs.writeFileSync(outputPath, req.file.buffer);
+    } else {
+      filename = `${uniqueId}.webp`;
+      const outputPath = path.join(UPLOADS_DIR, filename);
+
+      await sharp(req.file.buffer)
+        .resize(400, 400, { fit: "inside", withoutEnlargement: true })
+        .webp({ quality: 85 })
+        .toFile(outputPath);
     }
 
-    const filename = `${uniqueId}.webp`;
-    const outputPath = path.join(process.cwd(), "uploads", filename);
+    const newUrl = `/api/uploads/${filename}`;
 
-    // Process image with Sharp
-    let pipeline = sharp(req.file.buffer);
+    // Delete old logo file, then update DB
+    deleteOldLogo(business.logoUrl);
 
-    // Resize to max 400x400, maintain aspect ratio
-    pipeline = pipeline.resize(400, 400, {
-      fit: "inside",
-      withoutEnlargement: true,
+    // Store full URL with origin so the client can use it directly
+    const origin = req.protocol + "://" + req.get("host");
+    const fullUrl = `${origin}${newUrl}`;
+
+    await prisma.business.update({
+      where: { id: business.id },
+      data: { logoUrl: fullUrl },
     });
 
-    // Convert to WebP for optimal web performance
-    pipeline = pipeline.webp({ quality: 85 });
-
-    // Write to disk
-    await pipeline.toFile(outputPath);
-
-    const metadata = await sharp(outputPath).metadata();
-
     res.status(201).json({
-      url: `/api/uploads/${filename}`,
+      url: fullUrl,
       filename,
-      width: metadata.width,
-      height: metadata.height,
+      width: null,
+      height: null,
     });
   } catch (err: any) {
     console.error("Upload error:", err);

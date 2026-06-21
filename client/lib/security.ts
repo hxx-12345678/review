@@ -159,7 +159,7 @@ export const securityHeaders = {
   "X-XSS-Protection": "1; mode=block",
   // CSP - strict policy to prevent injection
   "Content-Security-Policy":
-    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://api.openai.com https://api.vercel.com",
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http://localhost:4000; font-src 'self' data:; connect-src 'self' https://api.openai.com https://api.vercel.com",
   // Referrer policy
   "Referrer-Policy": "strict-origin-when-cross-origin",
   // Permissions policy
