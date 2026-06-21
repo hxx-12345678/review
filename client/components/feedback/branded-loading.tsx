@@ -33,10 +33,13 @@ export function BrandedLoading({
 }) {
   const [phase, setPhase] = useState<"entering" | "visible" | "exiting">("entering")
   const [contentReady, setContentReady] = useState(false)
+  const [imageFailed, setImageFailed] = useState(false)
 
   const brandColor = business.primaryColor || "#1c3a35"
   const textColor = useMemo(() => getContrastTextColor(brandColor), [brandColor])
   const isDarkBg = textColor === "#ffffff"
+
+  const showLogo = business.logoUrl && !imageFailed
 
   // Preload logo image
   useEffect(() => {
@@ -46,7 +49,10 @@ export function BrandedLoading({
     }
     const img = new Image()
     img.onload = () => setContentReady(true)
-    img.onerror = () => setContentReady(true)
+    img.onerror = () => {
+      setImageFailed(true)
+      setContentReady(true)
+    }
     img.src = business.logoUrl
   }, [business.logoUrl])
 
@@ -96,9 +102,9 @@ export function BrandedLoading({
       {/* Logo area — 30-40% of viewport width per Android/iOS splash guidelines */}
       <div className="flex flex-1 items-center justify-center px-[8vw]">
         <div className="flex flex-col items-center gap-5">
-          {business.logoUrl ? (
+          {showLogo ? (
             <img
-              src={business.logoUrl}
+              src={business.logoUrl || undefined}
               alt={`${business.name} logo`}
               className="w-auto object-contain"
               style={{
