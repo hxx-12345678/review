@@ -26,16 +26,44 @@ app.use(helmet({
   contentSecurityPolicy: false,
   crossOriginEmbedderPolicy: false,
   crossOriginResourcePolicy: false,
+  crossOriginOpenerPolicy: false,
+  originAgentCluster: false,
 }));
+
+const allowedOrigins: string[] = [
+  ...env.FRONTEND_URL.split(",").map((o) => o.trim()).filter(Boolean),
+  "http://localhost:3000",
+  "http://localhost:3001",
+  "https://review-nine-inky.vercel.app",
+];
+
 app.use(cors({
-  origin: [
-    env.FRONTEND_URL,
-    "http://localhost:3000",
-    "https://review-nine-inky.vercel.app",
-  ].filter(Boolean) as string[],
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
   credentials: true,
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
-  allowedHeaders: ["Content-Type", "Authorization"],
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
+  exposedHeaders: ["Content-Length", "X-Requested-With"],
+  maxAge: 86400,
+}));
+
+app.options("*", cors({
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
+  maxAge: 86400,
 }));
 app.use(express.json({ limit: "10mb" }));
 app.use(apiLimiter);
@@ -87,7 +115,7 @@ async function start() {
     app.listen(env.PORT, () => {
       console.log(`ReviewOS API server running on port ${env.PORT}`);
       console.log(`Environment: ${env.NODE_ENV}`);
-      console.log(`Frontend URL: ${env.FRONTEND_URL}`);
+      console.log(`Allowed origins: ${allowedOrigins.join(", ")}`);
     });
   } catch (err) {
     console.error("Failed to start server:", err);

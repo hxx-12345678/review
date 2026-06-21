@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { getEnv } from "../config/env";
 
-export function errorHandler(err: Error, _req: Request, res: Response, _next: NextFunction) {
+export function errorHandler(err: Error, req: Request, res: Response, _next: NextFunction) {
   const env = getEnv();
   console.error("Unhandled error:", err);
 
@@ -12,6 +12,10 @@ export function errorHandler(err: Error, _req: Request, res: Response, _next: Ne
     } catch {
       // Sentry not configured
     }
+  }
+
+  if (err.message === "Not allowed by CORS") {
+    return res.status(403).json({ error: "CORS policy: origin not allowed" });
   }
 
   res.status(500).json({
