@@ -1,5 +1,6 @@
 import express from "express";
 import path from "path";
+import fs from "fs";
 import cors from "cors";
 import helmet from "helmet";
 import { loadEnv } from "./config/env";
@@ -83,12 +84,25 @@ app.use("/api/communications", communicationRoutes);
 app.use("/api/google-reviews", googleReviewsRoutes);
 app.use("/api/upload", uploadRoutes);
 
+// Resolve uploads directory relative to THIS FILE's location
+// Dev (tsx):  __dirname = server/src/  → ../uploads = server/uploads/
+// Prod (dist): __dirname = server/dist/  → ../uploads = server/uploads/
+const uploadsDir = path.resolve(__dirname, "../uploads");
+try {
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+    console.log("Created uploads directory at:", uploadsDir);
+  }
+} catch {
+  console.warn("Could not create uploads directory");
+}
+
 // Serve uploaded files statically — allow cross-origin image loading
 app.use("/api/uploads", (_req, res, next) => {
   res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
   res.setHeader("Access-Control-Allow-Origin", "*");
   next();
-}, express.static(path.join(process.cwd(), "uploads"), {
+}, express.static(uploadsDir, {
   maxAge: "1y",
   immutable: true,
 }));
