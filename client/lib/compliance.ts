@@ -1,22 +1,35 @@
 // Compliance engine for ReviewOS.
 //
 // This module encodes the rules that keep ReviewOS on the right side of
-// Google's "Prohibited & Restricted Content" policy and the FTC's rule on
-// fake/AI reviews (16 C.F.R. Part 465, effective Oct 2024).
+// Google's "Prohibited & Restricted Content" policy (updated Apr 2026),
+// the FTC's rule on fake/AI reviews (16 C.F.R. Part 465, effective Oct 2024),
+// and Google's 2026 review policy amendments.
 //
-// The three hard rules we enforce everywhere:
+// The core rules we enforce everywhere:
 //
 // 1. NO AI-WRITTEN REVIEWS. Google explicitly bans "content that is AI-generated
 //    or pre-written by the business." We NEVER produce a finished review for the
 //    customer to paste. We only produce *talking points* that jog the customer's
-//    own memory. The customer must write the review themselves on Google.
+//    own memory and a *draft* that the customer must review, edit, and own.
 //
 // 2. NO REVIEW GATING. We never filter customers by sentiment before showing the
 //    Google link. Every customer — 1 star or 5 star — is offered the exact same,
 //    equally visible public review button. Private feedback is offered ALONGSIDE
 //    it, never as a substitute.
 //
-// 3. NO GENERIC / TEMPLATED CONTENT. Talking points must be derived from the
+// 3. NO STAFF NAME PROMPTING (Google 2026 policy). We NEVER ask customers to
+//    mention a staff member by name in their review. Doing so triggers Google's
+//    automated review removal system. If a customer voluntarily mentions a name,
+//    that's fine — but we never prompt for it.
+//
+// 4. NO ON-PREMISES REVIEW SOLICITATION (Google 2026 policy). We never pressure
+//    customers to leave a review while they're still on the business premises.
+//    The QR code flow is designed for the customer to complete on their own time.
+//
+// 5. NO INCENTIVIZED REVIEWS. We never offer discounts, free items, or perks
+//    in exchange for leaving a review.
+//
+// 6. NO GENERIC / TEMPLATED CONTENT. Talking points must be derived from the
 //    specific things the customer actually said, so two customers never get the
 //    same output. We validate against a banned generic-phrase list.
 
@@ -32,9 +45,14 @@ export const COMPLIANCE_RULES = [
     body: "Every customer is shown the same Google review link, regardless of their rating. Filtering out unhappy customers violates Google policy and the FTC rule.",
   },
   {
+    id: "no-staff-names",
+    title: "No staff name prompting (Google 2026)",
+    body: "Google's 2026 policy bans asking customers to mention staff names in reviews. We never prompt for staff names. If a customer voluntarily mentions one, that's their choice.",
+  },
+  {
     id: "authentic-only",
     title: "Authentic, specific content",
-    body: "Talking points are generated only from details the customer provides, so no two reviews look alike and nothing reads as a template.",
+    body: "Talking points are generated only from details the customer provides, so no two reviews look alike and nothing reads as a template. Generic phrases are filtered out.",
   },
   {
     id: "transparent-private",
@@ -56,6 +74,14 @@ const GENERIC_PHRASES = [
   "second to none",
   "exceeded my expectations",
   "five stars",
+  "hidden gem",
+  "must visit",
+  "definitely recommend",
+  "wonderful experience",
+  "absolutely love",
+  "can't go wrong",
+  "out of this world",
+  "one of a kind",
 ]
 
 export interface AuthenticityResult {
@@ -135,7 +161,7 @@ export function getReviewStepConfig(rating: number) {
           : "What went wrong?",
     describeHint:
       sentiment === "positive"
-        ? "Mention a specific person, dish, or moment. Details make your review more helpful."
+        ? "Mention what specifically stood out — a service, a product, or a moment. Specifics make your review more helpful."
         : sentiment === "neutral"
           ? "Even a small detail helps the business improve. You can also keep this private."
           : "Tell us what happened. You can send this directly to the owner or post it on Google.",

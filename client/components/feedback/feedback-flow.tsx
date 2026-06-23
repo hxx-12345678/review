@@ -464,7 +464,7 @@ function DescribeStep({
           id="describe-highlights"
           value={highlights}
           onChange={(e) => setHighlights(e.target.value)}
-          placeholder={isPositive ? "e.g. Dr. Lee explained everything clearly, and the staff was incredibly welcoming." : "e.g. I had to wait over an hour and the front desk was not helpful."}
+          placeholder={isPositive ? "e.g. The quality was great and they really cared about getting it right." : "e.g. I had to wait much longer than expected and it wasn't a great experience."}
           className="min-h-24 resize-none rounded-xl border border-border bg-card/30 p-3 shadow-inner focus:bg-card focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all duration-200"
           autoFocus
           maxLength={500}
@@ -753,10 +753,32 @@ function ReviewStep({
         </div>
       )}
 
+      {/* ALREADY REVIEWED NOTE */}
+      <div className="mt-4 rounded-xl border border-muted-foreground/20 bg-muted/20 px-3.5 py-2.5">
+        <p className="text-[10px] text-muted-foreground leading-relaxed">
+          Already reviewed this place before? Google allows only one review per account — but you can{' '}
+          <a
+            href="https://support.google.com/maps/answer/6230175"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary underline underline-offset-2 hover:text-primary/80"
+          >
+            edit your existing review
+          </a>
+          {' '}with your new experience instead of posting a new one.
+        </p>
+      </div>
+
       {/* ACTION BUTTONS */}
       <div className="mt-auto flex flex-col gap-3 pt-6">
         <Button
-          onClick={onOpenGoogle}
+          onClick={() => {
+            if (customerReview.trim()) {
+              navigator.clipboard.writeText(customerReview)
+              toast.success("Review copied! Paste it on Google.", { duration: 4000 })
+            }
+            onOpenGoogle()
+          }}
           size="lg"
           className="w-full bg-gradient-to-r from-primary to-primary/90 hover:from-primary/95 hover:to-primary shadow-lg hover:shadow-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
           disabled={submitting}
@@ -889,6 +911,20 @@ function DoneStep({ business, onPrivate }: { business: any; onPrivate: () => voi
       <button type="button" onClick={onPrivate} className="mt-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors underline underline-offset-4 animate-fade-in-up" style={{ animationDelay: "350ms" }}>
         Want to tell the owner something privately?
       </button>
+      <div className="mt-4 animate-fade-in-up" style={{ animationDelay: "450ms" }}>
+        <p className="text-[10px] text-muted-foreground leading-relaxed max-w-xs mx-auto">
+          If you've reviewed this place before — you can{' '}
+          <a
+            href="https://support.google.com/maps/answer/6230175"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary underline underline-offset-2 hover:text-primary/80"
+          >
+            edit your existing review
+          </a>
+          {' '}on Google to reflect your new experience instead of posting a second one.
+        </p>
+      </div>
     </div>
   )
 }

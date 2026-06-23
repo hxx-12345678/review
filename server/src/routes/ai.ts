@@ -51,7 +51,7 @@ router.post("/generate-reply", authRequired, aiLimiter, async (req: AuthRequest,
       const improvementText = feedback.improvement || "";
       const allCustomerText = [likedText, improvementText, data.content].filter(Boolean).join(" ");
 
-      const systemInstruction = `You are an AI assistant helping a local business owner reply to customer reviews.
+      const systemInstruction = `You are an AI assistant helping a local business owner reply to customer reviews. The business can be any type — restaurant, clinic, salon, auto shop, home service, retail, D2C, agency, or professional service.
 
 CRITICAL RULES:
 1. Sound like a real human business owner — warm, specific, and genuine. Never robotic.
@@ -63,7 +63,8 @@ CRITICAL RULES:
 7. If the review is positive, express genuine gratitude and mention something specific they liked.
 8. If the review is negative, apologize sincerely for the specific issue they mentioned and briefly state how you'll address it.
 9. Do NOT mention the star rating number. Do NOT use emojis.
-10. Output ONLY the reply text — no labels, no prefixes, no quotation marks.`;
+10. Do NOT ask the customer to mention or repeat any staff member names.
+11. Output ONLY the reply text — no labels, no prefixes, no quotation marks.`;
 
       const prompt = `Business Name: ${business.name}
 Customer's star rating: ${feedback.rating}/5
@@ -132,27 +133,28 @@ router.post("/talking-points", aiLimiter, async (req: Request, res: Response) =>
       return res.json({ talkingPoints: cached.value, cached: true });
     }
 
-    let languageInstruction = "Write the reminder bullet points in clear standard English.";
+    let languageInstruction = "Write the reminder bullet points in clear, conversational English.";
     if (language === "hinglish") {
-      languageInstruction = "Write the reminder bullet points in Hinglish (a mixture of Hindi and English, using Hindi words spelled with the English/Latin alphabet, e.g., 'Aapne bataya ki food bohot tasty tha', 'Doctor friendly hai'). Do not use Devanagari script.";
+      languageInstruction = "Write the reminder bullet points in natural Hinglish — a casual mix of Hindi and English using ONLY the English/Latin alphabet (no Devanagari). Use everyday Hinglish like 'Aapne bataya ki food tasty tha', 'Staff bahut friendly laga', 'Service fast thi'. Avoid formal/translated Hindi.";
     } else if (language === "gujlish") {
-      languageInstruction = "Write the reminder bullet points in Gujlish (a mixture of Gujarati and English, using Gujarati words spelled with the English/Latin alphabet, e.g., 'Service ghani saari hati', 'Staff badha helpful che'). Do not use Gujarati script.";
+      languageInstruction = "Write the reminder bullet points in natural Gujlish — a casual mix of Gujarati and English using ONLY the English/Latin alphabet (no Gujarati script). Use everyday Gujlish like 'Aapne kiyu ki service sari hati', 'Staff badha helpful lagya', 'Food maja aavyo'. Avoid formal/translated Gujarati.";
     } else if (language === "hindi") {
-      languageInstruction = "Write the reminder bullet points in pure Hindi using the Devanagari script (e.g., 'आपने बताया कि भोजन बहुत स्वादिष्ट था').";
+      languageInstruction = "Write the reminder bullet points in everyday Hindi using the Devanagari script (हिंदी). Use natural spoken Hindi, like 'आपने बताया कि खाना बहुत स्वादिष्ट था'.";
     } else if (language === "gujarati") {
-      languageInstruction = "Write the reminder bullet points in pure Gujarati using the Gujarati script (e.g., 'તમે જણાવ્યું કે સેવા ઘણી સારી હતી').";
+      languageInstruction = "Write the reminder bullet points in everyday Gujarati using the Gujarati script (ગુજરાતી). Use natural spoken Gujarati, like 'તમે જણાવ્યું કે સેવા ઘણી સારી હતી'.";
     }
 
-    const SYSTEM_PROMPT = `You are a helpful assistant for a local business review tool called ReviewOS.
+    const SYSTEM_PROMPT = `You are a helpful assistant for a review tool that works for ALL business types — restaurants, clinics, salons, gyms, auto shops, home services, retail, D2C brands, agencies, professional services, and more.
 
 CRITICAL RULES — follow them exactly:
 1. You must NEVER write a review, sentence, or paragraph that the customer could copy and paste as their review.
 2. You ONLY produce short reminder bullet points ("talking points") that help the customer remember what they wanted to say.
 3. Every bullet must be grounded in a SPECIFIC detail the customer actually provided. Do not invent details, names, or experiences.
-4. Phrase bullets as gentle reminders to the customer, e.g. "You mentioned Dr. Lee explained the procedure" — NOT as finished review prose.
-5. Never use generic marketing phrases like "highly recommend", "amazing service", "10/10", "best ever".
-6. Keep each bullet under 12 words.
-7. If the customer gave very little detail, return fewer bullets rather than padding with generic ones.
+4. COMPLIANCE (Google 2026 policy): NEVER mention or suggest staff member names in any bullet point. This causes automatic review removal.
+5. Phrase bullets as gentle reminders to the customer, e.g. "You mentioned the quality was great" — NOT as finished review prose.
+6. Never use generic marketing phrases like "highly recommend", "amazing service", "10/10", "best ever".
+7. Keep each bullet under 12 words.
+8. If the customer gave very little detail, return fewer bullets rather than padding with generic ones.
 
 Your goal is to jog the customer's memory so THEY write an authentic review in their own words on Google.`;
 
@@ -221,31 +223,36 @@ router.post("/generate-review", aiLimiter, async (req: Request, res: Response) =
 
     const sentiment = !rating ? "neutral" : rating >= 4 ? "positive" : rating === 3 ? "neutral" : "negative";
 
-    let languageInstruction = "Write the review draft in clear standard English.";
+    let languageInstruction = "Write the review draft in natural, conversational English. Use contractions (like 'I'd', 'wasn't', 'it's') and vary sentence lengths. Sound like a real customer typing on their phone.";
     if (language === "hinglish") {
-      languageInstruction = "Write the review draft in Hinglish (a natural mix of Hindi and English, using Hindi words spelled with the English/Latin alphabet, e.g., 'Food bohot tasty tha aur service bhi bahut acchi thi'). Do not use Devanagari script.";
+      languageInstruction = "Write the review draft in natural Hinglish — a real, spontaneous mix of Hindi and English using ONLY the English/Latin alphabet (no Devanagari). DO NOT translate every word. Use common Hinglish patterns: Hindi verbs/nouns with English filler, e.g. 'Food bohot achha tha', 'Service bahut fast thi', 'Staff ne bahut accha treat kiya', 'Overall experience accha raha', 'Waiter ne bola ki wait karna padega'. Mix naturally — some sentences full English, some full Hindi in Latin script, some both. Avoid formal/translated Hindi. Sound like someone in Mumbai or Delhi typing a quick Google review.";
     } else if (language === "gujlish") {
-      languageInstruction = "Write the review draft in Gujlish (a natural mix of Gujarati and English, using Gujarati words spelled with the English/Latin alphabet, e.g., 'Service ghani saari hati ane staff badha helpful hati'). Do not use Gujarati script.";
+      languageInstruction = "Write the review draft in natural Gujlish — a real, spontaneous mix of Gujarati and English using ONLY the English/Latin alphabet (no Gujarati script). DO NOT translate every word. Use common Gujlish patterns: Gujarati verbs/nouns with English filler, e.g. 'Service ghani saari hati', 'Food maja aavi gayo', 'Staff badha j helpful hati', 'Ane price pan reasonable che', 'Overall saro experience rahyo'. Mix naturally — some sentences full English, some full Gujarati in Latin script, some both. Avoid formal/translated Gujarati. Sound like someone in Ahmedabad or Vadodara typing a quick Google review.";
     } else if (language === "hindi") {
-      languageInstruction = "Write the review draft in pure Hindi using the Devanagari script (e.g., 'भोजन बहुत स्वादिष्ट था और सेवा भी बहुत अच्छी थी').";
+      languageInstruction = "Write the review draft in natural, conversational Hindi using Devanagari script (हिंदी). Use everyday spoken Hindi, not formal literary Hindi. Include common Hindi phrases real people use in reviews. Sound like someone casually sharing their experience on Google.";
     } else if (language === "gujarati") {
-      languageInstruction = "Write the review draft in pure Gujarati using the Gujarati script (e.g., 'ભોજન ખૂબ સ્વાદિષ્ટ હતું અને સેવા પણ ખૂબ સારી હતી').";
+      languageInstruction = "Write the review draft in natural, conversational Gujarati using Gujarati script (ગુજરાતી). Use everyday spoken Gujarati, not formal literary Gujarati. Include common Gujarati phrases real people use in reviews. Sound like someone casually sharing their experience on Google.";
     }
 
-    const SYSTEM_PROMPT = `You are a helpful assistant that generates a review DRAFT for a customer.
+    const SYSTEM_PROMPT = `You are a review draft assistant. You work for ALL types of businesses — restaurants, clinics, dental practices, salons, barbershops, gyms, auto repair shops, home services (plumbing, electrical, cleaning), retail stores, D2C/ecommerce brands, agencies, professional services (legal, consulting, accounting), real estate, and more. Adapt your output naturally to the business type.
 
 CRITICAL RULES:
-1. You generate a DRAFT — the customer will review, edit, and own every word before posting.
-2. Ground EVERY claim in the specific details the customer provided. Never fabricate names, dishes, or experiences.
-3. Sound like a real person wrote it — use natural, conversational language. Vary sentence structure.
-4. Keep it between 2-5 sentences (roughly 40-80 words).
-5. Do NOT use generic marketing phrases like "highly recommend", "amazing service", "10/10", "best ever", "five stars".
-6. If the rating is available, reflect the sentiment appropriately (positive for 4-5, neutral for 3, constructive for 1-2).
-7. Weave the customer's selected topics and talking points into a natural-sounding review — do NOT list them like bullet points.
-8. If the customer wrote their own notes in "highlights", incorporate them as if the reviewer is describing their experience.
-9. Output ONLY the review text — no labels, no prefixes, no quotation marks.`;
+1. You generate a DRAFT only — the customer will review, edit, and own every word before posting.
+2. Ground EVERY claim in the specific details the customer provided. Never fabricate names, items, services, or experiences.
+3. COMPLIANCE (Google 2026 policy): NEVER write a review that mentions a staff member's name, even if the customer hinted at it. NEVER suggest the customer should mention a staff name. This is now explicitly banned by Google and causes automatic review removal.
+4. Sound like a GENUINE real person from the customer's region — use natural, conversational language with varied sentence structure. Write like someone typing on their phone, not a copywriter or marketing person.
+5. Keep it between 2-5 sentences (roughly 30-80 words). Real Google reviews are concise.
+6. NEVER use these generic phrases: "highly recommend", "amazing service", "10/10", "best ever", "five stars", "great experience", "top notch", "would recommend", "exceeded expectations", "second to none", "hidden gem", "must visit". Zero tolerance.
+7. VARY your output — every generation should sound different in structure, opening, and tone even with similar inputs. NEVER start with "I recently visited" or "I recently went to".
+8. If the customer provided the business name, weave it in naturally ONLY if it flows (e.g. "I went to ABC Dental for a checkup" not "I recently visited ABC Dental"). If no business name, write the review without mentioning it.
+9. If rating >= 4: positive but specific — mention what exactly made it good (not just "it was good"). If rating === 3: mixed/balanced — mention both what was okay and what could improve. If rating <= 2: constructive — focus on what specifically went wrong.
+10. Weave selected topics and talking points into a smooth narrative — do NOT list them like bullet points.
+11. Output ONLY the review text — no labels, no prefixes, no quotation marks, no emojis.`;
 
-    let prompt = `Business: ${businessName}
+    const bizLine = businessName && businessName !== "a local business"
+      ? `Business: ${businessName}`
+      : "";
+    let prompt = `${bizLine}
 Customer's rating: ${rating ?? "unknown"}/5
 Customer's own words: "${highlights || "(none provided)"}"`;
 
@@ -259,7 +266,7 @@ Customer's own words: "${highlights || "(none provided)"}"`;
     prompt += `\n\nMANDATORY OUTPUT LANGUAGE (every word must be in this language):
 ${languageInstruction}
 
-Write a natural, authentic-sounding review draft (2-5 sentences) that sounds like a real customer wrote it. Weave the topics and details smoothly into a personal story — do NOT list them.`;
+Write a short, natural, authentic-sounding review draft (2-5 sentences) in the exact language specified above. Make it sound like a real customer sharing their genuine experience — casual, specific, and unique. Vary the opening — NEVER start with "I recently visited" or "I recently went to". Every generation should sound different.`;
 
     let review = "";
     try {

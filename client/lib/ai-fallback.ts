@@ -10,6 +10,12 @@ const GENERIC_BLOCKLIST = [
   "10/10",
   "five stars",
   "great experience",
+  "hidden gem",
+  "must visit",
+  "would recommend",
+  "top notch",
+  "second to none",
+  "exceeded my expectations",
 ]
 
 function isTooGeneric(text: string): boolean {
@@ -46,28 +52,64 @@ export function buildFallbackReview(opts: {
   talkingPoints?: string[]
 }): string {
   const { highlights, businessName, rating, talkingPoints } = opts
-  const name = businessName || "this business"
+  const name = businessName || "this place"
+
+  const openings = [
+    `Just wanted to share my experience at ${name}.`,
+    `Had a visit to ${name} recently here's my take.`,
+    `Dropping a quick review for ${name}.`,
+    `Came by ${name} and figured I'd leave my thoughts.`,
+    `Visited ${name} and wanted to share what I thought.`,
+  ]
+  const opening = openings[Math.floor(Math.random() * openings.length)]
 
   if (talkingPoints && talkingPoints.length > 0) {
-    const points = talkingPoints.slice(0, 3).join(", ")
-    return `I recently visited ${name} and wanted to share my experience. ${points}. Overall, it was a memorable visit and I appreciate what they offer.`
+    const points = talkingPoints.slice(0, 2).join(", and ")
+    const closings = [
+      "That about sums it up.",
+      "That's my honest take.",
+      "Pretty much how it went.",
+      "Worth noting down.",
+    ]
+    const closing = closings[Math.floor(Math.random() * closings.length)]
+    return `${opening} ${points}. ${closing}`
   }
 
   if (highlights && highlights.trim().length >= 3) {
-    return `I recently visited ${name}. ${highlights}. I hope this helps others looking for honest feedback about this place.`
+    return `${opening} ${highlights}. Hope this helps someone decide.`
   }
+
+  const positiveClosings = [
+    "Really happy with how it went.",
+    "Would definitely go back.",
+    "Left a good impression on me.",
+    "Will be coming again for sure.",
+  ]
+  const neutralClosings = [
+    "Decent overall, nothing special.",
+    "It was okay some hits some misses.",
+    "Fair enough for what it is.",
+  ]
+  const negativeClosings = [
+    "Not what I was hoping for honestly.",
+    "Hope they take the feedback seriously.",
+    "Really disappointed won't lie.",
+  ]
 
   if (rating && rating >= 4) {
-    return `I had a great experience at ${name}! The service was wonderful and I would definitely recommend checking them out.`
+    const closing = positiveClosings[Math.floor(Math.random() * positiveClosings.length)]
+    return `${opening} ${closing}`
   }
   if (rating && rating === 3) {
-    return `My experience at ${name} was decent overall. There were some good points and some areas for improvement.`
+    const closing = neutralClosings[Math.floor(Math.random() * neutralClosings.length)]
+    return `${opening} ${closing}`
   }
   if (rating && rating <= 2) {
-    return `I recently visited ${name} and unfortunately my experience didn't meet expectations. I hope they can use this feedback constructively.`
+    const closing = negativeClosings[Math.floor(Math.random() * negativeClosings.length)]
+    return `${opening} ${closing}`
   }
 
-  return `I recently visited ${name} and wanted to share my thoughts. It was an interesting experience worth noting.`
+  return `${opening} That's about it.`
 }
 
 export function buildFallbackReply(opts: {
