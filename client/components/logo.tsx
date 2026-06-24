@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils"
 
-export function Logo({ className }: { className?: string }) {
+export function Logo({ className, dark }: { className?: string; dark?: boolean }) {
   return (
     <div className={cn("flex items-center gap-2", className)}>
       <div className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
@@ -11,7 +11,7 @@ export function Logo({ className }: { className?: string }) {
           />
         </svg>
       </div>
-      <span className="text-base font-semibold tracking-tight text-foreground">
+      <span className={cn("text-base font-semibold tracking-tight", dark ? "text-white" : "text-foreground")}>
         Review<span className="text-primary">OS</span>
       </span>
     </div>
