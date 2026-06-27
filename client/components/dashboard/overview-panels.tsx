@@ -1,4 +1,4 @@
-import { QrCode, MessageSquareReply, ShieldCheck } from "lucide-react"
+import { QrCode, MessageSquareReply, ShieldCheck, Globe } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { StarRating } from "@/components/star-rating"
 import { timeAgo } from "@/lib/format"
@@ -8,6 +8,8 @@ const STATUS_LABEL: Record<string, { label: string; className: string }> = {
   PRIVATE_FEEDBACK: { label: "Private feedback", className: "bg-accent text-accent-foreground" },
   ABANDONED: { label: "Did not finish", className: "bg-muted text-muted-foreground" },
 }
+
+const GOOGLE_SOURCE = { label: "Google Review", className: "bg-blue-500/10 text-blue-600 dark:text-blue-400" }
 
 export function RatingBreakdown({ reviews }: { reviews: { rating: number; count: number }[] }) {
   const counts = [5, 4, 3, 2, 1].map((star) => {
@@ -38,33 +40,83 @@ export function RatingBreakdown({ reviews }: { reviews: { rating: number; count:
   )
 }
 
-export function RecentActivity({ feedback }: { feedback: any[] }) {
+export function RecentActivity({ feedback, googleReviews }: { feedback: any[]; googleReviews?: any[] }) {
+  const allItems: any[] = [
+    ...(googleReviews || []).map((g: any) => ({
+      id: `google-${g.id}`,
+      isGoogleReview: true as const,
+      rating: g.starRating,
+      createdAt: g.createTime,
+      displayName: g.reviewerName || "Google User",
+      comment: g.comment || "",
+      reviewReply: g.reviewReply,
+      replyStatus: g.replyStatus || "NEEDS_REPLY",
+    })),
+    ...feedback.map((f: any) => ({
+      id: f.id,
+      isGoogleReview: false as const,
+      rating: f.rating,
+      createdAt: f.createdAt,
+      displayName: f.customerName || "Anonymous",
+      reviewText: f.reviewDraft?.content || (f.status === "PRIVATE_FEEDBACK" && f.privateNote ? f.privateNote : "") || f.liked || f.purchaseInfo || "",
+      liked: f.liked,
+      purchaseInfo: f.purchaseInfo,
+      improvement: f.improvement,
+      privateNote: f.privateNote,
+      status: f.status,
+      hasDraft: !!f.reviewDraft,
+    })),
+  ].sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 15)
+
   return (
     <Card className="p-5">
       <h2 className="font-medium text-foreground">Recent customer activity</h2>
-      <p className="text-sm text-muted-foreground">Latest feedback submissions</p>
+      <p className="text-sm text-muted-foreground">Latest feedback and Google reviews</p>
       <div className="mt-4 max-h-[400px] overflow-y-auto pr-1 [&::-w-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted [&::-webkit-scrollbar-track]:bg-transparent">
         <ul className="divide-y divide-border">
-          {feedback.length === 0 && (
+          {allItems.length === 0 && (
             <li className="py-8 text-center text-sm text-muted-foreground">
-              No feedback yet. Share your QR code to start collecting reviews.
+              No activity yet. Share your QR code to start collecting reviews.
             </li>
           )}
-          {feedback.map((f: any) => {
-            const status = STATUS_LABEL[f.status] || STATUS_LABEL.ABANDONED
+          {allItems.map((item: any) => {
+            if (item.isGoogleReview) {
+              return (
+                <li key={item.id} className="flex items-start gap-3 py-3">
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                    <Globe className="size-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-foreground">{item.displayName}</span>
+                      <StarRating value={item.rating} readOnly size={14} />
+                      <span className="text-xs text-muted-foreground">{timeAgo(item.createdAt)}</span>
+                    </div>
+                    <p className="mt-0.5 text-sm text-foreground line-clamp-2">{item.comment || "No comment text"}</p>
+                  </div>
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${GOOGLE_SOURCE.className}`}>
+                    {GOOGLE_SOURCE.label}
+                  </span>
+                </li>
+              )
+            }
+            const status = STATUS_LABEL[item.status] || STATUS_LABEL.ABANDONED
             return (
-              <li key={f.id} className="flex items-start gap-3 py-3">
+              <li key={item.id} className="flex items-start gap-3 py-3">
                 <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
                   <QrCode className="size-4" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <StarRating value={f.rating} readOnly size={14} />
-                    <span className="text-xs text-muted-foreground">{timeAgo(f.createdAt)}</span>
+                    <StarRating value={item.rating} readOnly size={14} />
+                    <span className="text-xs text-muted-foreground">{timeAgo(item.createdAt)}</span>
+                    {item.hasDraft && <span className="text-[10px] font-medium text-primary">Draft saved</span>}
                   </div>
-                  <p className="mt-0.5 truncate text-sm text-foreground">
-                    {f.liked || f.purchaseInfo || "No details provided"}
-                  </p>
+                  <p className="mt-0.5 text-sm text-foreground line-clamp-2">{item.reviewText || "No details provided"}</p>
+                  {item.liked && !item.reviewText && (
+                    <p className="mt-0.5 text-xs text-muted-foreground">{item.liked}</p>
+                  )}
                 </div>
                 <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${status.className}`}>
                   {status.label}

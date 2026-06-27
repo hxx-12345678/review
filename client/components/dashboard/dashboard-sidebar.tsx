@@ -65,7 +65,7 @@ export function DashboardSidebar() {
 
       <div className="p-3">
         <Link
-          href={businessSlug ? `/r/${businessSlug}` : "/r/brightsmile"}
+          href={businessSlug ? `/r/${businessSlug}?demo=true` : "/r/brightsmile?demo=true"}
           target="_blank"
           className="flex items-center gap-3 rounded-lg border border-border bg-card px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >

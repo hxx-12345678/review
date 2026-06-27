@@ -17,10 +17,14 @@ async function getBusinessBySlug(slug: string) {
 
 export default async function FeedbackPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>
+  searchParams?: Promise<{ demo?: string }>
 }) {
   const { slug } = await params
+  const sp = await searchParams
+  const isDemo = sp?.demo === "true"
   const business = await getBusinessBySlug(slug)
 
   if (!business) {
@@ -29,7 +33,7 @@ export default async function FeedbackPage({
 
   return (
     <main className="flex min-h-dvh min-w-0 flex-col overflow-hidden bg-muted/40">
-      <FeedbackFlow business={business} slug={slug} />
+      <FeedbackFlow business={business} slug={slug} demo={isDemo} />
     </main>
   )
 }

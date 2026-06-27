@@ -16,6 +16,7 @@ export default function DashboardPage() {
   const [business, setBusiness] = useState<any>(null);
   const [stats, setStats] = useState<any>(null);
   const [feedback, setFeedback] = useState<any[]>([]);
+  const [googleReviews, setGoogleReviews] = useState<any[]>([]);
   const [trend, setTrend] = useState<{ day: string; requests: number; reviews: number }[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -27,14 +28,16 @@ export default function DashboardPage() {
         setBusiness(biz);
 
         if (biz) {
-          const [statsRes, feedbackRes, trendRes] = await Promise.all([
+          const [statsRes, feedbackRes, trendRes, googleRes] = await Promise.all([
             api.reviews.stats(biz.id),
             api.feedback.list(biz.id, { limit: 10 }),
             api.reviews.trend(biz.id),
+            api.googleReviews.list(biz.id).catch(() => ({ reviews: [] })),
           ]);
           setStats(statsRes.stats);
           setFeedback(feedbackRes.feedback);
           setTrend(trendRes.trend);
+          setGoogleReviews(googleRes.reviews || []);
         }
       } catch {
         // Handle error
@@ -95,7 +98,7 @@ export default function DashboardPage() {
 
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2">
-            <RecentActivity feedback={feedback} />
+            <RecentActivity feedback={feedback} googleReviews={googleReviews} />
           </div>
           <ComplianceCard />
         </div>

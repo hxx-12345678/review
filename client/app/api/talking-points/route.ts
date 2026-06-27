@@ -18,15 +18,15 @@ export async function POST(req: Request) {
   }
 
   // SECURITY: Validate & sanitize all inputs
-  let { highlights, businessName, rating, language } = body
+  let { highlights, selectedTopics, businessName, rating, language } = body
 
-  if (typeof highlights !== "string") {
-    return Response.json({ talkingPoints: [] })
-  }
+  if (typeof highlights !== "string") highlights = ""
+  highlights = sanitizeTextInput(highlights, 500)
 
-  highlights = sanitizeTextInput(highlights, 500) // Max 500 chars
+  if (!Array.isArray(selectedTopics)) selectedTopics = []
+  selectedTopics = selectedTopics.map((t: string) => sanitizeTextInput(t, 100)).filter(Boolean)
 
-  if (highlights.trim().length < 3) {
+  if (highlights.trim().length < 3 && selectedTopics.length === 0) {
     return Response.json({ talkingPoints: [] })
   }
 
@@ -47,6 +47,7 @@ export async function POST(req: Request) {
       },
       body: JSON.stringify({
         highlights,
+        selectedTopics,
         businessName,
         rating,
         language,
@@ -62,7 +63,7 @@ export async function POST(req: Request) {
   } catch (err) {
     console.error("Client API talking points forwarding error:", err)
     // Safe deterministic fallback if the backend server or Gemini is unreachable
-    const talkingPoints = deriveTalkingPoints(highlights)
+    const talkingPoints = deriveTalkingPoints(highlights, selectedTopics)
     return Response.json({ talkingPoints, fallback: true })
   }
 }

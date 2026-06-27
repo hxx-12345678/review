@@ -25,24 +25,65 @@ function isTooGeneric(text: string): boolean {
 
 // Split the customer's own notes into short reminder bullets.
 // We do not add new claims — we only reflect back what they typed.
-export function deriveTalkingPoints(highlights: string): string[] {
-  if (!highlights || highlights.trim().length < 3) return []
-
-  const fragments = highlights
-    .split(/[.,;\n]|(?:\band\b)/i)
-    .map((f) => f.trim())
-    .filter((f) => f.length >= 4 && !isTooGeneric(f))
-
+export function deriveTalkingPoints(highlights: string, selectedTopics?: string[]): string[] {
   const points: string[] = []
-  for (const fragment of fragments) {
-    // Trim to a short reminder of at most ~12 words.
-    const words = fragment.split(/\s+/).slice(0, 12).join(" ")
-    const cleaned = words.charAt(0).toUpperCase() + words.slice(1)
-    if (!points.includes(cleaned)) points.push(cleaned)
-    if (points.length >= 5) break
+
+  if (highlights && highlights.trim().length >= 3) {
+    const fragments = highlights
+      .split(/[.,;\n]|(?:\band\b)/i)
+      .map((f) => f.trim())
+      .filter((f) => f.length >= 4 && !isTooGeneric(f))
+
+    for (const fragment of fragments) {
+      const words = fragment.split(/\s+/).slice(0, 12).join(" ")
+      const cleaned = words.charAt(0).toUpperCase() + words.slice(1)
+      if (!points.includes(cleaned)) points.push(cleaned)
+      if (points.length >= 5) break
+    }
+  }
+
+  // Add selected topics as talking points if we still have room
+  if (points.length < 5 && selectedTopics && selectedTopics.length > 0) {
+    for (const topic of selectedTopics) {
+      const cleaned = topic.charAt(0).toUpperCase() + topic.slice(1)
+      if (!points.includes(cleaned) && !isTooGeneric(topic)) {
+        points.push(cleaned)
+        if (points.length >= 5) break
+      }
+    }
   }
 
   return points.slice(0, 5)
+}
+
+function detectSentimentConflict(highlights?: string, selectedTopics?: string[]): "aligned" | "mixed" {
+  if (!highlights || highlights.trim().length < 3) return "aligned"
+  const lower = highlights.toLowerCase()
+  const positiveWords = ["good", "great", "excellent", "amazing", "wonderful", "fantastic", "love", "best", "happy", "satisfied", "friendly", "kind", "helpful", "caring", "comfortable", "clean", "professional", "quick", "fast", "nice"]
+  const negativeWords = ["bad", "terrible", "awful", "horrible", "worst", "hate", "poor", "rude", "slow", "unhelpful", "unclean", "dirty", "uncomfortable", "expensive", "overpriced", "disappointed", "frustrating", "waste", "shoddy"]
+
+  // Check for mixed sentiment WITHIN the highlights text itself
+  const textHasPositive = positiveWords.some(w => lower.includes(w))
+  const textHasNegative = negativeWords.some(w => lower.includes(w))
+  if (textHasPositive && textHasNegative) return "mixed"
+
+  // Check for contradiction between selectedTopics and highlights
+  // If topics are positive-leaning but highlights are entirely negative, or vice versa
+  if (selectedTopics && selectedTopics.length > 0) {
+    const topicSentiments = selectedTopics.map(t => {
+      const tl = t.toLowerCase()
+      const isPos = positiveWords.some(w => tl.includes(w))
+      const isNeg = negativeWords.some(w => tl.includes(w))
+      return isPos ? 1 : isNeg ? -1 : 0
+    })
+    const topicScore = topicSentiments.reduce((a: number, b) => a + b, 0)
+    // Topics are positive on balance
+    if (topicScore > 0 && textHasNegative && !textHasPositive) return "mixed"
+    // Topics are negative on balance
+    if (topicScore < 0 && textHasPositive && !textHasNegative) return "mixed"
+  }
+
+  return "aligned"
 }
 
 export function buildFallbackReview(opts: {
@@ -50,9 +91,11 @@ export function buildFallbackReview(opts: {
   businessName?: string
   rating?: number
   talkingPoints?: string[]
+  selectedTopics?: string[]
 }): string {
-  const { highlights, businessName, rating, talkingPoints } = opts
+  const { highlights, businessName, rating, talkingPoints, selectedTopics } = opts
   const name = businessName || "this place"
+  const conflict = detectSentimentConflict(highlights, selectedTopics)
 
   const openings = [
     `Just wanted to share my experience at ${name}.`,
@@ -76,6 +119,16 @@ export function buildFallbackReview(opts: {
   }
 
   if (highlights && highlights.trim().length >= 3) {
+    if (conflict === "mixed") {
+      const mixedClosings = [
+        "Mixed feelings overall but just sharing honestly.",
+        "Had some good moments and some not so good ones.",
+        "Some things worked some didn't — being honest here.",
+        "Both good and bad parts worth mentioning.",
+      ]
+      const closing = mixedClosings[Math.floor(Math.random() * mixedClosings.length)]
+      return `${opening} ${highlights}. ${closing}`
+    }
     return `${opening} ${highlights}. Hope this helps someone decide.`
   }
 

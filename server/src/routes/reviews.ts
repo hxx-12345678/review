@@ -110,14 +110,15 @@ router.post("/save-draft", authRequired, async (req: AuthRequest, res: Response)
  */
 router.post("/track-click", async (req: Request, res: Response) => {
   try {
-    // Strict schema: only accept a CUID-shaped feedbackId — no other params.
-    const { feedbackId } = z
+    // Accept optional review content to save as the actual posted review.
+    const { feedbackId, content } = z
       .object({
         feedbackId: z
           .string()
           .min(20)
           .max(30)
           .regex(/^c[a-z0-9]+$/, "Invalid feedback ID format"),
+        content: z.string().max(5000).optional(),
       })
       .parse(req.body);
 
@@ -143,28 +144,39 @@ router.post("/track-click", async (req: Request, res: Response) => {
       return res.json({ success: true });
     }
 
-    // Create the click record and update status atomically in a transaction.
-    await prisma.$transaction([
-      prisma.reviewClick.create({
+    await prisma.$transaction(async (tx) => {
+      await tx.reviewClick.create({
         data: {
           feedbackId: feedback.id,
           businessId: feedback.businessId,
           type: "google_redirect",
         },
-      }),
-      prisma.feedback.update({
+      });
+      await tx.feedback.update({
         where: { id: feedback.id },
         data: { status: "REDIRECTED_TO_GOOGLE" },
-      }),
-      prisma.activityLog.create({
+      });
+      await tx.activityLog.create({
         data: {
           userId: feedback.business.userId,
           businessId: feedback.businessId,
           action: "google_click",
           details: { feedbackId: feedback.id },
         },
-      }),
-    ]);
+      });
+      // Save the actual posted review text if provided.
+      if (content && content.trim().length >= 3) {
+        await tx.reviewDraft.upsert({
+          where: { feedbackId: feedback.id },
+          create: {
+            feedbackId: feedback.id,
+            businessId: feedback.businessId,
+            content: content.trim(),
+          },
+          update: { content: content.trim() },
+        });
+      }
+    });
 
     res.json({ success: true });
   } catch (err) {
@@ -193,6 +205,7 @@ router.get("/stats/:businessId", authRequired, async (req: AuthRequest, res: Res
       totalClicks,
       recentFeedback,
       ratingDistribution,
+      recentGoogleReviews,
     ] = await Promise.all([
       prisma.feedback.count({ where: { businessId: business.id } }),
       prisma.reviewDraft.count({ where: { businessId: business.id } }),
@@ -207,6 +220,11 @@ router.get("/stats/:businessId", authRequired, async (req: AuthRequest, res: Res
         by: ["rating"],
         where: { businessId: business.id },
         _count: true,
+      }),
+      prisma.googleReview.findMany({
+        where: { businessId: business.id },
+        orderBy: { createTime: "desc" },
+        take: 10,
       }),
     ]);
 
@@ -226,6 +244,7 @@ router.get("/stats/:businessId", authRequired, async (req: AuthRequest, res: Res
         })),
       },
       recentFeedback,
+      recentGoogleReviews,
     });
   } catch (err) {
     console.error("Get stats error:", err);

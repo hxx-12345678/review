@@ -8,6 +8,7 @@ import { api } from "@/lib/api"
 export default function InboxPage() {
   const [business, setBusiness] = useState<any>(null);
   const [feedback, setFeedback] = useState<any[]>([]);
+  const [googleReviews, setGoogleReviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -17,8 +18,12 @@ export default function InboxPage() {
         const biz = bizRes.businesses[0];
         setBusiness(biz);
         if (biz) {
-          const fbRes = await api.feedback.list(biz.id);
+          const [fbRes, googleRes] = await Promise.all([
+            api.feedback.list(biz.id),
+            api.googleReviews.list(biz.id).catch(() => ({ reviews: [] })),
+          ]);
           setFeedback(fbRes.feedback);
+          setGoogleReviews(googleRes.reviews || []);
         }
       } catch {
         // handle
@@ -48,7 +53,7 @@ export default function InboxPage() {
         title="Review inbox"
         description="Reply to every review with help from AI — you stay in control of the words."
       />
-      <ReviewInbox feedback={feedback} businessName={business?.name || ""} businessId={business?.id} />
+      <ReviewInbox feedback={feedback} googleReviews={googleReviews} businessName={business?.name || ""} businessId={business?.id} />
     </>
   )
 }

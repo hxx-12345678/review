@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { api } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
+import { toast } from "sonner"
 
 export default function SettingsPage() {
   const { user, logout } = useAuth();
@@ -28,6 +29,16 @@ export default function SettingsPage() {
       }
     }
     load();
+
+    // Show toast after OAuth redirect
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("google") === "connected") {
+      toast.success("Google account connected successfully!");
+      window.history.replaceState({}, "", window.location.pathname);
+    } else if (params.get("google") === "error") {
+      toast.error("Failed to connect Google account. Please try again.");
+      window.history.replaceState({}, "", window.location.pathname);
+    }
   }, []);
 
   if (loading) {
@@ -62,7 +73,7 @@ export default function SettingsPage() {
           </div>
           <div className="flex flex-col gap-2">
             <Link
-              href={business?.slug ? `/r/${business.slug}` : "/r/brightsmile"}
+              href={business?.slug ? `/r/${business.slug}?demo=true` : "/r/brightsmile?demo=true"}
               target="_blank"
               className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
             >

@@ -117,17 +117,44 @@ export const api = {
      * Public — no auth token sent. Called by the customer (not the owner) when
      * they tap "Write your review on Google". The server resolves the business
      * from the feedbackId, so we only send the feedbackId.
+     * Also saves the actual review content if provided.
      */
-    trackClick: (data: { feedbackId: string }) =>
+    trackClick: (data: { feedbackId: string; content?: string }) =>
       fetch(`${API_URL}/reviews/track-click`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ feedbackId: data.feedbackId }),
+        body: JSON.stringify({ feedbackId: data.feedbackId, content: data.content }),
       }).then((r) => r.json() as Promise<{ success: boolean }>),
     stats: (businessId: string) =>
-      request<{ stats: any; recentFeedback: any[] }>(`/reviews/stats/${businessId}`),
+      request<{ stats: any; recentFeedback: any[]; recentGoogleReviews: any[] }>(`/reviews/stats/${businessId}`),
     trend: (businessId: string) =>
       request<{ trend: { day: string; requests: number; reviews: number }[] }>(`/reviews/trend/${businessId}`),
+  },
+  googleReviews: {
+    oauthUrl: (businessId: string) =>
+      request<{ url: string }>(`/google-reviews/oauth/url?businessId=${businessId}`),
+    disconnect: (businessId: string) =>
+      request<{ success: boolean }>(`/google-reviews/disconnect/${businessId}`, {
+        method: "POST",
+      }),
+    list: (businessId: string) =>
+      request<{ reviews: any[] }>(`/google-reviews/reviews/${businessId}`),
+    status: (businessId: string) =>
+      request<{ connected: boolean; googleAccountId: string | null; reviewCount: number }>(`/google-reviews/status/${businessId}`),
+    connect: (data: { businessId: string; googleAccountId: string; accessToken: string; refreshToken?: string; tokenExpiresAt?: string }) =>
+      request<{ googleAccount: any }>("/google-reviews/connect", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    sync: (businessId: string) =>
+      request<{ synced: number; total: number }>(`/google-reviews/sync/${businessId}`, {
+        method: "POST",
+      }),
+    reply: (reviewId: string, replyText: string) =>
+      request<{ review: any }>(`/google-reviews/reviews/${reviewId}/reply`, {
+        method: "POST",
+        body: JSON.stringify({ replyText }),
+      }),
   },
   qr: {
     list: (businessId: string) =>

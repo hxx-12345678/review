@@ -49,7 +49,7 @@ export async function POST(req: Request) {
     return Response.json(data)
   } catch (err) {
     console.error("Client API generate-review forwarding error:", err)
-    const review = buildFallbackReview({ highlights, businessName, rating, talkingPoints })
+    const review = buildFallbackReview({ highlights, businessName, rating, talkingPoints, selectedTopics })
     return Response.json({ review, fallback: true })
   }
 }

@@ -116,7 +116,8 @@ Write a personal, specific reply from the business owner that references at leas
 
 // ── T4: AI Talking Points Route (Moved from frontend to server for security) ──
 const talkingPointsSchema = z.object({
-  highlights: z.string().min(3).max(500),
+  highlights: z.string().max(500).optional().default(""),
+  selectedTopics: z.array(z.string()).optional().default([]),
   businessName: z.string().max(100).optional().default("a local business"),
   rating: z.number().min(1).max(5).optional(),
   language: z.string().max(30).optional().default("english"),
@@ -124,7 +125,7 @@ const talkingPointsSchema = z.object({
 
 router.post("/talking-points", aiLimiter, async (req: Request, res: Response) => {
   try {
-    const { highlights, businessName, rating, language } = talkingPointsSchema.parse(req.body);
+    const { highlights, selectedTopics, businessName, rating, language } = talkingPointsSchema.parse(req.body);
 
     // Cache check: skip Gemini if we've seen this exact input recently
     const key = cacheKey(highlights, businessName, rating ?? 0, language);
@@ -158,9 +159,12 @@ CRITICAL RULES — follow them exactly:
 
 Your goal is to jog the customer's memory so THEY write an authentic review in their own words on Google.`;
 
+    const topicsLine = selectedTopics.length > 0
+      ? `\nTopics they selected: ${selectedTopics.join(", ")}`
+      : "";
     const prompt = `Business: ${businessName}
 Customer's star rating: ${rating ?? "unknown"}/5
-Customer's notes about their visit: "${highlights}"
+Customer's notes about their visit: "${highlights}"${topicsLine}
 
 MANDATORY OUTPUT LANGUAGE (apply to every word of every bullet — this overrides everything):
 ${languageInstruction}
@@ -187,7 +191,7 @@ Produce 2-5 short reminder bullets grounded strictly in what the customer wrote 
       talkingPoints = parsed.talkingPoints || [];
     } catch (err) {
       console.warn("Gemini talking points generation failed, falling back to deterministic parser:", err);
-      talkingPoints = deriveTalkingPoints(highlights);
+      talkingPoints = deriveTalkingPoints(highlights, selectedTopics);
     }
 
     // Cache result for 60 seconds
@@ -247,7 +251,8 @@ CRITICAL RULES:
 8. If the customer provided the business name, weave it in naturally ONLY if it flows (e.g. "I went to ABC Dental for a checkup" not "I recently visited ABC Dental"). If no business name, write the review without mentioning it.
 9. If rating >= 4: positive but specific — mention what exactly made it good (not just "it was good"). If rating === 3: mixed/balanced — mention both what was okay and what could improve. If rating <= 2: constructive — focus on what specifically went wrong.
 10. Weave selected topics and talking points into a smooth narrative — do NOT list them like bullet points.
-11. Output ONLY the review text — no labels, no prefixes, no quotation marks, no emojis.`;
+11. HANDLE CONTRADICTIONS GRACEFULLY: The customer may select positive topic tags (e.g. "Friendly staff") but write negative highlights (e.g. "bad experience"). This IS possible — they liked the staff but had a bad overall experience. When topics and highlights conflict, PRIORITIZE the customer's own words (highlights) over pre-selected topic tags. Weave both sides naturally: acknowledge what was good (the staff) while addressing what went wrong (the overall experience). Don't ignore either side.
+12. Output ONLY the review text — no labels, no prefixes, no quotation marks, no emojis.`;
 
     const bizLine = businessName && businessName !== "a local business"
       ? `Business: ${businessName}`
@@ -274,7 +279,7 @@ Write a short, natural, authentic-sounding review draft (2-5 sentences) in the e
       review = review.trim().replace(/^["']|["']$/g, "");
     } catch (err) {
       console.warn("Gemini review generation failed, falling back to deterministic builder:", err);
-      review = buildFallbackReview({ highlights, businessName, rating, talkingPoints });
+      review = buildFallbackReview({ highlights, businessName, rating, talkingPoints, selectedTopics });
     }
 
     res.json({ review });

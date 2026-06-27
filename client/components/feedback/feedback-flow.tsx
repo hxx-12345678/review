@@ -16,9 +16,9 @@ import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { api } from "@/lib/api"
 
-type Step = "loading" | "welcome" | "rate" | "describe" | "review" | "private" | "done"
+type Step = "loading" | "welcome" | "rate" | "describe" | "review" | "private" | "redirect" | "done"
 
-export function FeedbackFlow({ business, slug }: { business: any; slug?: string }) {
+export function FeedbackFlow({ business, slug, demo: isDemo = false }: { business: any; slug?: string; demo?: boolean }) {
   const [step, setStep] = useState<Step>("loading")
   const [rating, setRating] = useState(0)
   const [highlights, setHighlights] = useState("")
@@ -32,6 +32,7 @@ export function FeedbackFlow({ business, slug }: { business: any; slug?: string 
   const [privateDone, setPrivateDone] = useState(false)
   const [feedbackId, setFeedbackId] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [customerReview, setCustomerReview] = useState("")
 
   const config = getReviewStepConfig(rating || 5)
 
@@ -60,19 +61,14 @@ export function FeedbackFlow({ business, slug }: { business: any; slug?: string 
   }
 
   async function handleDescribeContinue() {
-    const combined = [
-      highlights.trim(),
-      selectedTopics.length ? `(${selectedTopics.join(", ")})` : "",
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .trim()
+    const text = highlights.trim()
+    const combined = text || (selectedTopics.length > 0 ? selectedTopics.join(", ") : "")
 
     setCombinedInput(combined)
-    setAuthenticity(scoreAuthenticity(combined))
+    setAuthenticity(scoreAuthenticity(text || selectedTopics.join(" ")))
 
     if (!feedbackId) {
-      const id = await submitFeedback({ liked: combined || undefined })
+      const id = await submitFeedback({ liked: text || undefined })
       if (!id) return
     }
 
@@ -86,6 +82,7 @@ export function FeedbackFlow({ business, slug }: { business: any; slug?: string 
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             highlights: combined,
+            selectedTopics,
             businessName: business.name,
             rating,
             language,
@@ -103,21 +100,31 @@ export function FeedbackFlow({ business, slug }: { business: any; slug?: string 
     }
   }
 
-  function openGoogle() {
+  const [redirectContent, setRedirectContent] = useState("")
+
+  function handlePostToGoogle(content: string) {
+    if (content.trim()) {
+      navigator.clipboard.writeText(content.trim())
+    }
+    setRedirectContent(content)
+    setStep("redirect")
+  }
+
+  function confirmGooglePost() {
     const googleUrl = (business.googleReviewUrl || "").trim()
     let targetUrl = googleUrl
     if (targetUrl && !/^https?:\/\//i.test(targetUrl)) {
       targetUrl = `https://${targetUrl}`
     }
 
-    if (targetUrl) {
+    if (targetUrl && !isDemo) {
       window.open(targetUrl, "_blank", "noopener,noreferrer")
     }
 
     setStep("done")
 
-    if (feedbackId) {
-      api.reviews.trackClick({ feedbackId }).catch(() => {})
+    if (!isDemo && feedbackId) {
+      api.reviews.trackClick({ feedbackId, content: redirectContent || undefined }).catch(() => {})
     }
   }
 
@@ -130,6 +137,14 @@ export function FeedbackFlow({ business, slug }: { business: any; slug?: string 
     privateNote?: string
   }) {
     if (submitting) return null
+
+    // DEMO MODE: never write to real database
+    if (isDemo) {
+      const fakeId = "demo_" + Math.random().toString(36).slice(2, 10)
+      setFeedbackId(fakeId)
+      return fakeId
+    }
+
     setSubmitting(true)
     try {
       const res = await api.feedback.submit({
@@ -215,12 +230,14 @@ export function FeedbackFlow({ business, slug }: { business: any; slug?: string 
             selectedTopics={selectedTopics}
             authenticity={authenticity}
             submitting={submitting}
-            onOpenGoogle={openGoogle}
+            onPostToGoogle={handlePostToGoogle}
             onPrivate={() => setStep("private")}
-            onBack={() => setStep("describe")}
+            onBack={() => { setStep("describe"); setCustomerReview("") }}
             businessName={business.name}
             language={language}
             rating={rating}
+            customerReview={customerReview}
+            onReviewChange={setCustomerReview}
           />
         )}
         {step === "private" && (
@@ -228,6 +245,7 @@ export function FeedbackFlow({ business, slug }: { business: any; slug?: string 
             business={business}
             rating={rating}
             combinedInput={combinedInput || highlights}
+            customerReview={customerReview}
             selectedTopics={selectedTopics}
             done={privateDone}
             slug={slug}
@@ -241,7 +259,17 @@ export function FeedbackFlow({ business, slug }: { business: any; slug?: string 
             onBackToReview={() => setStep("review")}
           />
         )}
-        {step === "done" && <DoneStep business={business} onPrivate={() => setStep("private")} />}
+        {step === "redirect" && (
+          <RedirectStep
+            business={business}
+            rating={rating}
+            reviewContent={redirectContent}
+            onConfirm={confirmGooglePost}
+            onSkip={() => setStep("done")}
+            demo={isDemo}
+          />
+        )}
+        {step === "done" && <DoneStep business={business} onPrivate={() => setStep("private")} demo={isDemo} />}
       </Card>
 
       {step !== "welcome" && step !== "loading" && (
@@ -324,11 +352,38 @@ function RateStep({ business, onRate }: { business: any; onRate: (v: number) => 
   )
 }
 
-const MOOD_TAGS: Record<string, { icon: React.ReactNode; label: string; positive: string[]; negative: string[] }> = {
-  service: { icon: <ThumbsUp className="size-4" />, label: "Service", positive: ["Friendly staff", "Quick service", "Knowledgeable", "Attentive"], negative: ["Slow service", "Rude staff", "Unhelpful", "Unattentive"] },
-  quality: { icon: <Star className="size-4" />, label: "Quality", positive: ["Top quality", "Clean facility", "Great results", "Well maintained"], negative: ["Poor quality", "Unclean", "Bad results", "Outdated"] },
-  value: { icon: <SmilePlus className="size-4" />, label: "Value", positive: ["Fair pricing", "Worth it", "Good value", "Transparent"], negative: ["Overpriced", "Hidden fees", "Not worth it", "Expensive"] },
-  experience: { icon: <Sparkles className="size-4" />, label: "Experience", positive: ["Welcoming", "Comfortable", "Exceeded expectations", "Enjoyable"], negative: ["Uncomfortable", "Rushed", "Disappointing", "Stressful"] },
+type MoodTagKey = "positive" | "neutral" | "negative"
+function getMoodKey(rating: number): MoodTagKey {
+  if (rating >= 4) return "positive"
+  if (rating === 3) return "neutral"
+  return "negative"
+}
+
+const MOOD_TAGS: Record<string, { icon: React.ReactNode; label: string; positive: string[]; neutral: string[]; negative: string[] }> = {
+  service: {
+    icon: <ThumbsUp className="size-4" />, label: "Service",
+    positive: ["Friendly staff", "Quick service", "Knowledgeable", "Attentive"],
+    neutral: ["Okay service", "Average help", "Decent response", "Standard experience"],
+    negative: ["Slow service", "Rude staff", "Unhelpful", "Unattentive"],
+  },
+  quality: {
+    icon: <Star className="size-4" />, label: "Quality",
+    positive: ["Top quality", "Clean facility", "Great results", "Well maintained"],
+    neutral: ["Average quality", "Mixed results", "Some good some bad", "Decent enough"],
+    negative: ["Poor quality", "Unclean", "Bad results", "Outdated"],
+  },
+  value: {
+    icon: <SmilePlus className="size-4" />, label: "Value",
+    positive: ["Fair pricing", "Worth it", "Good value", "Transparent"],
+    neutral: ["Fair enough", "Reasonable pricing", "Decent value", "Okay for the price"],
+    negative: ["Overpriced", "Hidden fees", "Not worth it", "Expensive"],
+  },
+  experience: {
+    icon: <Sparkles className="size-4" />, label: "Experience",
+    positive: ["Welcoming", "Comfortable", "Exceeded expectations", "Enjoyable"],
+    neutral: ["Average experience", "Nothing special", "It was okay", "Could be better"],
+    negative: ["Uncomfortable", "Rushed", "Disappointing", "Stressful"],
+  },
 }
 
 function DescribeStep({
@@ -339,20 +394,25 @@ function DescribeStep({
   const config = getReviewStepConfig(rating)
   const canContinue = highlights.trim().length >= 3 || selectedTopics.length > 0
   const charCount = highlights.length
-  const isPositive = rating >= 4
+  const moodKey = getMoodKey(rating)
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  const quickTags = isPositive
+  const quickTags = moodKey === "positive"
     ? ["Friendly staff", "Great service", "Clean environment", "Professional", "Highly skilled", "Convenient", "Good value", "Would come back"]
-    : ["Slow service", "Rude staff", "Unclean", "Too expensive", "Long wait", "Unprofessional", "Misleading", "Would not return"]
+    : moodKey === "neutral"
+      ? ["Decent service", "Average experience", "Okay but room to grow", "Not bad not great", "Some highlights some lows", "Fair enough", "Middle of the road", "Could improve"]
+      : ["Slow service", "Rude staff", "Unclean", "Too expensive", "Long wait", "Unprofessional", "Misleading", "Would not return"]
 
   return (
     <div className="flex flex-1 flex-col animate-fade-in-up gap-0">
       <div className="text-center mb-4">
-        <div className={cn("inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold", isPositive ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-amber-500/10 text-amber-600 dark:text-amber-400")}>
-          {isPositive ? <ThumbsUp className="size-4" /> : <Frown className="size-4" />}
-          {isPositive ? "You had a great experience!" : "We'd love to hear more"}
+        <div className={cn("inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold",
+          moodKey === "positive" ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" :
+          moodKey === "neutral" ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" :
+          "bg-red-500/10 text-red-600 dark:text-red-400")}>
+          {moodKey === "positive" ? <ThumbsUp className="size-4" /> : moodKey === "neutral" ? <Meh className="size-4" /> : <Frown className="size-4" />}
+          {moodKey === "positive" ? "You had a great experience!" : moodKey === "neutral" ? "Thanks for the honest feedback" : "We'd love to hear more"}
         </div>
       </div>
 
@@ -369,7 +429,7 @@ function DescribeStep({
         <div className="grid grid-cols-2 gap-2">
           {Object.entries(MOOD_TAGS).map(([key, tag]) => {
             const isActive = activeCategory === key
-            const tagTopics = isPositive ? tag.positive : tag.negative
+            const tagTopics = tag[moodKey]
             const hasSelected = tagTopics.some(t => selectedTopics.includes(t))
             return (
               <button
@@ -393,9 +453,9 @@ function DescribeStep({
           })}
         </div>
 
-        {activeCategory && (
+          {activeCategory && (
           <div className="flex flex-wrap gap-1.5 mt-2 p-3 rounded-xl bg-muted/30 border border-border/50 animate-fade-in-up">
-            {(isPositive ? MOOD_TAGS[activeCategory].positive : MOOD_TAGS[activeCategory].negative).map((topic) => {
+            {MOOD_TAGS[activeCategory][moodKey].map((topic) => {
               const isSelected = selectedTopics.includes(topic)
               return (
                 <button
@@ -464,7 +524,7 @@ function DescribeStep({
           id="describe-highlights"
           value={highlights}
           onChange={(e) => setHighlights(e.target.value)}
-          placeholder={isPositive ? "e.g. The quality was great and they really cared about getting it right." : "e.g. I had to wait much longer than expected and it wasn't a great experience."}
+          placeholder={moodKey === "positive" ? "e.g. The quality was great and they really cared about getting it right." : moodKey === "neutral" ? "e.g. The service was decent but there's room for improvement in some areas." : "e.g. I had to wait much longer than expected and it wasn't a great experience."}
           className="min-h-24 resize-none rounded-xl border border-border bg-card/30 p-3 shadow-inner focus:bg-card focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all duration-200"
           autoFocus
           maxLength={500}
@@ -516,7 +576,7 @@ function DescribeStep({
 }
 
 function ReviewStep({
-  config, talkingPoints, loadingPoints, combinedInput, rawHighlights, selectedTopics, authenticity, submitting, onOpenGoogle, onPrivate, onBack, businessName, language, rating,
+  config, talkingPoints, loadingPoints, combinedInput, rawHighlights, selectedTopics, authenticity, submitting, onPostToGoogle, onPrivate, onBack, businessName, language, rating, customerReview, onReviewChange,
 }: {
   config: ReturnType<typeof getReviewStepConfig>
   talkingPoints: string[]
@@ -526,14 +586,15 @@ function ReviewStep({
   selectedTopics: string[]
   authenticity: AuthenticityResult | null
   submitting: boolean
-  onOpenGoogle: () => void
+  onPostToGoogle: (content: string) => void
   onPrivate: () => void
   onBack: () => void
   businessName: string
   language: string
   rating: number
+  customerReview: string
+  onReviewChange: (v: string) => void
 }) {
-  const [customerReview, setCustomerReview] = useState("")
   const [generatingReview, setGeneratingReview] = useState(false)
   const [reviewGenerated, setReviewGenerated] = useState(false)
   const [talkingPointsExpanded, setTalkingPointsExpanded] = useState(true)
@@ -561,7 +622,7 @@ function ReviewStep({
       if (!res.ok) throw new Error("API error")
       const data = await res.json()
       if (data.review) {
-        setCustomerReview(data.review)
+        onReviewChange(data.review)
         setReviewGenerated(true)
       }
     } catch {
@@ -572,7 +633,7 @@ function ReviewStep({
   }
 
   useEffect(() => {
-    if (!reviewGenerated && (combinedInput || hasReminders)) {
+    if (!reviewGenerated && !customerReview && (combinedInput || hasReminders)) {
       const timer = setTimeout(() => {
         generateReview()
       }, 400)
@@ -630,7 +691,7 @@ function ReviewStep({
           <Textarea
             ref={textareaRef}
             value={customerReview}
-            onChange={(e) => setCustomerReview(e.target.value)}
+            onChange={(e) => onReviewChange(e.target.value)}
             placeholder={
               generatingReview
                 ? "Crafting your review draft..."
@@ -772,13 +833,7 @@ function ReviewStep({
       {/* ACTION BUTTONS */}
       <div className="mt-auto flex flex-col gap-3 pt-6">
         <Button
-          onClick={() => {
-            if (customerReview.trim()) {
-              navigator.clipboard.writeText(customerReview)
-              toast.success("Review copied! Paste it on Google.", { duration: 4000 })
-            }
-            onOpenGoogle()
-          }}
+          onClick={() => onPostToGoogle(customerReview)}
           size="lg"
           className="w-full bg-gradient-to-r from-primary to-primary/90 hover:from-primary/95 hover:to-primary shadow-lg hover:shadow-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
           disabled={submitting}
@@ -806,13 +861,13 @@ function ReviewStep({
 }
 
 function PrivateStep({
-  business, rating, combinedInput, selectedTopics, done, slug, onSubmit, onBackToReview,
+  business, rating, combinedInput, customerReview, selectedTopics, done, slug, onSubmit, onBackToReview,
 }: {
-  business: any; rating: number; combinedInput: string; selectedTopics: string[]; done: boolean; slug?: string; onSubmit: (data: { purchaseInfo?: string; liked?: string; improvement?: string; customerName?: string; customerEmail?: string; privateNote?: string }) => Promise<void>; onBackToReview: () => void
+  business: any; rating: number; combinedInput: string; customerReview?: string; selectedTopics: string[]; done: boolean; slug?: string; onSubmit: (data: { purchaseInfo?: string; liked?: string; improvement?: string; customerName?: string; customerEmail?: string; privateNote?: string }) => Promise<void>; onBackToReview: () => void
 }) {
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
-  const [message, setMessage] = useState(combinedInput)
+  const [message, setMessage] = useState(customerReview || combinedInput)
   const [consent, setConsent] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
@@ -882,7 +937,109 @@ function PrivateStep({
   )
 }
 
-function DoneStep({ business, onPrivate }: { business: any; onPrivate: () => void }) {
+function RedirectStep({
+  business, rating, reviewContent, onConfirm, onSkip, demo,
+}: {
+  business: any; rating: number; reviewContent: string; onConfirm: () => void; onSkip: () => void; demo?: boolean
+}) {
+  const [copiedAgain, setCopiedAgain] = useState(false)
+  const [opening, setOpening] = useState(false)
+
+  async function handleCopyAgain() {
+    if (reviewContent.trim()) {
+      await navigator.clipboard.writeText(reviewContent.trim())
+      setCopiedAgain(true)
+      toast.success("Review copied to clipboard!")
+      setTimeout(() => setCopiedAgain(false), 2000)
+    }
+  }
+
+  async function handleOpenGoogle() {
+    setOpening(true)
+    try {
+      await navigator.clipboard.writeText(reviewContent.trim())
+    } catch {}
+    await new Promise((r) => setTimeout(r, 600))
+    onConfirm()
+  }
+
+  return (
+    <div className="flex flex-1 flex-col animate-fade-in py-2">
+      <div className="flex flex-col items-center text-center mb-4">
+        <div className="flex size-14 items-center justify-center rounded-full bg-primary/10 text-primary animate-scale-in">
+          <Check className="size-7" strokeWidth={2.5} />
+        </div>
+        <h2 className="mt-3 text-xl font-extrabold tracking-tight text-foreground">Review copied!</h2>
+        <p className="mt-1.5 text-sm text-muted-foreground text-pretty max-w-xs leading-relaxed">
+          Your review is now on your clipboard. Follow the 2 steps below to post it on Google.
+        </p>
+      </div>
+
+      <div className="space-y-3 mt-2">
+        <div className="flex items-start gap-3 rounded-xl border border-border/60 bg-card/50 p-3.5">
+          <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">1</div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-foreground">Open Google Maps</p>
+            <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+              Tap the button below to open <span className="font-medium text-foreground/80">{business.name}</span>&apos;s Google review page.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-start gap-3 rounded-xl border border-border/60 bg-card/50 p-3.5">
+          <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-amber-500/10 text-amber-600 text-xs font-bold">2</div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-foreground">Paste &amp; verify your rating</p>
+            <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+              Long-press the text box on Google and tap <span className="font-medium text-foreground/80">Paste</span>. Then set the rating to{' '}
+              <span className="inline-flex items-center gap-0.5 align-middle">
+                {rating} <Star className="size-3 fill-amber-400 text-amber-400" />
+              </span>{' '}
+              to match what you selected earlier.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {reviewContent.trim() && (
+        <div className="mt-4 rounded-xl border border-border/50 bg-muted/20 p-3">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Your review</span>
+            <button
+              type="button"
+              onClick={handleCopyAgain}
+              className="inline-flex items-center gap-1 text-[10px] font-medium text-primary hover:underline"
+            >
+              {copiedAgain ? <Check className="size-3" /> : <PenLine className="size-3" />}
+              {copiedAgain ? "Copied" : "Copy again"}
+            </button>
+          </div>
+          <p className="text-xs text-foreground leading-relaxed line-clamp-3 select-all">{reviewContent}</p>
+        </div>
+      )}
+
+      <div className="mt-auto flex flex-col gap-3 pt-6">
+        <Button
+          onClick={handleOpenGoogle}
+          size="lg"
+          disabled={opening}
+          className="w-full bg-gradient-to-r from-primary to-primary/90 hover:from-primary/95 hover:to-primary shadow-lg hover:shadow-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
+        >
+          {opening ? (
+            <><Loader2 className="size-4 animate-spin mr-2" />Opening Google...</>
+          ) : (
+            <><ExternalLink className="size-4 mr-2" />Open Google Maps &amp; paste review</>
+          )}
+        </Button>
+        <Button onClick={onSkip} variant="outline" size="lg" className="w-full">
+          I&apos;ll do this later
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+function DoneStep({ business, onPrivate, demo }: { business: any; onPrivate: () => void; demo?: boolean }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center text-center space-y-4 py-4 animate-fade-in">
       <div className="relative flex size-20 items-center justify-center">
@@ -894,37 +1051,52 @@ function DoneStep({ business, onPrivate }: { business: any; onPrivate: () => voi
       <div className="space-y-2 animate-fade-in-up">
         <h2 className="text-2xl font-extrabold tracking-tight text-foreground">You're amazing!</h2>
         <p className="text-sm text-muted-foreground text-pretty max-w-xs mx-auto leading-relaxed">
-          Your honest review helps {business.name} grow and helps future customers make better decisions.
+          {demo ? "This is a preview of how your customers will see the review flow." : `Your honest review helps ${business.name} grow and helps future customers make better decisions.`}
         </p>
       </div>
-      <div className="flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-2 text-xs font-semibold text-primary animate-fade-in-up" style={{ animationDelay: "150ms" }}>
-        <Check className="size-3.5" />
-        Google review tab opened
-      </div>
-      <div className="flex gap-1 animate-fade-in-up" style={{ animationDelay: "250ms" }}>
-        {[1, 2, 3, 4, 5].map((s) => (
-          <svg key={s} className="size-5 fill-amber-400 text-amber-400" viewBox="0 0 20 20" aria-hidden="true">
-            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-          </svg>
-        ))}
-      </div>
-      <button type="button" onClick={onPrivate} className="mt-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors underline underline-offset-4 animate-fade-in-up" style={{ animationDelay: "350ms" }}>
-        Want to tell the owner something privately?
-      </button>
-      <div className="mt-4 animate-fade-in-up" style={{ animationDelay: "450ms" }}>
-        <p className="text-[10px] text-muted-foreground leading-relaxed max-w-xs mx-auto">
-          If you've reviewed this place before — you can{' '}
-          <a
-            href="https://support.google.com/maps/answer/6230175"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-primary underline underline-offset-2 hover:text-primary/80"
-          >
-            edit your existing review
-          </a>
-          {' '}on Google to reflect your new experience instead of posting a second one.
-        </p>
-      </div>
+      {!demo && (
+        <>
+          <div className="flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-2 text-xs font-semibold text-primary animate-fade-in-up" style={{ animationDelay: "150ms" }}>
+            <Check className="size-3.5" />
+            Google review tab opened
+          </div>
+          <div className="flex gap-1 animate-fade-in-up" style={{ animationDelay: "250ms" }}>
+            {[1, 2, 3, 4, 5].map((s) => (
+              <svg key={s} className="size-5 fill-amber-400 text-amber-400" viewBox="0 0 20 20" aria-hidden="true">
+                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+              </svg>
+            ))}
+          </div>
+          <button type="button" onClick={onPrivate} className="mt-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors underline underline-offset-4 animate-fade-in-up" style={{ animationDelay: "350ms" }}>
+            Want to tell the owner something privately?
+          </button>
+          <div className="mt-4 animate-fade-in-up" style={{ animationDelay: "450ms" }}>
+            <p className="text-[10px] text-muted-foreground leading-relaxed max-w-xs mx-auto">
+              If you've reviewed this place before — you can{' '}
+              <a
+                href="https://support.google.com/maps/answer/6230175"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary underline underline-offset-2 hover:text-primary/80"
+              >
+                edit your existing review
+              </a>
+              {' '}on Google to reflect your new experience instead of posting a second one.
+            </p>
+          </div>
+        </>
+      )}
+      {demo && (
+        <div className="mt-2 space-y-3 animate-fade-in-up" style={{ animationDelay: "200ms" }}>
+          <div className="rounded-full border border-primary/20 bg-primary/5 px-4 py-2 text-xs font-semibold text-primary">
+            <Check className="size-3.5 inline mr-1" />
+            Preview mode — nothing was saved
+          </div>
+          <p className="text-xs text-muted-foreground leading-relaxed max-w-xs mx-auto">
+            This was a demo preview. No data was written to the database. Close this tab to return to the dashboard.
+          </p>
+        </div>
+      )}
     </div>
   )
 }
