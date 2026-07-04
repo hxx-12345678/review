@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import { Sparkles, TrendingUp, TrendingDown, Minus, Star, ThumbsUp, ThumbsDown, AlertCircle } from "lucide-react"
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer } from "recharts"
 import { Card } from "@/components/ui/card"
@@ -36,22 +36,52 @@ const PERIODS: { key: Period; label: string }[] = [
   { key: "all", label: "All Time" },
 ]
 
+const CACHE_TTL = 5 * 60 * 1000
+
 export function ReviewInsights({ businessId }: Props) {
   const [period, setPeriod] = useState<Period>("month")
   const [data, setData] = useState<InsightsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
+  const cacheRef = useRef<Map<string, { data: InsightsData; expiresAt: number }>>(new Map())
+  const inflightRef = useRef<Set<string>>(new Set())
+  const dataRef = useRef<InsightsData | null>(null)
 
   const fetchInsights = useCallback(async (p: Period) => {
-    setLoading(true)
+    const cacheKey = `${businessId}:${p}`
+    const cached = cacheRef.current.get(cacheKey)
+
+    if (cached && cached.expiresAt > Date.now()) {
+      setData(cached.data)
+      dataRef.current = cached.data
+      setLoading(false)
+      setError(false)
+      return
+    }
+
+    if (inflightRef.current.has(cacheKey)) return
+    inflightRef.current.add(cacheKey)
+
+    const hasAnyCached = Array.from(cacheRef.current.values()).some((c) => c.expiresAt > Date.now())
+
+    if (hasAnyCached) {
+      setRefreshing(true)
+    } else {
+      setLoading(true)
+    }
     setError(false)
     try {
       const res = await api.ai.getInsights(businessId, p)
+      cacheRef.current.set(cacheKey, { data: res, expiresAt: Date.now() + CACHE_TTL })
       setData(res)
+      dataRef.current = res
     } catch {
-      setError(true)
+      if (!dataRef.current && !hasAnyCached) setError(true)
     } finally {
+      inflightRef.current.delete(cacheKey)
       setLoading(false)
+      setRefreshing(false)
     }
   }, [businessId])
 
@@ -101,7 +131,7 @@ export function ReviewInsights({ businessId }: Props) {
         </div>
       </div>
 
-      {loading ? (
+      {loading && !data ? (
         <div className="mt-4 space-y-3">
           <Skeleton className="h-4 w-full" />
           <Skeleton className="h-4 w-5/6" />
@@ -113,13 +143,19 @@ export function ReviewInsights({ businessId }: Props) {
           </div>
           <Skeleton className="mt-2 h-[80px] w-full rounded-lg" />
         </div>
-      ) : error ? (
+      ) : error && !data ? (
         <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
           <AlertCircle className="size-4" />
           <span>Unable to load insights right now.</span>
         </div>
       ) : data ? (
         <div className="mt-4 space-y-4">
+          {refreshing && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <div className="size-3 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" />
+              <span>Refreshing...</span>
+            </div>
+          )}
           {/* Summary */}
           <div className="rounded-lg bg-primary/[0.03] px-4 py-3">
             <p className="text-sm leading-relaxed text-foreground/85">{data.summary}</p>

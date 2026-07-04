@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { QrCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,8 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
   const [business, setBusiness] = useState<any>(null);
   const [stats, setStats] = useState<any>(null);
   const [feedback, setFeedback] = useState<any[]>([]);
@@ -22,10 +24,13 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!user || authLoading) return;
+    let cancelled = false;
     async function load() {
       try {
         const bizRes = await api.businesses.list();
         const biz = bizRes.businesses[0];
+        if (cancelled) return;
         setBusiness(biz);
 
         if (biz) {
@@ -35,6 +40,7 @@ export default function DashboardPage() {
             api.reviews.trend(biz.id),
             api.googleReviews.list(biz.id).catch(() => ({ reviews: [] })),
           ]);
+          if (cancelled) return;
           setStats(statsRes.stats);
           setFeedback(feedbackRes.feedback);
           setTrend(trendRes.trend);
@@ -43,13 +49,14 @@ export default function DashboardPage() {
       } catch {
         // Handle error
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
     load();
-  }, []);
+    return () => { cancelled = true; };
+  }, [user, authLoading]);
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="p-4 sm:p-6 lg:p-8">
         <div className="h-8 w-48 animate-pulse rounded bg-muted" />
@@ -61,6 +68,11 @@ export default function DashboardPage() {
         <div className="mt-6 h-[260px] animate-pulse rounded-lg bg-muted" />
       </div>
     );
+  }
+
+  if (!user) {
+    router.replace("/login");
+    return null;
   }
 
   const avgRating = stats?.ratingDistribution?.reduce((acc: number, r: any) => acc + r.rating * r.count, 0) /

@@ -294,11 +294,21 @@ Write a short, natural, authentic-sounding review draft (2-5 sentences) in the e
 });
 
 // ── AI Insights: Summary of what customers are saying ──────────────────────
+// Backend cache: 5-minute TTL to avoid redundant AI/DB calls on period switch
+const insightsCache = new Map<string, { result: any; expiresAt: number }>();
+const INSIGHTS_CACHE_TTL = 5 * 60 * 1000;
+
 router.get("/insights/:businessId", authRequired, async (req: AuthRequest, res: Response) => {
   try {
     const period = (req.query.period as string) || "month";
     const businessId = req.params.businessId as string;
     const userId = req.userId as string;
+
+    const cacheKey = `${userId}:${businessId}:${period}`;
+    const cached = insightsCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      return res.json(cached.result);
+    }
 
     const business = await prisma.business.findFirst({
       where: { id: businessId, userId },
@@ -374,6 +384,12 @@ router.get("/insights/:businessId", authRequired, async (req: AuthRequest, res: 
     const previousReviews = mapReviews(prevGoogleReviews, prevFeedbackReviews);
 
     const result = await generateInsights(reviews, business.name, previousReviews, trendDays);
+
+    insightsCache.set(cacheKey, { result, expiresAt: Date.now() + INSIGHTS_CACHE_TTL });
+    if (insightsCache.size > 500) {
+      const firstKey = insightsCache.keys().next().value;
+      if (firstKey) insightsCache.delete(firstKey);
+    }
 
     await prisma.activityLog.create({
       data: {
