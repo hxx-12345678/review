@@ -189,6 +189,280 @@ interface GeminiConfig {
   responseSchema?: any;
 }
 
+export interface ReviewInput {
+  source: "google" | "feedback";
+  rating: number;
+  text: string;
+  createdAt: string;
+}
+
+export interface InsightsResult {
+  summary: string;
+  metrics: {
+    averageRating: number;
+    totalReviews: number;
+    positivePercent: number;
+    neutralPercent: number;
+    negativePercent: number;
+    growthRate: number;
+    previousPeriodAvg: number;
+  };
+  topPraises: { phrase: string; count: number }[];
+  topComplaints: { phrase: string; count: number }[];
+  trend: { date: string; count: number; avgRating: number }[];
+}
+
+function extractCommonPhrases(reviews: ReviewInput[], positiveThreshold: number, negativeThreshold: number, maxItems: number = 4): { praises: { phrase: string; count: number }[]; complaints: { phrase: string; count: number }[] } {
+  const praiseKeywords = ["friendly", "great", "excellent", "amazing", "wonderful", "fantastic", "love", "best", "happy", "satisfied", "kind", "helpful", "caring", "comfortable", "clean", "professional", "quick", "fast", "nice", "delicious", "tasty", "convenient", "affordable", "recommend", "awesome", "superb", "outstanding", "good", "pleasant", "smooth", "efficient", "attentive", "thorough", "gentle", "skilled", "knowledgeable", "patient"];
+  const complaintKeywords = ["bad", "terrible", "awful", "horrible", "worst", "hate", "poor", "rude", "slow", "unhelpful", "unclean", "dirty", "uncomfortable", "expensive", "overpriced", "disappointed", "frustrating", "waste", "shoddy", "wait", "delay", "late", "unprofessional", "ignored", "broken", "wrong", "mistake", "cold", "not good", "mediocre", "bland", "disorganized", "crowded", "noisy", "dismissive", "unresponsive"];
+
+  const praiseCounts: Record<string, number> = {};
+  const complaintCounts: Record<string, number> = {};
+
+  for (const review of reviews) {
+    const lower = review.text.toLowerCase();
+    if (review.rating >= positiveThreshold) {
+      for (const kw of praiseKeywords) {
+        if (lower.includes(kw)) {
+          praiseCounts[kw] = (praiseCounts[kw] || 0) + 1;
+        }
+      }
+    }
+    if (review.rating <= negativeThreshold) {
+      for (const kw of complaintKeywords) {
+        if (lower.includes(kw)) {
+          complaintCounts[kw] = (complaintCounts[kw] || 0) + 1;
+        }
+      }
+    }
+  }
+
+  const praiseLabels: Record<string, string> = {
+    friendly: "Friendly staff", great: "Great service", excellent: "Excellent quality", amazing: "Amazing experience",
+    wonderful: "Wonderful atmosphere", fantastic: "Fantastic service", love: "Customers love it", best: "Best in class",
+    happy: "Happy customers", satisfied: "Satisfied customers", kind: "Kind treatment", helpful: "Helpful staff",
+    caring: "Caring approach", comfortable: "Comfortable environment", clean: "Cleanliness", professional: "Professionalism",
+    quick: "Quick service", fast: "Fast service", nice: "Nice ambiance", delicious: "Delicious food",
+    tasty: "Tasty food", convenient: "Convenient location", affordable: "Affordable pricing",
+    awesome: "Awesome experience", superb: "Superb quality", outstanding: "Outstanding service",
+    good: "Good quality", pleasant: "Pleasant experience", smooth: "Smooth process", efficient: "Efficient service",
+    attentive: "Attentive staff", thorough: "Thorough service", gentle: "Gentle care", skilled: "Skilled professionals",
+    knowledgeable: "Knowledgeable staff", patient: "Patient service",
+  };
+  const complaintLabels: Record<string, string> = {
+    wait: "Long wait times", delay: "Delays", late: "Lateness", bad: "Bad experience", terrible: "Terrible experience",
+    awful: "Awful experience", horrible: "Horrible experience", worst: "Worst experience", hate: "Strong dislike",
+    poor: "Poor quality", rude: "Rude staff", slow: "Slow service", unhelpful: "Unhelpful staff",
+    unclean: "Unclean environment", dirty: "Dirty premises", uncomfortable: "Uncomfortable experience",
+    expensive: "Too expensive", overpriced: "Overpriced", disappointed: "Disappointed customers",
+    frustrating: "Frustrating process", waste: "Waste of time", shoddy: "Shoddy work",
+    unprofessional: "Unprofessional behavior", ignored: "Customers ignored", broken: "Broken equipment",
+    wrong: "Wrong order", mistake: "Mistakes", cold: "Cold food", "not good": "Not satisfactory",
+    mediocre: "Mediocre quality", bland: "Bland food", disorganized: "Disorganized", crowded: "Too crowded",
+    noisy: "Too noisy", dismissive: "Dismissive staff", unresponsive: "Unresponsive",
+  };
+
+  const praises = Object.entries(praiseCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, maxItems)
+    .map(([phrase, count]) => ({ phrase: praiseLabels[phrase] || phrase.charAt(0).toUpperCase() + phrase.slice(1), count }));
+
+  const complaints = Object.entries(complaintCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, maxItems)
+    .map(([phrase, count]) => ({ phrase: complaintLabels[phrase] || phrase.charAt(0).toUpperCase() + phrase.slice(1), count }));
+
+  return { praises, complaints };
+}
+
+function computeTrend(reviews: ReviewInput[], days: number = 30): { date: string; count: number; avgRating: number }[] {
+  const dayMap = new Map<string, { totalRating: number; count: number }>();
+  const now = new Date();
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    const key = d.toISOString().slice(0, 10);
+    dayMap.set(key, { totalRating: 0, count: 0 });
+  }
+  for (const r of reviews) {
+    const key = r.createdAt.slice(0, 10);
+    if (dayMap.has(key)) {
+      const entry = dayMap.get(key)!;
+      entry.totalRating += r.rating;
+      entry.count += 1;
+    }
+  }
+  return Array.from(dayMap.entries()).map(([date, data]) => ({
+    date,
+    count: data.count,
+    avgRating: data.count > 0 ? Math.round((data.totalRating / data.count) * 10) / 10 : 0,
+  }));
+}
+
+export function buildFallbackInsights(
+  reviews: ReviewInput[],
+  businessName: string,
+  previousReviews?: ReviewInput[],
+  trendDays: number = 30
+): InsightsResult {
+  const total = reviews.length;
+  const { praises, complaints } = extractCommonPhrases(reviews, 4, 2);
+
+  if (total === 0) {
+    return {
+      summary: `No reviews have been collected for ${businessName} yet. Start sharing your QR code to gather customer feedback.`,
+      metrics: { averageRating: 0, totalReviews: 0, positivePercent: 0, neutralPercent: 0, negativePercent: 0, growthRate: 0, previousPeriodAvg: 0 },
+      topPraises: [],
+      topComplaints: [],
+      trend: computeTrend(reviews, trendDays),
+    };
+  }
+
+  const avg = Math.round((reviews.reduce((s, r) => s + r.rating, 0) / total) * 10) / 10;
+  const positive = reviews.filter((r) => r.rating >= 4).length;
+  const neutral = reviews.filter((r) => r.rating === 3).length;
+  const negative = reviews.filter((r) => r.rating <= 2).length;
+  const pct = (n: number) => Math.round((n / total) * 100);
+
+  const pctPos = pct(positive);
+  const pctNeu = pct(neutral);
+  const pctNeg = pct(negative);
+
+  const prevAvg = previousReviews && previousReviews.length > 0
+    ? Math.round((previousReviews.reduce((s, r) => s + r.rating, 0) / previousReviews.length) * 10) / 10
+    : 0;
+  const growthRate = prevAvg > 0 ? Math.round(((avg - prevAvg) / prevAvg) * 100) : 0;
+
+  let summary = "";
+  if (pctPos > 60) {
+    summary = `${businessName} has received ${total} recent reviews with an average rating of ${avg}/5. The vast majority of customers are highly satisfied (${pctPos}% positive). `;
+    if (praises.length > 0) {
+      summary += `Customers frequently praise ${praises.slice(0, 2).map(p => p.phrase.toLowerCase()).join(" and ")}. `;
+    }
+    if (complaints.length > 0) {
+      summary += `A few customers mentioned ${complaints[0].phrase.toLowerCase()} as an area to watch.`;
+    } else {
+      summary += `Overall sentiment remains strongly positive with little critical feedback.`;
+    }
+  } else if (pctNeg > 30) {
+    summary = `${businessName} has received ${total} recent reviews with an average rating of ${avg}/5. A significant portion of customers have expressed concerns (${pctNeg}% negative). `;
+    if (complaints.length > 0) {
+      summary += `Recurring issues include ${complaints.slice(0, 2).map(c => c.phrase.toLowerCase()).join(" and ")}. `;
+    }
+    if (praises.length > 0) {
+      summary += `On the positive side, customers appreciate ${praises[0].phrase.toLowerCase()}.`;
+    }
+  } else {
+    summary = `${businessName} has received ${total} recent reviews with an average rating of ${avg}/5. Sentiment is mixed — ${pctPos}% positive, ${pctNeu}% neutral, ${pctNeg}% negative. `;
+    if (praises.length > 0 && complaints.length > 0) {
+      summary += `Customers praise ${praises[0].phrase.toLowerCase()} while flagging ${complaints[0].phrase.toLowerCase()} as an area needing improvement.`;
+    } else if (praises.length > 0) {
+      summary += `Customers particularly appreciate ${praises[0].phrase.toLowerCase()}.`;
+    } else if (complaints.length > 0) {
+      summary += `Key areas for improvement include ${complaints[0].phrase.toLowerCase()}.`;
+    }
+  }
+
+  if (growthRate !== 0) {
+    summary += ` Rating has ${growthRate > 0 ? "improved" : "declined"} by ${Math.abs(growthRate)}% compared to the previous period.`;
+  }
+
+  return {
+    summary,
+    metrics: { averageRating: avg, totalReviews: total, positivePercent: pctPos, neutralPercent: pctNeu, negativePercent: pctNeg, growthRate, previousPeriodAvg: prevAvg },
+    topPraises: praises,
+    topComplaints: complaints,
+    trend: computeTrend(reviews, trendDays),
+  };
+}
+
+export async function generateInsights(
+  reviews: ReviewInput[],
+  businessName: string,
+  previousReviews?: ReviewInput[],
+  trendDays: number = 30
+): Promise<InsightsResult> {
+  const env = getEnv();
+  const apiKey = env.GOOGLE_GENERATIVE_AI_API_KEY;
+
+  if (!apiKey || reviews.length === 0) {
+    return buildFallbackInsights(reviews, businessName, previousReviews, trendDays);
+  }
+
+  const reviewsJson = JSON.stringify(reviews.slice(0, 20));
+  const previousJson = previousReviews && previousReviews.length > 0
+    ? JSON.stringify(previousReviews.slice(0, 20))
+    : "[]";
+
+  const systemInstruction = `You are an AI analyst helping a business owner understand what customers are saying about their business. You produce structured, insightful analyses.`;
+
+  const prompt = `Analyze the following reviews for "${businessName}" and produce a detailed analysis in JSON format.
+
+Current period reviews:
+${reviewsJson}
+
+Previous period reviews (for comparison):
+${previousJson}
+
+Return a JSON object with these exact fields:
+1. "summary": A 2-3 sentence plain-text summary covering core themes, what customers praise most, and what needs improvement. Be specific — reference actual patterns. Do not use generic phrases.
+2. "topPraises": Array of objects with "phrase" (string, e.g. "Friendly staff") and "count" (number of reviews mentioning this), max 4 items. Only include phrases present in the data.
+3. "topComplaints": Array of objects with "phrase" (string, e.g. "Long wait times") and "count" (number of reviews mentioning this), max 4 items. Only include phrases present in the data.
+
+Output ONLY valid JSON — no markdown, no backticks, no labels, no prefixes, no extra text.`;
+
+  try {
+    const text = await callGemini(prompt, systemInstruction, {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: "OBJECT",
+        properties: {
+          summary: { type: "STRING" },
+          topPraises: {
+            type: "ARRAY",
+            items: {
+              type: "OBJECT",
+              properties: {
+                phrase: { type: "STRING" },
+                count: { type: "NUMBER" },
+              },
+              required: ["phrase", "count"],
+            },
+          },
+          topComplaints: {
+            type: "ARRAY",
+            items: {
+              type: "OBJECT",
+              properties: {
+                phrase: { type: "STRING" },
+                count: { type: "NUMBER" },
+              },
+              required: ["phrase", "count"],
+            },
+          },
+        },
+        required: ["summary", "topPraises", "topComplaints"],
+      },
+    });
+
+    const parsed = JSON.parse(text);
+    const { praises, complaints } = extractCommonPhrases(reviews, 4, 2);
+
+    const fallback = buildFallbackInsights(reviews, businessName, previousReviews, trendDays);
+
+    return {
+      summary: parsed.summary || fallback.summary,
+      metrics: fallback.metrics,
+      topPraises: (parsed.topPraises || praises).slice(0, 4),
+      topComplaints: (parsed.topComplaints || complaints).slice(0, 4),
+      trend: computeTrend(reviews, trendDays),
+    };
+  } catch (err) {
+    console.warn("Gemini insights generation failed, falling back to deterministic analysis:", err);
+    return buildFallbackInsights(reviews, businessName, previousReviews, trendDays);
+  }
+}
+
 export async function callGemini(
   prompt: string,
   systemInstruction?: string,

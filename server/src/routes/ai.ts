@@ -3,7 +3,8 @@ import { z } from "zod";
 import { prisma } from "../config/database";
 import { authRequired, AuthRequest } from "../middleware/auth";
 import { aiLimiter } from "../middleware/rate-limit";
-import { callGemini, deriveTalkingPoints, buildFallbackReply, buildFallbackReview } from "../utils/gemini";
+import { callGemini, deriveTalkingPoints, buildFallbackReply, buildFallbackReview, generateInsights } from "../utils/gemini";
+import type { ReviewInput } from "../utils/gemini";
 
 const router = Router();
 
@@ -288,6 +289,104 @@ Write a short, natural, authentic-sounding review draft (2-5 sentences) in the e
       return res.status(400).json({ error: "Invalid input", details: err.errors });
     }
     console.error("Generate review error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── AI Insights: Summary of what customers are saying ──────────────────────
+router.get("/insights/:businessId", authRequired, async (req: AuthRequest, res: Response) => {
+  try {
+    const period = (req.query.period as string) || "month";
+    const businessId = req.params.businessId as string;
+    const userId = req.userId as string;
+
+    const business = await prisma.business.findFirst({
+      where: { id: businessId, userId },
+    });
+    if (!business) {
+      return res.status(404).json({ error: "Business not found" });
+    }
+
+    const now = new Date();
+    let periodStart: Date;
+    let previousPeriodStart: Date;
+    let trendDays: number;
+
+    if (period === "week") {
+      periodStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      previousPeriodStart = new Date(periodStart.getTime() - 7 * 24 * 60 * 60 * 1000);
+      trendDays = 7;
+    } else if (period === "all") {
+      periodStart = new Date(0);
+      previousPeriodStart = new Date(0);
+      trendDays = 90;
+    } else {
+      periodStart = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      previousPeriodStart = new Date(periodStart.getTime() - 30 * 24 * 60 * 60 * 1000);
+      trendDays = 30;
+    }
+
+    const [googleReviews, feedbackReviews, prevGoogleReviews, prevFeedbackReviews] = await Promise.all([
+      prisma.googleReview.findMany({
+        where: { businessId, createTime: { gte: periodStart } },
+        orderBy: { createTime: "desc" },
+        take: 50,
+        select: { starRating: true, comment: true, createTime: true },
+      }),
+      prisma.feedback.findMany({
+        where: { businessId, createdAt: { gte: periodStart } },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+        select: { rating: true, liked: true, improvement: true, privateNote: true, createdAt: true },
+      }),
+      period !== "all" ? prisma.googleReview.findMany({
+        where: { businessId, createTime: { gte: previousPeriodStart, lt: periodStart } },
+        orderBy: { createTime: "desc" },
+        take: 50,
+        select: { starRating: true, comment: true, createTime: true },
+      }) : Promise.resolve([]),
+      period !== "all" ? prisma.feedback.findMany({
+        where: { businessId, createdAt: { gte: previousPeriodStart, lt: periodStart } },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+        select: { rating: true, liked: true, improvement: true, privateNote: true, createdAt: true },
+      }) : Promise.resolve([]),
+    ]);
+
+    function mapReviews(google: any[], feedback: any[]): ReviewInput[] {
+      return [
+        ...google.map((g: any) => ({
+          source: "google" as const,
+          rating: g.starRating,
+          text: g.comment || "",
+          createdAt: g.createTime.toISOString(),
+        })),
+        ...feedback.map((f: any) => ({
+          source: "feedback" as const,
+          rating: f.rating,
+          text: [f.liked, f.improvement, f.privateNote].filter(Boolean).join(". "),
+          createdAt: f.createdAt.toISOString(),
+        })),
+      ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }
+
+    const reviews = mapReviews(googleReviews, feedbackReviews);
+    const previousReviews = mapReviews(prevGoogleReviews, prevFeedbackReviews);
+
+    const result = await generateInsights(reviews, business.name, previousReviews, trendDays);
+
+    await prisma.activityLog.create({
+      data: {
+        userId,
+        businessId,
+        action: "insights_generated",
+        details: { reviewCount: reviews.length, period },
+      },
+    });
+
+    res.json(result);
+  } catch (err) {
+    console.error("Insights API error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });

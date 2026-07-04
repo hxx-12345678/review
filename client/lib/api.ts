@@ -179,6 +179,14 @@ export const api = {
         method: "PATCH",
         body: JSON.stringify({ content }),
       }),
+    getInsights: (businessId: string, period?: "week" | "month" | "all") =>
+      request<{
+        summary: string;
+        metrics: { averageRating: number; totalReviews: number; positivePercent: number; neutralPercent: number; negativePercent: number; growthRate: number; previousPeriodAvg: number };
+        topPraises: { phrase: string; count: number }[];
+        topComplaints: { phrase: string; count: number }[];
+        trend: { date: string; count: number; avgRating: number }[];
+      }>(`/ai/insights/${businessId}${period ? `?period=${period}` : ""}`),
   },
   nextAi: {
     generateReply: (data: { reviewText: string; rating: number; businessName: string; tone?: string }) =>
