@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { ExternalLink, Sparkles, Loader2, Check, MessageSquareHeart, ArrowRight, ArrowLeft, Stethoscope, Scissors, Dumbbell, Home, Utensils, Car, ShieldCheck, Lock, Award, Star, ThumbsUp, Meh, Frown, PenLine, RefreshCw, Lightbulb, SmilePlus, ChevronDown } from "lucide-react"
+import { ExternalLink, Sparkles, Loader2, Check, MessageSquareHeart, ArrowRight, ArrowLeft, Stethoscope, Scissors, Dumbbell, Home, Utensils, Car, ShieldCheck, Lock, Award, Star, ThumbsUp, Meh, Frown, PenLine, RefreshCw, Lightbulb, SmilePlus, ChevronDown, ChevronRight, Wrench, Clock, Wine, UserCheck, Users, Building, Calendar, MessageSquare, MapPin, Music } from "lucide-react"
 import { getReviewStepConfig, scoreAuthenticity, type AuthenticityResult } from "@/lib/compliance"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -15,6 +15,7 @@ import { BrandedLoading } from "@/components/feedback/branded-loading"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { api } from "@/lib/api"
+import { getCategoriesForIndustry } from "@/lib/industry-categories"
 
 type Step = "loading" | "welcome" | "rate" | "describe" | "review" | "private" | "redirect" | "done"
 
@@ -23,6 +24,7 @@ export function FeedbackFlow({ business, slug, demo: isDemo = false }: { busines
   const [rating, setRating] = useState(0)
   const [highlights, setHighlights] = useState("")
   const [selectedTopics, setSelectedTopics] = useState<string[]>([])
+  const [selectedSubOptions, setSelectedSubOptions] = useState<string[]>([])
   const [language, setLanguage] = useState<string>("english")
   const [combinedInput, setCombinedInput] = useState("")
   const [talkingPoints, setTalkingPoints] = useState<string[]>([])
@@ -60,15 +62,29 @@ export function FeedbackFlow({ business, slug, demo: isDemo = false }: { busines
     )
   }
 
+  function toggleSubOption(id: string) {
+    setSelectedSubOptions((prev) =>
+      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id],
+    )
+  }
+
   async function handleDescribeContinue() {
     const text = highlights.trim()
-    const combined = text || (selectedTopics.length > 0 ? selectedTopics.join(", ") : "")
+
+    // Merge legacy selectedTopics with sub-option labels
+    const subLabels = getCategoriesForIndustry(business.industry)
+      .flatMap((c) => c.subOptions)
+      .filter((s) => selectedSubOptions.includes(s.id))
+      .map((s) => s.label)
+    const allSelectedTopics = [...new Set([...selectedTopics, ...subLabels])]
+    const combined = text || (allSelectedTopics.length > 0 ? allSelectedTopics.join(", ") : "")
 
     setCombinedInput(combined)
-    setAuthenticity(scoreAuthenticity(text || selectedTopics.join(" ")))
+    setSelectedTopics(allSelectedTopics)
+    setAuthenticity(scoreAuthenticity(text || allSelectedTopics.join(" ")))
 
     if (!feedbackId) {
-      const id = await submitFeedback({ liked: text || undefined })
+      const id = await submitFeedback({ liked: text || undefined, selectedSubOptions: selectedSubOptions.length > 0 ? selectedSubOptions : undefined })
       if (!id) return
     }
 
@@ -82,7 +98,7 @@ export function FeedbackFlow({ business, slug, demo: isDemo = false }: { busines
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             highlights: combined,
-            selectedTopics,
+            selectedTopics: allSelectedTopics,
             businessName: business.name,
             rating,
             language,
@@ -135,6 +151,7 @@ export function FeedbackFlow({ business, slug, demo: isDemo = false }: { busines
     customerName?: string
     customerEmail?: string
     privateNote?: string
+    selectedSubOptions?: string[]
   }) {
     if (submitting) return null
 
@@ -213,6 +230,8 @@ export function FeedbackFlow({ business, slug, demo: isDemo = false }: { busines
             setHighlights={setHighlights}
             selectedTopics={selectedTopics}
             toggleTopic={toggleTopic}
+            selectedSubOptions={selectedSubOptions}
+            toggleSubOption={toggleSubOption}
             language={language}
             setLanguage={setLanguage}
             onContinue={handleDescribeContinue}
@@ -250,7 +269,7 @@ export function FeedbackFlow({ business, slug, demo: isDemo = false }: { busines
             done={privateDone}
             slug={slug}
             onSubmit={async (data) => {
-              const id = await submitFeedback(data)
+              const id = await submitFeedback({ ...data, selectedSubOptions: selectedSubOptions.length > 0 ? selectedSubOptions : undefined })
               if (id) {
                 setPrivateDone(true)
                 toast.success("Thank you — your feedback was sent to the owner.")
@@ -387,68 +406,137 @@ const MOOD_TAGS: Record<string, { icon: React.ReactNode; label: string; positive
 }
 
 function DescribeStep({
-  business, rating, highlights, setHighlights, selectedTopics, toggleTopic, language, setLanguage, onContinue, onBack, submitting,
+  business, rating, highlights, setHighlights, selectedTopics, toggleTopic, selectedSubOptions, toggleSubOption, language, setLanguage, onContinue, onBack, submitting,
 }: {
-  business: any; rating: number; highlights: string; setHighlights: (v: string) => void; selectedTopics: string[]; toggleTopic: (t: string) => void; language: string; setLanguage: (v: string) => void; onContinue: () => void; onBack: () => void; submitting: boolean
+  business: any; rating: number; highlights: string; setHighlights: (v: string) => void; selectedTopics: string[]; toggleTopic: (t: string) => void; selectedSubOptions: string[]; toggleSubOption: (id: string) => void; language: string; setLanguage: (v: string) => void; onContinue: () => void; onBack: () => void; submitting: boolean
 }) {
-  const config = getReviewStepConfig(rating)
-  const canContinue = highlights.trim().length >= 3 || selectedTopics.length > 0
+  const canContinue = highlights.trim().length >= 3 || selectedSubOptions.length > 0 || selectedTopics.length > 0
   const charCount = highlights.length
   const moodKey = getMoodKey(rating)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [showLanguage, setShowLanguage] = useState(false)
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
 
-  // Use a flat, curated list of tags based on the mood to reduce cognitive load (frictionless UI)
-  const quickTags = moodKey === "positive"
-    ? ["Friendly staff", "Great service", "Clean environment", "Highly skilled", "Convenient", "Good value", "Would come back"]
-    : moodKey === "neutral"
-      ? ["Decent service", "Average experience", "Okay but room to grow", "Fair enough", "Could improve"]
-      : ["Slow service", "Rude staff", "Unclean", "Too expensive", "Long wait", "Would not return"]
+  const categories = getCategoriesForIndustry(business.industry)
 
-  // Merge with business specific topics if available
-  const allTags = Array.from(new Set([...(business.promptTopics || []), ...quickTags])).slice(0, 8)
+  // Build a flat set of unique labels from selected sub-options for backward compat
+  const allSubLabels = categories.flatMap((c) => c.subOptions).filter((s) => selectedSubOptions.includes(s.id)).map((s) => s.label)
+
+  function toggleCategory(id: string) {
+    setExpandedCategories((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  // Expand first category by default if none are expanded
+  useEffect(() => {
+    if (expandedCategories.size === 0 && categories.length > 0) {
+      setExpandedCategories(new Set([categories[0].id]))
+    }
+  }, [])
+
+  const ICON_MAP: Record<string, any> = {
+    Utensils, ThumbsUp, Sparkles, SmilePlus, Wine,
+    Stethoscope, Users, Building, Calendar, MessageSquare, ShieldCheck,
+    Scissors, UserCheck,
+    Wrench, Clock,
+    Dumbbell, Music,
+    MapPin, Home, Star,
+  }
+
+  function getIcon(iconName: string) {
+    const Icon = ICON_MAP[iconName]
+    return Icon ? <Icon className="size-4" /> : <Sparkles className="size-4" />
+  }
 
   return (
-    <div className="flex flex-1 flex-col animate-fade-in-up gap-0">
-      <div className="text-center mb-4">
+    <div className="flex flex-1 flex-col animate-fade-in-up gap-0 overflow-y-auto">
+      <div className="text-center mb-3">
         <div className={cn("inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold",
           moodKey === "positive" ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" :
           moodKey === "neutral" ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" :
           "bg-red-500/10 text-red-600 dark:text-red-400")}>
           {moodKey === "positive" ? <ThumbsUp className="size-4" /> : moodKey === "neutral" ? <Meh className="size-4" /> : <Frown className="size-4" />}
-          {moodKey === "positive" ? "Awesome! What was the highlight?" : moodKey === "neutral" ? "What made it just okay?" : "We're sorry. What went wrong?"}
+          {moodKey === "positive" ? "What did you love?" : moodKey === "neutral" ? "What was just okay?" : "What went wrong?"}
         </div>
       </div>
 
-      <div className="mt-2 space-y-4">
-        <div className="flex flex-wrap justify-center gap-2">
-          {allTags.map((topic) => {
-            const isSelected = selectedTopics.includes(topic)
-            return (
+      {/* Selected sub-options summary chips */}
+      {selectedSubOptions.length > 0 && (
+        <div className="mb-3 flex flex-wrap gap-1.5">
+          {allSubLabels.map((label) => (
+            <span key={label} className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary text-[10px] font-semibold px-2.5 py-1 border border-primary/20">
+              <Check className="size-2.5" />
+              {label}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Hierarchical categories */}
+      <div className="space-y-2">
+        {categories.map((category) => {
+          const isExpanded = expandedCategories.has(category.id)
+          const selectedCount = category.subOptions.filter((s) => selectedSubOptions.includes(s.id)).length
+
+          return (
+            <div key={category.id} className="rounded-xl border border-border/60 bg-card/50 overflow-hidden transition-all duration-200">
               <button
-                key={topic}
                 type="button"
-                onClick={() => toggleTopic(topic)}
-                aria-pressed={isSelected}
-                className={cn(
-                  "rounded-full border px-4 py-2 text-sm font-medium transition-all duration-200 flex items-center gap-1.5 shadow-sm active:scale-95",
-                  isSelected
-                    ? "border-primary bg-primary text-primary-foreground shadow-md scale-[1.02]"
-                    : "border-border bg-card/50 text-muted-foreground hover:border-foreground/30 hover:text-foreground hover:bg-card"
-                )}
+                onClick={() => toggleCategory(category.id)}
+                className="flex w-full items-center justify-between px-3.5 py-2.5 text-left hover:bg-muted/30 transition-colors"
               >
-                {isSelected && <Check className="size-3.5" />}
-                {topic}
+                <div className="flex items-center gap-2.5">
+                  <span className="text-muted-foreground">{getIcon(category.icon)}</span>
+                  <span className="text-sm font-semibold text-foreground">{category.label}</span>
+                  {selectedCount > 0 && (
+                    <span className="inline-flex items-center justify-center size-5 rounded-full bg-primary text-primary-foreground text-[9px] font-bold">
+                      {selectedCount}
+                    </span>
+                  )}
+                </div>
+                <ChevronDown className={cn("size-4 text-muted-foreground transition-transform duration-200", isExpanded && "rotate-180")} />
               </button>
-            )
-          })}
-        </div>
+
+              {isExpanded && (
+                <div className="border-t border-border/40 px-3.5 py-2.5 animate-fade-in-up">
+                  <div className="flex flex-wrap gap-2">
+                    {category.subOptions.map((sub) => {
+                      const isSelected = selectedSubOptions.includes(sub.id)
+                      return (
+                        <button
+                          key={sub.id}
+                          type="button"
+                          onClick={() => toggleSubOption(sub.id)}
+                          aria-pressed={isSelected}
+                          className={cn(
+                            "rounded-lg border px-3 py-1.5 text-xs font-medium transition-all duration-150 active:scale-95",
+                            isSelected
+                              ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                              : "border-border/60 bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground"
+                          )}
+                        >
+                          {sub.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })}
       </div>
 
-      <div className="mt-6 space-y-1.5 relative">
+      {/* Free-text highlights */}
+      <div className="mt-4 space-y-1.5 relative">
         <div className="flex justify-between items-center px-0.5">
-          <label htmlFor="describe-highlights" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Or type your own details
+          <label htmlFor="describe-highlights" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+            <PenLine className="size-3" />
+            Or write in your own words
           </label>
           <span className={cn("text-[10px] font-bold tracking-tight", charCount > 450 ? "text-destructive" : charCount >= 3 ? "text-primary" : "text-muted-foreground")}>
             {charCount}/500
@@ -459,21 +547,23 @@ function DescribeStep({
           id="describe-highlights"
           value={highlights}
           onChange={(e) => setHighlights(e.target.value)}
-          placeholder={moodKey === "positive" ? "e.g. The quality was great and they really cared about getting it right." : moodKey === "neutral" ? "e.g. The service was decent but there's room for improvement in some areas." : "e.g. I had to wait much longer than expected and it wasn't a great experience."}
-          className="min-h-24 resize-none rounded-xl border border-border bg-card/30 p-3 shadow-inner focus:bg-card focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all duration-200"
+          placeholder={moodKey === "positive" ? "e.g. The quality was great and they really cared about getting it right." : moodKey === "neutral" ? "e.g. The service was decent but there's room for improvement." : "e.g. I had to wait much longer than expected and it wasn't a great experience."}
+          className="min-h-20 resize-none rounded-xl border border-border bg-card/30 p-3 shadow-inner focus:bg-card focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all duration-200"
           maxLength={500}
         />
       </div>
 
+      {/* Hint */}
       <div className="mt-3 flex items-start gap-2 text-xs text-muted-foreground/80 bg-muted/40 border border-border/40 rounded-xl p-3 shadow-sm">
         <Sparkles className="size-4 text-primary shrink-0 mt-0.5" />
         <span className="leading-relaxed">
-          {selectedTopics.length > 0 || highlights.length > 3
-            ? "Great! We'll use AI to turn this into a perfect review draft in the next step."
-            : "Tap a few tags or type some details above so our AI can write a draft for you."}
+          {selectedSubOptions.length > 0 || highlights.length > 3
+            ? "Perfect! We'll turn this into a great review draft."
+            : "Pick a few categories above or write some details so our AI can craft a draft for you."}
         </span>
       </div>
 
+      {/* Language */}
       <div className="mt-3 flex justify-end">
         <button type="button" onClick={() => setShowLanguage(!showLanguage)} className="text-[10px] font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
           {showLanguage ? "Hide" : "Show"} Language Options

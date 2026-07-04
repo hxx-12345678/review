@@ -84,6 +84,7 @@ export const api = {
       customerName?: string;
       customerEmail?: string;
       privateNote?: string;
+      selectedSubOptions?: string[];
     }) =>
       request<{ feedback: any }>("/feedback/submit", {
         method: "POST",

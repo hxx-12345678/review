@@ -15,6 +15,7 @@ const submitFeedbackSchema = z.object({
   customerName: z.string().max(100).optional().or(z.literal("")),
   customerEmail: z.string().email().optional().or(z.literal("")),
   privateNote: z.string().max(5000).optional().or(z.literal("")),
+  selectedSubOptions: z.array(z.string()).optional(),
 });
 
 router.post("/submit", authOptional, async (req: AuthRequest, res: Response) => {
@@ -39,6 +40,7 @@ router.post("/submit", authOptional, async (req: AuthRequest, res: Response) => 
         customerName: data.customerName || null,
         customerEmail: data.customerEmail || null,
         privateNote: data.privateNote || null,
+        selectedSubOptions: data.selectedSubOptions && data.selectedSubOptions.length > 0 ? data.selectedSubOptions : undefined,
         status: data.privateNote ? "PRIVATE_FEEDBACK" : "ABANDONED",
       },
     });
