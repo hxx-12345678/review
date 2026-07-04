@@ -17,6 +17,7 @@ const envSchema = z.object({
   SMS_SENDER_ID: z.string().optional().default(""),
   SMS_TEMPLATE_ID: z.string().optional().default(""),
   SMS_BASE_URL: z.string().optional().default("https://login.smsforyou.biz/V2/http-api.php"),
+  GEMINI_API_KEY_1: z.string().optional().default(""),
   GOOGLE_GENERATIVE_AI_API_KEY: z.string().optional().default(""),
   GOOGLE_OAUTH_CLIENT_ID: z.string().optional().default(""),
   GOOGLE_OAUTH_CLIENT_SECRET: z.string().optional().default(""),
@@ -52,6 +53,9 @@ export function loadEnv(): Env {
     }
     if (processed["EMAIL_SECURE"] && !processed["SMTP_SECURE"]) {
       processed["SMTP_SECURE"] = processed["EMAIL_SECURE"];
+    }
+    if (processed["GEMINI_API_KEY_1"] && !processed["GOOGLE_GENERATIVE_AI_API_KEY"]) {
+      processed["GOOGLE_GENERATIVE_AI_API_KEY"] = processed["GEMINI_API_KEY_1"];
     }
     if (processed["GOOGLE_CLIENT_ID"] && !processed["GOOGLE_OAUTH_CLIENT_ID"]) {
       processed["GOOGLE_OAUTH_CLIENT_ID"] = processed["GOOGLE_CLIENT_ID"];
