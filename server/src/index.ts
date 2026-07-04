@@ -18,6 +18,7 @@ import activityRoutes from "./routes/activity";
 import communicationRoutes from "./routes/communications";
 import googleReviewsRoutes from "./routes/google-reviews";
 import uploadRoutes from "./routes/upload";
+import paymentsRoutes from "./routes/payments";
 
 const env = loadEnv();
 
@@ -81,6 +82,95 @@ app.options("*", cors({
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
   maxAge: 86400,
 }));
+// Raw body parser for Razorpay webhook (must be before express.json to receive raw body)
+app.post("/api/payments/webhook", express.raw({ type: "application/json" }), async (req, res) => {
+  try {
+    const env = loadEnv();
+    const signature = req.headers["x-razorpay-signature"] as string;
+    const body = req.body instanceof Buffer ? req.body.toString("utf8") : JSON.stringify(req.body);
+
+    if (env.RAZORPAY_WEBHOOK_SECRET && signature) {
+      const crypto = require("crypto");
+      const expected = crypto.createHmac("sha256", env.RAZORPAY_WEBHOOK_SECRET).update(body).digest("hex");
+      if (expected !== signature) {
+        return res.status(400).json({ error: "Invalid signature" });
+      }
+    }
+
+    const event = JSON.parse(body);
+    const razorpaySub = event.payload?.subscription?.entity;
+    if (!razorpaySub) return res.json({ status: "skipped" });
+
+    const dbSub = await prisma.subscription.findFirst({
+      where: { razorpaySubscriptionId: razorpaySub.id },
+    });
+    if (!dbSub) return res.json({ status: "not_found" });
+
+    switch (event.event) {
+      case "subscription.activated":
+      case "subscription.charged": {
+        await prisma.subscription.update({
+          where: { id: dbSub.id },
+          data: {
+            status: razorpaySub.status === "active" ? "active" : dbSub.status,
+            currentPeriodStart: razorpaySub.current_start ? new Date(razorpaySub.current_start * 1000) : undefined,
+            currentPeriodEnd: razorpaySub.current_end ? new Date(razorpaySub.current_end * 1000) : undefined,
+          },
+        });
+        const payment = event.payload?.payment?.entity;
+        if (payment) {
+          await prisma.invoice.create({
+            data: {
+              subscriptionId: dbSub.id,
+              razorpayPaymentId: payment.id,
+              amount: payment.amount || 0,
+              currency: payment.currency || "INR",
+              status: "captured",
+              description: `Payment for ${razorpaySub.plan_id}`,
+            },
+          }).catch(() => {});
+        }
+        break;
+      }
+      case "subscription.cancelled": {
+        await prisma.subscription.update({
+          where: { id: dbSub.id },
+          data: { status: "cancelled", cancelledAt: new Date() },
+        });
+        const fb = await prisma.subscriptionPlan.findUnique({ where: { slug: "free" } });
+        if (fb) {
+          await prisma.subscription.create({
+            data: {
+              userId: dbSub.userId, planId: fb.id, status: "active",
+              aiCallsLimit: fb.aiCallsLimit, businessLimit: fb.businessLimit,
+              currentPeriodStart: new Date(), currentPeriodEnd: new Date(Date.now() + 365 * 86400000),
+            },
+          });
+        }
+        break;
+      }
+      case "subscription.completed": {
+        await prisma.subscription.update({
+          where: { id: dbSub.id },
+          data: { status: "completed" },
+        });
+        break;
+      }
+      case "subscription.pending": {
+        await prisma.subscription.update({
+          where: { id: dbSub.id },
+          data: { status: "paused" },
+        });
+        break;
+      }
+    }
+    res.json({ status: "ok" });
+  } catch (err) {
+    console.error("Webhook error:", err);
+    res.json({ status: "error" });
+  }
+});
+
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 app.use(sanitizeInput);
@@ -100,6 +190,7 @@ app.use("/api/activity", activityRoutes);
 app.use("/api/communications", communicationRoutes);
 app.use("/api/google-reviews", googleReviewsRoutes);
 app.use("/api/upload", uploadRoutes);
+app.use("/api/payments", paymentsRoutes);
 
 // Resolve uploads directory relative to THIS FILE's location
 // Dev (tsx):  __dirname = server/src/  → ../uploads = server/uploads/

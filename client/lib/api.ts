@@ -213,4 +213,19 @@ export const api = {
     list: (businessId: string) =>
       request<{ logs: any[] }>(`/activity/${businessId}`),
   },
+  payments: {
+    plans: () =>
+      request<{ plans: any[] }>("/payments/plans"),
+    subscription: () =>
+      request<{ subscription: any | null }>("/payments/subscription"),
+    createSubscription: (planId: string) =>
+      request<{ subscription: any; shortUrl: string | null }>("/payments/create-subscription", {
+        method: "POST",
+        body: JSON.stringify({ planId }),
+      }),
+    cancel: () =>
+      request<{ success: boolean }>("/payments/cancel", {
+        method: "POST",
+      }),
+  },
 };

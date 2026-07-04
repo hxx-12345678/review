@@ -24,6 +24,11 @@ const envSchema = z.object({
   GOOGLE_OAUTH_REDIRECT_URI: z.string().optional().default("http://localhost:4000/api/google-reviews/oauth/callback"),
   TOKEN_ENCRYPTION_KEY: z.string().optional().default(""),
   GOOGLE_PLACES_API_KEY: z.string().optional().default(""),
+
+  // Razorpay
+  RAZORPAY_KEY_ID: z.string().optional().default(""),
+  RAZORPAY_KEY_SECRET: z.string().optional().default(""),
+  RAZORPAY_WEBHOOK_SECRET: z.string().optional().default(""),
 });
 
 export type Env = z.infer<typeof envSchema>;

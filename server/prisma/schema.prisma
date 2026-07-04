@@ -42,6 +42,7 @@ model User {
   businesses     Business[]
   sessions       Session[]
   activityLogs   ActivityLog[]
+  subscriptions  Subscription[]
 }
 
 model Session {
@@ -193,6 +194,61 @@ model GoogleReview {
 
   googleAccount  GoogleAccount @relation(fields: [googleAccountId], references: [id], onDelete: Cascade)
   business       Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+}
+
+model SubscriptionPlan {
+  id            String         @id @default(cuid())
+  name          String
+  slug          String         @unique
+  description   String?
+  price         Int            // in paise (₹)
+  interval      String         @default("month")
+  aiCallsLimit  Int            @default(0)
+  businessLimit Int            @default(1)
+  features      String[]
+  razorpayPlanId String?
+  active        Boolean        @default(true)
+  sortOrder     Int            @default(0)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id                    String            @id @default(cuid())
+  userId                String
+  planId                String
+  status                String            @default("created")
+  razorpaySubscriptionId String?
+  razorpayCustomerId    String?
+  currentPeriodStart    DateTime?
+  currentPeriodEnd      DateTime?
+  trialEnd              DateTime?
+  aiCallsUsed           Int               @default(0)
+  aiCallsLimit          Int               @default(0)
+  businessLimit         Int               @default(1)
+  cancelledAt           DateTime?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  user                  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan                  SubscriptionPlan  @relation(fields: [planId], references: [id])
+  invoices              Invoice[]
+}
+
+model Invoice {
+  id                String       @id @default(cuid())
+  subscriptionId    String
+  razorpayPaymentId String?      @unique
+  amount            Int          // in paise
+  currency          String       @default("INR")
+  status            String       @default("created")
+  description       String?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  subscription      Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
 }
 
 model ActivityLog {

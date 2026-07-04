@@ -21,6 +21,23 @@ async function main() {
     return;
   }
 
+  // Create subscription plans
+  const plans = [
+    { name: "Free", slug: "free", price: 0, sortOrder: 0, aiCallsLimit: 10, businessLimit: 1, features: ["1 business", "10 AI calls/mo", "Unlimited QR codes", "Review inbox", "Basic analytics"], description: "For businesses just getting started." },
+    { name: "Starter", slug: "starter", price: 49900, sortOrder: 1, aiCallsLimit: 500, businessLimit: 1, features: ["1 business", "500 AI calls/mo", "AI reply drafting", "Review insights", "SMS & email requests", "Priority support"], description: "For single-location businesses ready to grow." },
+    { name: "Pro", slug: "pro", price: 199900, sortOrder: 2, aiCallsLimit: 5000, businessLimit: 5, features: ["Up to 5 businesses", "5000 AI calls/mo", "Everything in Starter", "Google Business Profile sync", "Team roles", "Dedicated support"], description: "For growing businesses with multiple locations." },
+  ];
+  for (const p of plans) {
+    await prisma.subscriptionPlan.upsert({
+      where: { slug: p.slug },
+      create: p,
+      update: p,
+    });
+  }
+
+  // Auto-activate free plan for existing demo user
+  const freePlan = await prisma.subscriptionPlan.findUnique({ where: { slug: "free" } });
+
   const user = await prisma.user.create({
     data: {
       email: "demo@reviewos.app",
@@ -115,6 +132,21 @@ async function main() {
     },
   });
 
+  // Activate free subscription for demo user
+  if (freePlan) {
+    await prisma.subscription.create({
+      data: {
+        userId: user.id,
+        planId: freePlan.id,
+        status: "active",
+        aiCallsLimit: freePlan.aiCallsLimit,
+        businessLimit: freePlan.businessLimit,
+        currentPeriodStart: new Date(),
+        currentPeriodEnd: new Date(Date.now() + 365 * 86400000),
+      },
+    });
+  }
+
   console.log("Seed data created successfully!");
   console.log(`Created ${feedbacks.length} feedback entries across 14 days`);
   console.log(`Created ${clickable.length} review clicks`);
@@ -129,3 +161,4 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
+

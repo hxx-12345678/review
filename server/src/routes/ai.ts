@@ -2,6 +2,7 @@ import { Router, Response, Request } from "express";
 import { z } from "zod";
 import { prisma } from "../config/database";
 import { authRequired, AuthRequest } from "../middleware/auth";
+import { requireSubscription, incrementAiCalls } from "../middleware/subscription";
 import { aiLimiter } from "../middleware/rate-limit";
 import { callGemini, deriveTalkingPoints, buildFallbackReply, buildFallbackReview, generateInsights } from "../utils/gemini";
 import type { ReviewInput } from "../utils/gemini";
@@ -22,7 +23,7 @@ function cacheKey(highlights: string, business: string, rating: number, lang: st
 }
 
 // ── T10: AI Reply Generation Route ──────────────────────────────────────────
-router.post("/generate-reply", authRequired, aiLimiter, async (req: AuthRequest, res: Response) => {
+router.post("/generate-reply", authRequired, requireSubscription, aiLimiter, async (req: AuthRequest, res: Response) => {
   try {
     const data = generateReplySchema.parse(req.body);
 
@@ -104,6 +105,8 @@ Write a personal, specific reply from the business owner that references at leas
         details: { feedbackId: data.feedbackId, tone: data.tone },
       },
     });
+
+    await incrementAiCalls(req);
 
     res.json({ reply: generatedReply });
   } catch (err) {
@@ -298,7 +301,7 @@ Write a short, natural, authentic-sounding review draft (2-5 sentences) in the e
 const insightsCache = new Map<string, { result: any; expiresAt: number }>();
 const INSIGHTS_CACHE_TTL = 5 * 60 * 1000;
 
-router.get("/insights/:businessId", authRequired, async (req: AuthRequest, res: Response) => {
+router.get("/insights/:businessId", authRequired, requireSubscription, async (req: AuthRequest, res: Response) => {
   try {
     const period = (req.query.period as string) || "month";
     const businessId = req.params.businessId as string;
@@ -390,6 +393,8 @@ router.get("/insights/:businessId", authRequired, async (req: AuthRequest, res: 
       const firstKey = insightsCache.keys().next().value;
       if (firstKey) insightsCache.delete(firstKey);
     }
+
+    await incrementAiCalls(req);
 
     await prisma.activityLog.create({
       data: {
