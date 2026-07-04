@@ -395,14 +395,18 @@ function DescribeStep({
   const canContinue = highlights.trim().length >= 3 || selectedTopics.length > 0
   const charCount = highlights.length
   const moodKey = getMoodKey(rating)
-  const [activeCategory, setActiveCategory] = useState<string | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const [showLanguage, setShowLanguage] = useState(false)
 
+  // Use a flat, curated list of tags based on the mood to reduce cognitive load (frictionless UI)
   const quickTags = moodKey === "positive"
-    ? ["Friendly staff", "Great service", "Clean environment", "Professional", "Highly skilled", "Convenient", "Good value", "Would come back"]
+    ? ["Friendly staff", "Great service", "Clean environment", "Highly skilled", "Convenient", "Good value", "Would come back"]
     : moodKey === "neutral"
-      ? ["Decent service", "Average experience", "Okay but room to grow", "Not bad not great", "Some highlights some lows", "Fair enough", "Middle of the road", "Could improve"]
-      : ["Slow service", "Rude staff", "Unclean", "Too expensive", "Long wait", "Unprofessional", "Misleading", "Would not return"]
+      ? ["Decent service", "Average experience", "Okay but room to grow", "Fair enough", "Could improve"]
+      : ["Slow service", "Rude staff", "Unclean", "Too expensive", "Long wait", "Would not return"]
+
+  // Merge with business specific topics if available
+  const allTags = Array.from(new Set([...(business.promptTopics || []), ...quickTags])).slice(0, 8)
 
   return (
     <div className="flex flex-1 flex-col animate-fade-in-up gap-0">
@@ -412,108 +416,39 @@ function DescribeStep({
           moodKey === "neutral" ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" :
           "bg-red-500/10 text-red-600 dark:text-red-400")}>
           {moodKey === "positive" ? <ThumbsUp className="size-4" /> : moodKey === "neutral" ? <Meh className="size-4" /> : <Frown className="size-4" />}
-          {moodKey === "positive" ? "You had a great experience!" : moodKey === "neutral" ? "Thanks for the honest feedback" : "We'd love to hear more"}
+          {moodKey === "positive" ? "Awesome! What was the highlight?" : moodKey === "neutral" ? "What made it just okay?" : "We're sorry. What went wrong?"}
         </div>
       </div>
 
-      <h2 className="text-balance text-xl font-bold tracking-tight text-foreground text-center">
-        {config.describePrompt}
-      </h2>
-      <p className="mt-1 text-sm text-muted-foreground text-pretty text-center">{config.describeHint}</p>
-
-      <div className="mt-5 space-y-2">
-        <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-          <SmilePlus className="size-3.5 text-primary" />
-          <span>Quick select what fits</span>
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          {Object.entries(MOOD_TAGS).map(([key, tag]) => {
-            const isActive = activeCategory === key
-            const tagTopics = tag[moodKey]
-            const hasSelected = tagTopics.some(t => selectedTopics.includes(t))
+      <div className="mt-2 space-y-4">
+        <div className="flex flex-wrap justify-center gap-2">
+          {allTags.map((topic) => {
+            const isSelected = selectedTopics.includes(topic)
             return (
               <button
-                key={key}
+                key={topic}
                 type="button"
-                onClick={() => setActiveCategory(isActive ? null : key)}
+                onClick={() => toggleTopic(topic)}
+                aria-pressed={isSelected}
                 className={cn(
-                  "rounded-xl border px-3 py-2.5 text-xs font-semibold transition-all duration-200 flex items-center gap-2 shadow-sm",
-                  isActive
-                    ? "border-primary bg-primary/10 text-primary ring-1 ring-primary/30"
-                    : hasSelected
-                      ? "border-primary/40 bg-primary/5 text-primary"
-                      : "border-border bg-card/50 text-muted-foreground hover:border-foreground/30 hover:bg-card"
+                  "rounded-full border px-4 py-2 text-sm font-medium transition-all duration-200 flex items-center gap-1.5 shadow-sm active:scale-95",
+                  isSelected
+                    ? "border-primary bg-primary text-primary-foreground shadow-md scale-[1.02]"
+                    : "border-border bg-card/50 text-muted-foreground hover:border-foreground/30 hover:text-foreground hover:bg-card"
                 )}
               >
-                {tag.icon}
-                <span className="flex-1 text-left">{tag.label}</span>
-                {hasSelected && <Check className="size-3 text-primary shrink-0" />}
+                {isSelected && <Check className="size-3.5" />}
+                {topic}
               </button>
             )
           })}
         </div>
-
-          {activeCategory && (
-          <div className="flex flex-wrap gap-1.5 mt-2 p-3 rounded-xl bg-muted/30 border border-border/50 animate-fade-in-up">
-            {MOOD_TAGS[activeCategory][moodKey].map((topic) => {
-              const isSelected = selectedTopics.includes(topic)
-              return (
-                <button
-                  key={topic}
-                  type="button"
-                  onClick={() => toggleTopic(topic)}
-                  aria-pressed={isSelected}
-                  className={cn(
-                    "rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-all duration-200 flex items-center gap-1",
-                    isSelected
-                      ? "border-primary bg-primary text-primary-foreground shadow-sm scale-[1.02]"
-                      : "border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground"
-                  )}
-                >
-                  {isSelected && <Check className="size-3" />}
-                  {topic}
-                </button>
-              )
-            })}
-          </div>
-        )}
       </div>
 
-      {business.promptTopics && business.promptTopics.length > 0 && (
-        <div className="mt-4 space-y-2">
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            <MessageSquareHeart className="size-3.5 text-primary" />
-            <span>Or select what stood out</span>
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {business.promptTopics.map((topic: string) => {
-              const isSelected = selectedTopics.includes(topic)
-              return (
-                <button
-                  key={topic}
-                  type="button"
-                  onClick={() => toggleTopic(topic)}
-                  aria-pressed={isSelected}
-                  className={cn(
-                    "rounded-xl border px-3 py-2 text-xs font-semibold transition-all duration-300 flex items-center gap-1.5 shadow-sm",
-                    isSelected
-                      ? "border-primary bg-gradient-to-br from-primary/15 to-primary/5 text-primary scale-[1.03] ring-1 ring-primary/30"
-                      : "border-border bg-card/50 text-muted-foreground hover:border-foreground/30 hover:text-foreground hover:bg-card"
-                  )}
-                >
-                  {isSelected && <Check className="size-3 text-primary animate-scale-in" />}
-                  {topic}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
-      <div className="mt-4 space-y-1.5 relative">
+      <div className="mt-6 space-y-1.5 relative">
         <div className="flex justify-between items-center px-0.5">
           <label htmlFor="describe-highlights" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Share details in your own words
+            Or type your own details
           </label>
           <span className={cn("text-[10px] font-bold tracking-tight", charCount > 450 ? "text-destructive" : charCount >= 3 ? "text-primary" : "text-muted-foreground")}>
             {charCount}/500
@@ -526,48 +461,52 @@ function DescribeStep({
           onChange={(e) => setHighlights(e.target.value)}
           placeholder={moodKey === "positive" ? "e.g. The quality was great and they really cared about getting it right." : moodKey === "neutral" ? "e.g. The service was decent but there's room for improvement in some areas." : "e.g. I had to wait much longer than expected and it wasn't a great experience."}
           className="min-h-24 resize-none rounded-xl border border-border bg-card/30 p-3 shadow-inner focus:bg-card focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all duration-200"
-          autoFocus
           maxLength={500}
         />
       </div>
 
       <div className="mt-3 flex items-start gap-2 text-xs text-muted-foreground/80 bg-muted/40 border border-border/40 rounded-xl p-3 shadow-sm">
-        <Lightbulb className="size-4 text-amber-500 shrink-0 mt-0.5" />
+        <Sparkles className="size-4 text-primary shrink-0 mt-0.5" />
         <span className="leading-relaxed">
-          {selectedTopics.length > 0
-            ? "Great choices! We'll turn your selections into personalized talking points for your review."
-            : "Select a few options or type your own details above to get started."}
+          {selectedTopics.length > 0 || highlights.length > 3
+            ? "Great! We'll use AI to turn this into a perfect review draft in the next step."
+            : "Tap a few tags or type some details above so our AI can write a draft for you."}
         </span>
       </div>
 
-      <div className="mt-4 space-y-1.5">
-        <label htmlFor="language-select" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
-          Preferred Language for Suggestions
-        </label>
-        <select
-          id="language-select"
-          value={language}
-          onChange={(e) => setLanguage(e.target.value)}
-          className="w-full rounded-xl border border-border bg-card/60 px-3.5 py-2.5 text-xs text-foreground focus:border-primary focus:ring-1 focus:ring-primary focus:bg-card outline-none transition-all shadow-sm cursor-pointer"
-        >
-          <option value="english">Standard English</option>
-          <option value="hinglish">Hinglish (Hindi + English)</option>
-          <option value="gujlish">Gujlish (Gujarati + English)</option>
-          <option value="hindi">Hindi (हिंदी)</option>
-          <option value="gujarati">Gujarati (ગુજરાતી)</option>
-        </select>
+      <div className="mt-3 flex justify-end">
+        <button type="button" onClick={() => setShowLanguage(!showLanguage)} className="text-[10px] font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
+          {showLanguage ? "Hide" : "Show"} Language Options
+        </button>
       </div>
 
+      {showLanguage && (
+        <div className="mt-2 space-y-1.5 animate-fade-in-up">
+          <select
+            id="language-select"
+            value={language}
+            onChange={(e) => setLanguage(e.target.value)}
+            className="w-full rounded-xl border border-border bg-card/60 px-3.5 py-2.5 text-xs text-foreground focus:border-primary focus:ring-1 focus:ring-primary focus:bg-card outline-none transition-all shadow-sm cursor-pointer"
+          >
+            <option value="english">Standard English</option>
+            <option value="hinglish">Hinglish (Hindi + English)</option>
+            <option value="gujlish">Gujlish (Gujarati + English)</option>
+            <option value="hindi">Hindi (हिंदी)</option>
+            <option value="gujarati">Gujarati (ગુજરાતી)</option>
+          </select>
+        </div>
+      )}
+
       <div className="mt-auto flex gap-3 pt-6">
-        <Button variant="outline" onClick={onBack} disabled={submitting} className="flex-1 rounded-xl py-6 font-semibold">
-          <ArrowLeft className="size-4" />
+        <Button variant="outline" onClick={onBack} disabled={submitting} className="flex-1 rounded-xl py-6 font-semibold bg-card">
+          <ArrowLeft className="size-4 mr-2" />
           Back
         </Button>
-        <Button onClick={onContinue} disabled={!canContinue || submitting} className="flex-1 rounded-xl py-6 font-semibold bg-gradient-to-r from-primary to-primary/95 hover:from-primary/95 hover:to-primary text-primary-foreground shadow-md hover:shadow-lg transition-all transform active:scale-95">
+        <Button onClick={onContinue} disabled={!canContinue || submitting} className="flex-[2] rounded-xl py-6 font-semibold bg-gradient-to-r from-primary to-primary/95 hover:from-primary/95 hover:to-primary text-primary-foreground shadow-md hover:shadow-lg transition-all transform active:scale-95">
           {submitting ? (
-            <><Loader2 className="mr-2 size-4 animate-spin" />Continuing...</>
+            <><Loader2 className="mr-2 size-4 animate-spin" />Processing...</>
           ) : (
-            <><span>Continue</span><ArrowRight className="size-4" /></>
+            <><span>Continue to Draft</span><ArrowRight className="ml-2 size-4" /></>
           )}
         </Button>
       </div>
