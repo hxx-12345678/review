@@ -150,6 +150,10 @@ export const api = {
       request<{ synced: number; total: number }>(`/google-reviews/sync/${businessId}`, {
         method: "POST",
       }),
+    syncPlaces: (businessId: string) =>
+      request<{ synced: number; total: number }>(`/google-reviews/sync-places/${businessId}`, {
+        method: "POST",
+      }),
     reply: (reviewId: string, replyText: string) =>
       request<{ review: any }>(`/google-reviews/reviews/${reviewId}/reply`, {
         method: "POST",

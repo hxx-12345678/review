@@ -18,7 +18,7 @@
   },
   "dependencies": {
     "@prisma/client": "^6.6.0",
-    "@sentry/node": "^8.55.0",
+    "@sentry/node": "^10.62.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "express": "^4.21.0",
@@ -26,7 +26,7 @@
     "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.2.0",
-    "nodemailer": "^6.9.16",
+    "nodemailer": "^9.0.1",
     "qrcode": "^1.5.4",
     "sharp": "^0.35.2",
     "zod": "^3.23.8"

@@ -61,6 +61,7 @@ model Business {
   slug            String   @unique
   industry        Industry @default(OTHER)
   googleReviewUrl String?
+  googlePlaceId   String?  // Google Place ID for Places API reviews (e.g., "ChIJN1t_tDeuEmsRUsoyG83frY4")
   location        String?
   phoneNumber     String?
   website         String?
@@ -161,8 +162,9 @@ model GoogleAccount {
   id              String   @id @default(cuid())
   businessId      String   @unique
   googleAccountId String
-  accessToken     String
-  refreshToken    String?
+  accessToken     String   @default("")  // Legacy plaintext — use tokenEncrypted for new connections
+  refreshToken    String?                // Legacy plaintext — use tokenEncrypted
+  tokenEncrypted  Json?                  // { accessToken: { encrypted, iv, tag }, refreshToken?: { encrypted, iv, tag } }
   tokenExpiresAt  DateTime?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

@@ -225,20 +225,42 @@ export function ReviewInbox({ feedback, googleReviews, businessName, businessId 
                 <ReplyStatusBadge status={replyStatus} />
               </div>
 
-              {/* ACTUAL REVIEW TEXT — shown prominently */}
-              {reviewText && (
+              {/* For Google reviews, show comment prominently */}
+              {item.isGoogleReview && reviewText && (
                 <div className="mt-3 rounded-lg border border-border/50 bg-muted/20 p-3 text-sm text-foreground">
                   <p className="whitespace-pre-wrap leading-relaxed">{reviewText}</p>
                 </div>
               )}
 
-              {/* Additional context for non-Google feedback */}
-              {!item.isGoogleReview && !reviewText && (
-                <div className="mt-3 space-y-1 text-sm text-foreground">
-                  {item.purchaseInfo && <p><span className="text-muted-foreground">Visited for:</span> {item.purchaseInfo}</p>}
-                  {item.liked && <p><span className="text-muted-foreground">Liked:</span> {item.liked}</p>}
-                  {item.improvement && <p><span className="text-muted-foreground">Improvement:</span> {item.improvement}</p>}
-                  {item.privateNote && item.status === "PRIVATE_FEEDBACK" && <p><span className="text-muted-foreground">Private note:</span> {item.privateNote}</p>}
+              {/* For local feedback, show structured details of customer inputs + drafts */}
+              {!item.isGoogleReview && (
+                <div className="mt-3 space-y-3">
+                  {/* Customer summary (Highlights, topics, private message) */}
+                  {(item.liked || item.privateNote || item.purchaseInfo || item.improvement) && (
+                    <div className="rounded-lg border border-dashed border-border/80 bg-card p-3 space-y-1.5 text-xs sm:text-sm">
+                      <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Customer Input Details</div>
+                      {item.purchaseInfo && (
+                        <p><span className="font-semibold text-muted-foreground">Visited for:</span> {item.purchaseInfo}</p>
+                      )}
+                      {item.liked && (
+                        <p><span className="font-semibold text-muted-foreground">Topics & Highlights:</span> {item.liked}</p>
+                      )}
+                      {item.improvement && (
+                        <p><span className="font-semibold text-muted-foreground">Improvement suggestion:</span> {item.improvement}</p>
+                      )}
+                      {item.privateNote && item.status === "PRIVATE_FEEDBACK" && (
+                        <p className="border-t border-border/50 pt-1.5 mt-1.5"><span className="font-semibold text-muted-foreground">Private message:</span> {item.privateNote}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Suggestion / Draft that user copied */}
+                  {item.reviewText && (
+                    <div className="rounded-lg border border-border/50 bg-muted/20 p-3 text-xs sm:text-sm text-foreground">
+                      <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Copied Draft Suggestion</div>
+                      <p className="whitespace-pre-wrap leading-relaxed">{item.reviewText}</p>
+                    </div>
+                  )}
                 </div>
               )}
 

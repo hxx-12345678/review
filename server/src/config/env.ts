@@ -21,6 +21,8 @@ const envSchema = z.object({
   GOOGLE_OAUTH_CLIENT_ID: z.string().optional().default(""),
   GOOGLE_OAUTH_CLIENT_SECRET: z.string().optional().default(""),
   GOOGLE_OAUTH_REDIRECT_URI: z.string().optional().default("http://localhost:4000/api/google-reviews/oauth/callback"),
+  TOKEN_ENCRYPTION_KEY: z.string().optional().default(""),
+  GOOGLE_PLACES_API_KEY: z.string().optional().default(""),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -50,6 +52,15 @@ export function loadEnv(): Env {
     }
     if (processed["EMAIL_SECURE"] && !processed["SMTP_SECURE"]) {
       processed["SMTP_SECURE"] = processed["EMAIL_SECURE"];
+    }
+    if (processed["GOOGLE_CLIENT_ID"] && !processed["GOOGLE_OAUTH_CLIENT_ID"]) {
+      processed["GOOGLE_OAUTH_CLIENT_ID"] = processed["GOOGLE_CLIENT_ID"];
+    }
+    if (processed["GOOGLE_CLIENT_SECRET"] && !processed["GOOGLE_OAUTH_CLIENT_SECRET"]) {
+      processed["GOOGLE_OAUTH_CLIENT_SECRET"] = processed["GOOGLE_CLIENT_SECRET"];
+    }
+    if (processed["GOOGLE_REDIRECT_URI"] && !processed["GOOGLE_OAUTH_REDIRECT_URI"]) {
+      processed["GOOGLE_OAUTH_REDIRECT_URI"] = processed["GOOGLE_REDIRECT_URI"];
     }
     const result = envSchema.safeParse(processed);
     if (!result.success) {

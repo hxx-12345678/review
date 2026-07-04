@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { Save, ShieldCheck, Lock, MessageSquare, Mail, Palette, Eye, AlertTriangle, CheckCircle2, Upload, X, Loader2 } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Save, ShieldCheck, Lock, MessageSquare, Mail, Palette, Eye, AlertTriangle, CheckCircle2, Upload, X, Loader2, Globe, RefreshCw, Trash2 } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -98,6 +98,7 @@ function getImageUrlStatus(url: string): { valid: boolean; message: string; extr
 export function SettingsForm({ business }: { business: any }) {
   const [name, setName] = useState(business?.name || "")
   const [googleUrl, setGoogleUrl] = useState(business?.googleReviewUrl || "")
+  const [googlePlaceId, setGooglePlaceId] = useState(business?.googlePlaceId || "")
   const [location, setLocation] = useState(business?.location || "")
   const [phoneNumber, setPhoneNumber] = useState(business?.phoneNumber || "")
   const [website, setWebsite] = useState(business?.website || "")
@@ -121,6 +122,7 @@ export function SettingsForm({ business }: { business: any }) {
       await api.businesses.update(business.id, {
         name,
         googleReviewUrl: googleUrl || undefined,
+        googlePlaceId: googlePlaceId || undefined,
         location: location || undefined,
         phoneNumber: phoneNumber || undefined,
         website: website || undefined,
@@ -182,6 +184,23 @@ export function SettingsForm({ business }: { business: any }) {
           <div className="space-y-2">
             <Label htmlFor="google">Google review URL</Label>
             <Input id="google" value={googleUrl} onChange={(e) => setGoogleUrl(e.target.value)} placeholder="https://g.co/kgs/..." />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="googlePlaceId">
+              Google Place ID
+              <span className="ml-2 text-xs font-normal text-muted-foreground">(for importing reviews)</span>
+            </Label>
+            <Input
+              id="googlePlaceId"
+              value={googlePlaceId}
+              onChange={(e) => setGooglePlaceId(e.target.value)}
+              placeholder="ChIJN1t_tDeuEmsRUsoyG83frY4"
+            />
+            <p className="text-xs text-muted-foreground">
+              Find your Place ID at{" "}
+              <a href="https://developers.google.com/maps/documentation/javascript/examples/places-placeid-finder" target="_blank" rel="noopener noreferrer" className="underline text-blue-500">Place ID Finder</a>.
+              Enables public review import without GBP API approval.
+            </p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="location">Location</Label>
@@ -417,6 +436,8 @@ export function SettingsForm({ business }: { business: any }) {
         </div>
       </Card>
 
+      <GoogleAccountSection businessId={business?.id} />
+
       <Card className="p-6">
         <h2 className="font-medium text-foreground">Private feedback routing</h2>
         <p className="text-sm text-muted-foreground">
@@ -436,6 +457,136 @@ export function SettingsForm({ business }: { business: any }) {
     </div>
   )
 }
+
+function GoogleAccountSection({ businessId }: { businessId: string }) {
+  const [status, setStatus] = useState<{ connected: boolean; googleAccountId: string | null; reviewCount: number } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [syncingPlaces, setSyncingPlaces] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
+
+  useEffect(() => {
+    if (!businessId) return;
+    api.googleReviews.status(businessId)
+      .then(setStatus)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [businessId]);
+
+  async function handleConnect() {
+    try {
+      const { url } = await api.googleReviews.oauthUrl(businessId);
+      window.location.href = url;
+    } catch (err: any) {
+      toast.error(err.message || "Failed to generate OAuth URL — check server configuration");
+    }
+  }
+
+  async function handleSync() {
+    setSyncing(true);
+    try {
+      const result = await api.googleReviews.sync(businessId);
+      toast.success(`Synced ${result.synced} new review(s) (${result.total} total)`);
+      const s = await api.googleReviews.status(businessId);
+      setStatus(s);
+    } catch (err: any) {
+      toast.error(err.message || "Sync failed — check GBP API access");
+    } finally {
+      setSyncing(false);
+    }
+  }
+
+  async function handleSyncPlaces() {
+    setSyncingPlaces(true);
+    try {
+      const result = await api.googleReviews.syncPlaces(businessId);
+      toast.success(`Imported ${result.synced} new public review(s) via Places API (${result.total} total)`);
+      const s = await api.googleReviews.status(businessId);
+      setStatus(s);
+    } catch (err: any) {
+      toast.error(err.message || "Places API sync failed — set your Google Place ID above and ensure GOOGLE_PLACES_API_KEY is configured");
+    } finally {
+      setSyncingPlaces(false);
+    }
+  }
+
+  async function handleDisconnect() {
+    if (!confirm("Disconnect your Google account? All synced reviews will be removed.")) return;
+    setDisconnecting(true);
+    try {
+      await api.googleReviews.disconnect(businessId);
+      setStatus({ connected: false, googleAccountId: null, reviewCount: 0 });
+      toast.success("Google account disconnected");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to disconnect");
+    } finally {
+      setDisconnecting(false);
+    }
+  }
+
+  return (
+    <Card className="p-6">
+      <div className="flex items-center gap-2">
+        <Globe className="size-5 text-blue-500" />
+        <h2 className="font-medium text-foreground">Google Reviews Integration</h2>
+      </div>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Import real Google reviews into your dashboard. Two methods available:
+      </p>
+
+      {/* Method 1: Google Business Profile OAuth */}
+      <div className="mt-4 rounded-lg border border-border p-4 space-y-3">
+        <div>
+          <p className="text-sm font-medium text-foreground">Method 1: Business Profile OAuth (Full access)</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Connect your GBP account for full review management and reply capabilities. Requires GBP API access approval from Google.</p>
+        </div>
+        <div>
+          {loading ? (
+            <div className="h-10 w-48 animate-pulse rounded-lg bg-muted" />
+          ) : status?.connected ? (
+            <div className="space-y-3">
+              <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm space-y-1">
+                <p><span className="text-muted-foreground">Account ID:</span> {status.googleAccountId}</p>
+                <p><span className="text-muted-foreground">Total reviews synced:</span> {status.reviewCount}</p>
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing}>
+                  <RefreshCw className={`size-4 ${syncing ? "animate-spin" : ""}`} />
+                  {syncing ? "Syncing..." : "Sync GBP Reviews"}
+                </Button>
+                <Button variant="destructive" size="sm" onClick={handleDisconnect} disabled={disconnecting}>
+                  <Trash2 className="size-4" />
+                  {disconnecting ? "Disconnecting..." : "Disconnect"}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button onClick={handleConnect} size="sm">
+              <Globe className="size-4" />
+              Connect Google Account
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Method 2: Places API (No GBP approval required) */}
+      <div className="mt-3 rounded-lg border border-dashed border-border p-4 space-y-3">
+        <div>
+          <p className="text-sm font-medium text-foreground">Method 2: Places API <span className="text-xs font-normal text-green-600 ml-1">(No approval needed)</span></p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Import up to 5 public reviews using your Google Place ID (set above) + a Places API key.
+            No GBP API approval required. Set <code className="text-xs bg-muted px-1 rounded">GOOGLE_PLACES_API_KEY</code> in server .env.
+          </p>
+        </div>
+        <Button variant="outline" size="sm" onClick={handleSyncPlaces} disabled={syncingPlaces}>
+          <RefreshCw className={`size-4 ${syncingPlaces ? "animate-spin" : ""}`} />
+          {syncingPlaces ? "Importing..." : "Import Public Reviews"}
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
 
 function LockedToggle({ title, body }: { title: string; body: string }) {
   return (

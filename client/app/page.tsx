@@ -51,7 +51,7 @@ export default function Page() {
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            const el = entry.target
+            const el = entry.target as HTMLElement
             const target = parseFloat(el.dataset.target || "0")
             const suffix = el.dataset.suffix || ""
             const prefix = el.dataset.prefix || ""

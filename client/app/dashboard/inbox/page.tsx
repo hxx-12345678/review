@@ -24,6 +24,20 @@ export default function InboxPage() {
           ]);
           setFeedback(fbRes.feedback);
           setGoogleReviews(googleRes.reviews || []);
+
+          // Trigger automatic background reviews sync if connected
+          api.googleReviews.sync(biz.id)
+            .then(async (syncResult) => {
+              if (syncResult.synced > 0) {
+                const updatedReviews = await api.googleReviews.list(biz.id).catch(() => null);
+                if (updatedReviews) {
+                  setGoogleReviews(updatedReviews.reviews || []);
+                }
+              }
+            })
+            .catch(() => {
+              // Silently ignore sync failures (e.g. if google account is not connected)
+            });
         }
       } catch {
         // handle

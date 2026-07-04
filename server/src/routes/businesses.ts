@@ -18,6 +18,7 @@ const createBusinessSchema = z.object({
 const updateBusinessSchema = z.object({
   name: z.string().min(1).max(200).optional(),
   googleReviewUrl: z.string().url().optional().or(z.literal("")),
+  googlePlaceId: z.string().max(200).optional().or(z.literal("")),
   location: z.string().max(500).optional().or(z.literal("")),
   phoneNumber: z.string().max(20).optional().or(z.literal("")),
   website: z.string().url().optional().or(z.literal("")),

@@ -6,6 +6,7 @@ import helmet from "helmet";
 import { loadEnv } from "./config/env";
 import { prisma } from "./config/database";
 import { apiLimiter } from "./middleware/rate-limit";
+import { sanitizeInput } from "./middleware/sanitize";
 import { errorHandler, notFoundHandler } from "./middleware/error-handler";
 import authRoutes from "./routes/auth";
 import businessRoutes from "./routes/businesses";
@@ -24,11 +25,24 @@ const app = express();
 
 app.set("trust proxy", 1);
 app.use(helmet({
-  contentSecurityPolicy: false,
-  crossOriginEmbedderPolicy: false,
-  crossOriginResourcePolicy: false,
-  crossOriginOpenerPolicy: false,
-  originAgentCluster: false,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "https://apis.google.com"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "blob:"],
+      connectSrc: ["'self'", "https://generativelanguage.googleapis.com", "https://oauth2.googleapis.com", "https://mybusinessaccountmanagement.googleapis.com"],
+      fontSrc: ["'self'"],
+      frameSrc: ["'none'"],
+      frameAncestors: ["'none'"],
+      formAction: ["'self'"],
+      upgradeInsecureRequests: [],
+    },
+  },
+  crossOriginEmbedderPolicy: { policy: "require-corp" },
+  crossOriginResourcePolicy: { policy: "same-origin" },
+  crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
+  originAgentCluster: true,
 }));
 
 const allowedOrigins: string[] = [
@@ -66,7 +80,9 @@ app.options("*", cors({
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
   maxAge: 86400,
 }));
-app.use(express.json({ limit: "10mb" }));
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: true, limit: "1mb" }));
+app.use(sanitizeInput);
 app.use(apiLimiter);
 
 app.get("/api/health", (_req, res) => {
@@ -100,6 +116,7 @@ try {
 // Serve uploaded files statically — allow cross-origin image loading
 app.use("/api/uploads", (_req, res, next) => {
   res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+  res.setHeader("Cross-Origin-Opener-Policy", "unsafe-none");
   res.setHeader("Access-Control-Allow-Origin", "*");
   next();
 }, express.static(uploadsDir, {

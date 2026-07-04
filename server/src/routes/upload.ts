@@ -27,18 +27,39 @@ function ensureUploadsDir() {
 ensureUploadsDir();
 
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/svg+xml"];
+const ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".svg"];
 
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
-    if (ALLOWED_TYPES.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error("Only JPG, PNG, WebP, and SVG files are allowed"));
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (!ALLOWED_TYPES.includes(file.mimetype) || !ALLOWED_EXTENSIONS.includes(ext)) {
+      return cb(new Error("Only JPG, PNG, WebP, and SVG files are allowed"));
     }
+    cb(null, true);
   },
 });
+
+function sanitizeSvg(content: string): string {
+  return content
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<embed[\s\S]*?\/?>/gi, "")
+    .replace(/<object[\s\S]*?<\/object>/gi, "")
+    .replace(/\bon\w+="[^"]*"/gi, "")
+    .replace(/\bon\w+='[^']*'/gi, "")
+    .replace(/javascript:\s*/gi, "blocked:")
+    .replace(/vbscript:\s*/gi, "blocked:");
+}
+
+function generateUniqueFilename(ext: string): string {
+  const maxAttempts = 10;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const name = crypto.randomBytes(16).toString("hex") + ext;
+    if (!fs.existsSync(path.join(UPLOADS_DIR, name))) return name;
+  }
+  throw new Error("Failed to generate unique filename after " + maxAttempts + " attempts");
+}
 
 interface UploadRequest extends AuthRequest {
   file?: Express.Multer.File;
@@ -102,16 +123,15 @@ router.post(
       // Ensure directory still exists (safety net for ephemeral filesystems)
       ensureUploadsDir();
 
-      const uniqueId = crypto.randomBytes(16).toString("hex");
       let filename: string;
-      let savedViaSharp = false;
 
       if (req.file.mimetype === "image/svg+xml") {
-        filename = `${uniqueId}.svg`;
+        filename = generateUniqueFilename(".svg");
         const outputPath = path.join(UPLOADS_DIR, filename);
-        fs.writeFileSync(outputPath, req.file.buffer);
+        const sanitized = sanitizeSvg(req.file.buffer.toString("utf-8"));
+        fs.writeFileSync(outputPath, sanitized);
       } else {
-        filename = `${uniqueId}.webp`;
+        filename = generateUniqueFilename(".webp");
         const outputPath = path.join(UPLOADS_DIR, filename);
 
         try {
@@ -119,10 +139,9 @@ router.post(
             .resize(400, 400, { fit: "inside", withoutEnlargement: true })
             .webp({ quality: 85 })
             .toFile(outputPath);
-          savedViaSharp = true;
         } catch (sharpErr) {
           console.warn("Sharp processing failed, saving original as PNG fallback:", sharpErr);
-          filename = `${uniqueId}.png`;
+          filename = generateUniqueFilename(".png");
           const fallbackPath = path.join(UPLOADS_DIR, filename);
           fs.writeFileSync(fallbackPath, req.file.buffer);
         }
