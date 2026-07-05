@@ -12,16 +12,7 @@ function daysAgo(n: number): Date {
 async function main() {
   console.log("Seeding database...");
 
-  const existingUser = await prisma.user.findUnique({
-    where: { email: "demo@reviewos.app" },
-  });
-
-  if (existingUser) {
-    console.log("Seed data already exists, skipping...");
-    return;
-  }
-
-  // Create subscription plans
+  // Always upsert subscription plans — independent of demo data
   const plans = [
     { name: "Free", slug: "free", price: 0, sortOrder: 0, aiCallsLimit: 10, businessLimit: 1, features: ["1 business", "10 AI calls/mo", "Unlimited QR codes", "Review inbox", "Basic analytics"], description: "For businesses just getting started." },
     { name: "Starter", slug: "starter", price: 49900, sortOrder: 1, aiCallsLimit: 500, businessLimit: 1, features: ["1 business", "500 AI calls/mo", "AI reply drafting", "Review insights", "SMS & email requests", "Priority support"], description: "For single-location businesses ready to grow." },
@@ -33,6 +24,15 @@ async function main() {
       create: p,
       update: p,
     });
+  }
+
+  // Skip demo data if already seeded
+  const existingUser = await prisma.user.findUnique({
+    where: { email: "demo@reviewos.app" },
+  });
+  if (existingUser) {
+    console.log("Plans upserted. Demo data already exists, skipping demo creation.");
+    return;
   }
 
   // Auto-activate free plan for existing demo user

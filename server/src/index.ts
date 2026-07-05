@@ -230,10 +230,29 @@ if (env.SENTRY_DSN) {
 app.use(notFoundHandler);
 app.use(errorHandler);
 
+async function seedDefaultPlans() {
+  const count = await prisma.subscriptionPlan.count();
+  if (count > 0) return;
+  const plans = [
+    { name: "Free", slug: "free", price: 0, sortOrder: 0, aiCallsLimit: 10, businessLimit: 1, features: ["1 business", "10 AI calls/mo", "Unlimited QR codes", "Review inbox", "Basic analytics"], description: "For businesses just getting started." },
+    { name: "Starter", slug: "starter", price: 49900, sortOrder: 1, aiCallsLimit: 500, businessLimit: 1, features: ["1 business", "500 AI calls/mo", "AI reply drafting", "Review insights", "SMS & email requests", "Priority support"], description: "For single-location businesses ready to grow." },
+    { name: "Pro", slug: "pro", price: 199900, sortOrder: 2, aiCallsLimit: 5000, businessLimit: 5, features: ["Up to 5 businesses", "5000 AI calls/mo", "Everything in Starter", "Google Business Profile sync", "Team roles", "Dedicated support"], description: "For growing businesses with multiple locations." },
+  ];
+  for (const p of plans) {
+    await prisma.subscriptionPlan.upsert({
+      where: { slug: p.slug },
+      create: p,
+      update: p,
+    });
+  }
+  console.log("Default subscription plans seeded");
+}
+
 async function start() {
   try {
     await prisma.$connect();
     console.log("Connected to PostgreSQL");
+    await seedDefaultPlans();
 
     app.listen(env.PORT, () => {
       console.log(`ReviewOS API server running on port ${env.PORT}`);

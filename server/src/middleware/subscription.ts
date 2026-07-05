@@ -22,13 +22,28 @@ export async function requireSubscription(req: AuthRequest, res: Response, next:
     const userId = req.userId;
     if (!userId) return res.status(401).json({ error: "Authentication required" });
 
-    const sub = await prisma.subscription.findFirst({
+    let sub = await prisma.subscription.findFirst({
       where: { userId, status: { in: ["active", "created"] } },
       orderBy: { createdAt: "desc" },
     });
 
     if (!sub) {
-      return res.status(403).json({ error: "No active subscription. Please subscribe to continue.", code: "NO_SUBSCRIPTION" });
+      const freePlan = await prisma.subscriptionPlan.findUnique({ where: { slug: "free" } });
+      if (freePlan) {
+        sub = await prisma.subscription.create({
+          data: {
+            userId,
+            planId: freePlan.id,
+            status: "active",
+            aiCallsLimit: freePlan.aiCallsLimit,
+            businessLimit: freePlan.businessLimit,
+            currentPeriodStart: new Date(),
+            currentPeriodEnd: new Date(Date.now() + 365 * 86400000),
+          },
+        });
+      } else {
+        return res.status(403).json({ error: "No active subscription. Please subscribe to continue.", code: "NO_SUBSCRIPTION" });
+      }
     }
 
     if (sub.aiCallsUsed >= sub.aiCallsLimit) {

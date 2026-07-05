@@ -43,6 +43,22 @@ router.post("/signup", authLimiter, async (req: AuthRequest, res: Response) => {
       },
     });
 
+    // Auto-assign Free plan subscription
+    const freePlan = await prisma.subscriptionPlan.findUnique({ where: { slug: "free" } });
+    if (freePlan) {
+      await prisma.subscription.create({
+        data: {
+          userId: user.id,
+          planId: freePlan.id,
+          status: "active",
+          aiCallsLimit: freePlan.aiCallsLimit,
+          businessLimit: freePlan.businessLimit,
+          currentPeriodStart: new Date(),
+          currentPeriodEnd: new Date(Date.now() + 365 * 86400000),
+        },
+      });
+    }
+
     const env = getEnv();
     const token = signToken({ userId: user.id }, env.JWT_SECRET, env.JWT_EXPIRES_IN);
 
