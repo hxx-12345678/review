@@ -10,7 +10,7 @@ const NAV = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
   { href: "/dashboard/inbox", label: "Inbox", icon: Inbox },
   { href: "/dashboard/qr", label: "QR", icon: QrCode },
-  { href: "/dashboard/billing", label: "Billing", icon: CreditCard },
+  { href: "/dashboard/billing", label: "Plan", icon: CreditCard },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ]
 

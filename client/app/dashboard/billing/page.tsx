@@ -47,7 +47,7 @@ export default function BillingPageWrapper() {
 function BillingSkeleton() {
   return (
     <>
-      <PageHeader title="Billing" description="Manage your subscription and payment details." />
+      <PageHeader title="Plan" description="View your plan, usage, and payment details." />
       <div className="p-4 sm:p-6 lg:p-8">
         <div className="h-8 w-48 animate-pulse rounded bg-muted" />
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -88,7 +88,7 @@ function BillingPage() {
       setPlans(plansRes.plans);
       setSubscription(subRes.subscription);
     } catch (err: any) {
-      setError(err.message || "Failed to load billing info");
+      setError(err.message || "Failed to load plan info");
     } finally {
       setLoading(false);
     }
@@ -156,8 +156,8 @@ function BillingPage() {
   return (
     <>
       <PageHeader
-        title="Billing"
-        description="Manage your subscription and payment details."
+        title="Plan"
+        description="View your plan, usage, and payment details."
       />
 
       <div className="space-y-8 p-4 sm:p-6 lg:p-8">

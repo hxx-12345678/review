@@ -15,7 +15,7 @@ const NAV = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
   { href: "/dashboard/inbox", label: "Review inbox", icon: Inbox },
   { href: "/dashboard/qr", label: "QR & links", icon: QrCode },
-  { href: "/dashboard/billing", label: "Billing", icon: CreditCard },
+  { href: "/dashboard/billing", label: "Plan", icon: CreditCard },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ]
 
