@@ -50,7 +50,7 @@ export function ReviewInsights({ businessId }: Props) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const cacheRef = useRef<Map<string, { data: InsightsData; expiresAt: number }>>(new Map())
-  const inflightRef = useRef<Set<string>>(new Set())
+  const fetchPromisesRef = useRef<Map<string, Promise<InsightsData | null>>>(new Map())
   const currentPeriodRef = useRef<Period>("month")
   const dataRef = useRef<InsightsData | null>(null)
 
@@ -68,25 +68,41 @@ export function ReviewInsights({ businessId }: Props) {
       return cached.data
     }
 
-    if (inflightRef.current.has(cacheKey)) return
-    inflightRef.current.add(cacheKey)
-
-    try {
-      const res = await api.ai.getInsights(businessId, p)
-      cacheRef.current.set(cacheKey, { data: res, expiresAt: Date.now() + CACHE_TTL })
-      if (currentPeriodRef.current === p) {
+    const existing = fetchPromisesRef.current.get(cacheKey)
+    if (existing) {
+      const res = await existing
+      if (currentPeriodRef.current === p && res) {
         setCurrentData(res)
         dataRef.current = res
         setLoading(false)
         setError(false)
       }
       return res
-    } catch {
-      if (!dataRef.current) setError(true)
-      return null
-    } finally {
-      inflightRef.current.delete(cacheKey)
     }
+
+    const promise = api.ai.getInsights(businessId, p)
+      .then((res) => {
+        cacheRef.current.set(cacheKey, { data: res, expiresAt: Date.now() + CACHE_TTL })
+        return res
+      })
+      .catch(() => {
+        if (!dataRef.current) setError(true)
+        return null
+      })
+      .finally(() => {
+        fetchPromisesRef.current.delete(cacheKey)
+      })
+
+    fetchPromisesRef.current.set(cacheKey, promise)
+    const result = await promise
+
+    if (currentPeriodRef.current === p && result) {
+      setCurrentData(result)
+      dataRef.current = result
+      setLoading(false)
+      setError(false)
+    }
+    return result
   }, [businessId])
 
   useEffect(() => {
