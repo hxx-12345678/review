@@ -45,7 +45,6 @@ export function MarketingHeader() {
             { href: "/#how", label: "How it works" },
             { href: "/#compliance", label: "Compliance" },
             { href: "/pricing", label: "Pricing" },
-            { href: "/r/brightsmile", label: "Live demo" },
           ].map((link) => (
             <Link
               key={link.href}
@@ -106,7 +105,6 @@ export function MarketingHeader() {
               { href: "/#how", label: "How it works" },
               { href: "/#compliance", label: "Compliance" },
               { href: "/pricing", label: "Pricing" },
-              { href: "/r/brightsmile", label: "Live demo" },
               { href: "/login", label: "Log in" },
             ].map((link) => (
               <Link

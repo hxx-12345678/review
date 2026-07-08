@@ -105,14 +105,9 @@ export default function LoginPage() {
             </div>
 
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password" className="text-xs font-semibold uppercase tracking-wider text-foreground/70">
-                  Password
-                </Label>
-                <Link href="/forgot-password" className="text-xs font-medium text-primary hover:text-primary/80">
-                  Forgot?
-                </Link>
-              </div>
+              <Label htmlFor="password" className="text-xs font-semibold uppercase tracking-wider text-foreground/70">
+                Password
+              </Label>
               <div className="relative">
                 <Input
                   id="password"
@@ -132,6 +127,11 @@ export default function LoginPage() {
                 >
                   {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                 </button>
+              </div>
+              <div className="flex justify-end">
+                <Link href="/forgot-password" className="text-sm font-medium text-primary underline-offset-2 hover:underline transition-colors">
+                  Forgot password?
+                </Link>
               </div>
             </div>
 

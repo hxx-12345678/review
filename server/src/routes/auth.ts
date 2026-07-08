@@ -174,6 +174,12 @@ router.post("/forgot-password", authLimiter, async (req: AuthRequest, res: Respo
       console.error("Password reset email send failure:", e);
     });
 
+    // In development, log the reset link so it can be tested without SMTP
+    if (getEnv().NODE_ENV === "development") {
+      console.log(`\n[DEV] Password reset link for ${user.email}:`);
+      console.log(`[DEV] ${resetLink}\n`);
+    }
+
     res.json(genericResponse);
   } catch (err) {
     if (err instanceof z.ZodError) {
