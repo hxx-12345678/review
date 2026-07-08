@@ -57,7 +57,7 @@ export function MarketingFooter() {
               <Link href="/privacy" className="text-xs text-muted-foreground transition-colors hover:text-foreground">
                 Privacy
               </Link>
-              <Link href="/#compliance" className="text-xs text-muted-foreground transition-colors hover:text-foreground">
+              <Link href="/terms" className="text-xs text-muted-foreground transition-colors hover:text-foreground">
                 Terms
               </Link>
             </div>

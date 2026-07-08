@@ -53,17 +53,7 @@ export function Hero() {
                   <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
                 </Button>
               </div>
-              <div className="magnetic-wrap">
-                <Button
-                  render={<Link href="/r/brightsmile" />}
-                  nativeButton={false}
-                  size="lg"
-                  variant="outline"
-                  className="magnetic-child rounded-xl border-white/20 bg-white/8 px-8 py-4 text-sm font-bold text-white squishy hover:bg-white/12"
-                >
-                  Try the customer flow
-                </Button>
-              </div>
+
             </div>
           </div>
 
