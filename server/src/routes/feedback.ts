@@ -131,6 +131,7 @@ router.get("/public/:slug", async (req: AuthRequest, res: Response) => {
         name: true,
         slug: true,
         googleReviewUrl: true,
+        googlePlaceId: true,
         industry: true,
         promptTopics: true,
         logoUrl: true,
@@ -145,7 +146,14 @@ router.get("/public/:slug", async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: "Business not found" });
     }
 
-    res.json({ business });
+    // When googlePlaceId is set, always derive the review URL from it
+    // so that updating placeId in settings immediately takes effect
+    // on the customer-facing QR code and review link.
+    const googleReviewUrl = business.googlePlaceId
+      ? `https://search.google.com/local/writereview?placeid=${business.googlePlaceId}`
+      : business.googleReviewUrl;
+
+    res.json({ business: { ...business, googleReviewUrl } });
   } catch (err) {
     console.error("Get public business error:", err);
     res.status(500).json({ error: "Internal server error" });

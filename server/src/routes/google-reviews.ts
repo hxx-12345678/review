@@ -11,11 +11,11 @@ const router = Router();
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
-function getOAuthClient() {
+function getOAuthClient(): { clientId: string; clientSecret: string } | null {
   const clientId = getEnv().GOOGLE_OAUTH_CLIENT_ID;
   const clientSecret = getEnv().GOOGLE_OAUTH_CLIENT_SECRET;
   if (!clientId || !clientSecret) {
-    throw new Error("GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET must be set in .env");
+    return null;
   }
   return { clientId, clientSecret };
 }
@@ -34,7 +34,11 @@ interface TokenEncryptedPayload {
 }
 
 async function refreshAccessToken(googleAccount: any): Promise<string> {
-  const { clientId, clientSecret } = getOAuthClient();
+  const oauth = getOAuthClient();
+  if (!oauth) {
+    throw new Error("GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET must be set in .env");
+  }
+  const { clientId, clientSecret } = oauth;
 
   // Decrypt the refresh token
   const enc = googleAccount.tokenEncrypted as TokenEncryptedPayload | null;
@@ -114,11 +118,16 @@ router.get("/oauth/url", authRequired, async (req: AuthRequest, res: Response) =
       return res.status(404).json({ error: "Business not found" });
     }
 
-    const { clientId } = getOAuthClient();
+    const oauth = getOAuthClient();
+    if (!oauth) {
+      return res.status(400).json({
+        error: "Google OAuth is not configured — set GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET in .env",
+      });
+    }
     const redirectUri = getEnv().GOOGLE_OAUTH_REDIRECT_URI;
 
     const params = new URLSearchParams({
-      client_id: clientId,
+      client_id: oauth.clientId,
       redirect_uri: redirectUri,
       response_type: "code",
       scope: SCOPES.join(" "),
@@ -145,7 +154,12 @@ router.get("/oauth/callback", async (req, res: Response) => {
       return res.status(400).json({ error: "Missing authorization code or business ID" });
     }
 
-    const { clientId, clientSecret } = getOAuthClient();
+    const oauth = getOAuthClient();
+    if (!oauth) {
+      const frontendUrl = getEnv().FRONTEND_URL.split(",")[0];
+      return res.redirect(`${frontendUrl}/dashboard/settings?google=error_missing_config`);
+    }
+    const { clientId, clientSecret } = oauth;
     const redirectUri = getEnv().GOOGLE_OAUTH_REDIRECT_URI;
 
     // Exchange authorization code for tokens
@@ -398,7 +412,13 @@ router.post("/sync/:businessId", authRequired, async (req: AuthRequest, res: Res
     res.json(result);
   } catch (err) {
     console.error("Google sync error:", err);
-    res.status(500).json({ error: err instanceof Error ? err.message : "Sync failed" });
+    const isValidationError = err instanceof Error && (
+      err.message.includes("No Google account connected") ||
+      err.message.includes("Google Account ID not set")
+    );
+    res.status(isValidationError ? 400 : 500).json({
+      error: err instanceof Error ? err.message : "Sync failed",
+    });
   }
 });
 
@@ -428,7 +448,13 @@ router.post("/sync-places/:businessId", authRequired, async (req: AuthRequest, r
     res.json(result);
   } catch (err) {
     console.error("Places API sync error:", err);
-    res.status(500).json({ error: err instanceof Error ? err.message : "Places API sync failed" });
+    const isValidationError = err instanceof Error && (
+      err.message.includes("No Google Place ID") ||
+      err.message.includes("GOOGLE_PLACES_API_KEY not set")
+    );
+    res.status(isValidationError ? 400 : 500).json({
+      error: err instanceof Error ? err.message : "Places API sync failed",
+    });
   }
 });
 

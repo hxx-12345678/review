@@ -126,15 +126,30 @@ export function FeedbackFlow({ business, slug, demo: isDemo = false }: { busines
     setStep("redirect")
   }
 
-  function confirmGooglePost() {
-    const googleUrl = (business.googleReviewUrl || "").trim()
-    let targetUrl = googleUrl
-    if (targetUrl && !/^https?:\/\//i.test(targetUrl)) {
-      targetUrl = `https://${targetUrl}`
+  async function confirmGooglePost() {
+    // Fetch the latest business data to ensure googleReviewUrl is fresh
+    // (the SSR prop may be stale due to next.revalidate caching)
+    const freshSlug = slug || business.slug
+    let targetUrl: string | null = null
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api"
+      const res = await fetch(`${baseUrl}/feedback/public/${freshSlug}`, { cache: "no-store" })
+      if (res.ok) {
+        const data = await res.json()
+        targetUrl = (data.business?.googleReviewUrl || "").trim() || null
+      }
+    } catch {}
+    if (!targetUrl) {
+      targetUrl = (business.googleReviewUrl || "").trim() || null
     }
 
-    if (targetUrl && !isDemo) {
-      window.open(targetUrl, "_blank", "noopener,noreferrer")
+    if (targetUrl) {
+      if (!/^https?:\/\//i.test(targetUrl)) {
+        targetUrl = `https://${targetUrl}`
+      }
+      if (!isDemo) {
+        window.open(targetUrl, "_blank", "noopener,noreferrer")
+      }
     }
 
     setStep("done")

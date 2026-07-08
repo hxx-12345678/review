@@ -153,9 +153,16 @@ export function SettingsForm({ business }: { business: any }) {
     try {
       // Extract actual image URL from search page URLs
       const finalLogoUrl = extractImageUrl(logoUrl)
+
+      // When googlePlaceId is set, auto-derive googleReviewUrl from it
+      // unless the URL already contains the placeId (custom override)
+      const finalGoogleUrl = googlePlaceId && (!googleUrl || !googleUrl.includes(googlePlaceId))
+        ? `https://search.google.com/local/writereview?placeid=${googlePlaceId}`
+        : googleUrl
+
       await api.businesses.update(business.id, {
         name,
-        googleReviewUrl: googleUrl || undefined,
+        googleReviewUrl: finalGoogleUrl || undefined,
         googlePlaceId: googlePlaceId || undefined,
         location: location || undefined,
         phoneNumber: phoneNumber || undefined,
