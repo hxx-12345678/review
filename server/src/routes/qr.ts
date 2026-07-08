@@ -39,7 +39,7 @@ router.post("/generate/:businessId", authRequired, async (req: AuthRequest, res:
     }
 
     const env = getEnv();
-    const reviewUrl = `${env.FRONTEND_URL}/r/${business.slug}`;
+    const reviewUrl = `${env.FRONTEND_URL.split(",")[0].trim()}/r/${business.slug}`;
 
     const qrCode = await prisma.qrCode.create({
       data: {

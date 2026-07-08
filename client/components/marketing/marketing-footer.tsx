@@ -25,7 +25,6 @@ export function MarketingFooter() {
             links={[
               { label: "How it works", href: "/#how" },
               { label: "Pricing", href: "/pricing" },
-              { label: "Live demo", href: "/r/brightsmile" },
               { label: "Dashboard", href: "/dashboard" },
             ]}
           />

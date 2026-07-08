@@ -46,7 +46,7 @@ export async function sendFeedbackNotification(userId: string, businessName: str
       <p><strong>Business:</strong> ${businessName}</p>
       <p><strong>Rating:</strong> ${"★".repeat(rating)}${"☆".repeat(5 - rating)}</p>
       <p style="color: #666;">Log in to ReviewOS to view the full feedback and respond.</p>
-      <a href="${env.FRONTEND_URL}/dashboard/inbox" style="display: inline-block; padding: 12px 24px; background: #0d9488; color: white; text-decoration: none; border-radius: 6px;">View Feedback</a>
+      <a href="${env.FRONTEND_URL.split(",")[0].trim()}/dashboard/inbox" style="display: inline-block; padding: 12px 24px; background: #0d9488; color: white; text-decoration: none; border-radius: 6px;">View Feedback</a>
     </div>
   `;
 
@@ -73,7 +73,7 @@ export async function sendWelcomeEmail(email: string, name: string) {
         <li>Generate QR codes for review collection</li>
         <li>Manage and respond to reviews</li>
       </ul>
-      <a href="${env.FRONTEND_URL}/onboarding" style="display: inline-block; padding: 12px 24px; background: #0d9488; color: white; text-decoration: none; border-radius: 6px;">Get Started</a>
+      <a href="${env.FRONTEND_URL.split(",")[0].trim()}/onboarding" style="display: inline-block; padding: 12px 24px; background: #0d9488; color: white; text-decoration: none; border-radius: 6px;">Get Started</a>
     </div>
   `;
 

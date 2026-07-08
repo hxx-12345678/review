@@ -167,7 +167,7 @@ router.post("/forgot-password", authLimiter, async (req: AuthRequest, res: Respo
       },
     });
 
-    const frontendUrl = getEnv().FRONTEND_URL || getEnv().FRONTEND_URL || "http://localhost:3000";
+    const frontendUrl = (getEnv().FRONTEND_URL || "http://localhost:3000").split(",")[0].trim();
     const resetLink = `${frontendUrl}/reset-password?token=${rawToken}`;
 
     sendPasswordResetEmail(user.email, user.name || "", resetLink).catch((e) => {
@@ -239,6 +239,48 @@ router.post("/reset-password", authLimiter, async (req: AuthRequest, res: Respon
   }
 });
 
+// ── Change Password (from settings) ──────────────────────────────────────────
+
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(8).max(128),
+});
+
+router.post("/change-password", authRequired, async (req: AuthRequest, res: Response) => {
+  try {
+    const { currentPassword, newPassword } = changePasswordSchema.parse(req.body);
+
+    const user = await prisma.user.findUnique({ where: { id: req.userId } });
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Block Google OAuth users — they don't own the password
+    if (user.googleId) {
+      return res.status(403).json({ error: "Password change is not available for Google-linked accounts" });
+    }
+
+    const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!valid) {
+      return res.status(401).json({ error: "Current password is incorrect" });
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash },
+    });
+
+    res.json({ message: "Password updated successfully" });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return res.status(400).json({ error: "Invalid input", details: err.errors });
+    }
+    console.error("Change password error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // ── Google OAuth Sign-In ─────────────────────────────────────────────────────
 
 router.get("/google", (req: AuthRequest, res: Response) => {
@@ -253,9 +295,13 @@ router.get("/google", (req: AuthRequest, res: Response) => {
       ? env.GOOGLE_OAUTH_REDIRECT_URI.replace("/google-reviews/oauth/callback", "/auth/google/callback")
       : "";
 
+    const finalRedirectUri = redirectUri || `${req.protocol}://${req.get("host")}/api/auth/google/callback`;
+
+    console.log("[Google Auth] Using redirect_uri:", finalRedirectUri, "| Env GOOGLE_OAUTH_REDIRECT_URI:", env.GOOGLE_OAUTH_REDIRECT_URI);
+
     const params = new URLSearchParams({
       client_id: clientId,
-      redirect_uri: redirectUri || `${req.protocol}://${req.get("host")}/api/auth/google/callback`,
+      redirect_uri: finalRedirectUri,
       response_type: "code",
       scope: "openid email profile",
       access_type: "offline",
@@ -275,19 +321,23 @@ router.get("/google/callback", async (req: AuthRequest, res: Response) => {
   try {
     const { code } = req.query;
     if (!code || typeof code !== "string") {
-      return res.redirect(`${getEnv().FRONTEND_URL || "http://localhost:3000"}/login?error=google_auth_failed`);
+      return res.redirect(`${(getEnv().FRONTEND_URL || "http://localhost:3000").split(",")[0].trim()}/login?error=google_auth_failed`);
     }
 
     const env = getEnv();
     const clientId = env.GOOGLE_OAUTH_CLIENT_ID;
     const clientSecret = env.GOOGLE_OAUTH_CLIENT_SECRET;
     if (!clientId || !clientSecret) {
-      return res.redirect(`${env.FRONTEND_URL || "http://localhost:3000"}/login?error=google_not_configured`);
+      return res.redirect(`${(env.FRONTEND_URL || "http://localhost:3000").split(",")[0].trim()}/login?error=google_not_configured`);
     }
 
     const redirectUri = env.GOOGLE_OAUTH_REDIRECT_URI
       ? env.GOOGLE_OAUTH_REDIRECT_URI.replace("/google-reviews/oauth/callback", "/auth/google/callback")
       : "";
+
+    const finalRedirectUri = redirectUri || `${req.protocol}://${req.get("host")}/api/auth/google/callback`;
+
+    console.log("[Google Callback] Using redirect_uri:", finalRedirectUri, "| Env GOOGLE_OAUTH_REDIRECT_URI:", env.GOOGLE_OAUTH_REDIRECT_URI);
 
     // Exchange authorization code for tokens
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
@@ -297,7 +347,7 @@ router.get("/google/callback", async (req: AuthRequest, res: Response) => {
         code,
         client_id: clientId,
         client_secret: clientSecret,
-        redirect_uri: redirectUri || `${req.protocol}://${req.get("host")}/api/auth/google/callback`,
+        redirect_uri: finalRedirectUri,
         grant_type: "authorization_code",
       }),
     });
@@ -305,23 +355,23 @@ router.get("/google/callback", async (req: AuthRequest, res: Response) => {
     if (!tokenRes.ok) {
       const errBody = await tokenRes.text();
       console.error("Google token exchange failed:", errBody);
-      return res.redirect(`${env.FRONTEND_URL || "http://localhost:3000"}/login?error=google_auth_failed`);
+      return res.redirect(`${(env.FRONTEND_URL || "http://localhost:3000").split(",")[0].trim()}/login?error=google_auth_failed`);
     }
 
     const tokens: any = await tokenRes.json();
     if (!tokens.id_token) {
-      return res.redirect(`${env.FRONTEND_URL || "http://localhost:3000"}/login?error=google_auth_failed`);
+      return res.redirect(`${(env.FRONTEND_URL || "http://localhost:3000").split(",")[0].trim()}/login?error=google_auth_failed`);
     }
 
     // Verify the ID token
-    const client = new OAuth2Client(clientId, clientSecret, redirectUri || undefined);
+    const client = new OAuth2Client(clientId, clientSecret, finalRedirectUri);
     const ticket = await client.verifyIdToken({
       idToken: tokens.id_token,
       audience: clientId,
     });
     const payload = ticket.getPayload();
     if (!payload || !payload.email) {
-      return res.redirect(`${env.FRONTEND_URL || "http://localhost:3000"}/login?error=google_auth_failed`);
+      return res.redirect(`${(env.FRONTEND_URL || "http://localhost:3000").split(",")[0].trim()}/login?error=google_auth_failed`);
     }
 
     // Upsert user: find by googleId first, then by email
@@ -374,11 +424,11 @@ router.get("/google/callback", async (req: AuthRequest, res: Response) => {
     // Issue session JWT
     const token = issueSessionToken(user.id);
 
-    const frontendUrl = env.FRONTEND_URL || "http://localhost:3000";
-    res.redirect(`${frontendUrl}/auth/google/success?token=${token}`);
+    const frontendUrl = (env.FRONTEND_URL || "http://localhost:3000").split(",")[0].trim();
+    res.redirect(`${frontendUrl}/google/auth/success?token=${token}`);
   } catch (err) {
     console.error("Google OAuth callback error:", err);
-    const frontendUrl = getEnv().FRONTEND_URL || "http://localhost:3000";
+    const frontendUrl = (getEnv().FRONTEND_URL || "http://localhost:3000").split(",")[0].trim();
     res.redirect(`${frontendUrl}/login?error=google_auth_failed`);
   }
 });
@@ -387,7 +437,7 @@ router.get("/me", authRequired, async (req: AuthRequest, res: Response) => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.userId },
-      select: { id: true, email: true, name: true, createdAt: true },
+      select: { id: true, email: true, name: true, createdAt: true, googleId: true },
     });
 
     if (!user) {

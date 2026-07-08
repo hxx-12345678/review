@@ -46,7 +46,7 @@ export const api = {
         body: JSON.stringify(data),
       }),
     me: () =>
-      request<{ user: { id: string; email: string; name: string | null; createdAt: string }; businesses: any[] }>("/auth/me"),
+      request<{ user: { id: string; email: string; name: string | null; createdAt: string; googleId?: string | null }; businesses: any[] }>("/auth/me"),
     logout: () =>
       request<{ message: string }>("/auth/logout", { method: "POST" }),
     forgotPassword: (email: string) =>
@@ -61,6 +61,11 @@ export const api = {
       }),
     googleUrl: () =>
       request<{ url: string }>("/auth/google"),
+    changePassword: (data: { currentPassword: string; newPassword: string }) =>
+      request<{ message: string }>("/auth/change-password", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
   },
   businesses: {
     list: () =>

@@ -32,7 +32,7 @@ router.post("/send-email", authRequired, async (req: AuthRequest, res: Response)
     }
 
     const env = getEnv();
-    const reviewUrl = `${env.FRONTEND_URL}/r/${business.slug}`;
+    const reviewUrl = `${env.FRONTEND_URL.split(",")[0].trim()}/r/${business.slug}`;
     const templateToUse = data.customMessage || business.emailTemplate || undefined;
 
     const result = await sendReviewRequestEmail({
@@ -77,7 +77,7 @@ router.post("/send-sms", authRequired, async (req: AuthRequest, res: Response) =
     }
 
     const env = getEnv();
-    const reviewUrl = `${env.FRONTEND_URL}/r/${business.slug}`;
+    const reviewUrl = `${env.FRONTEND_URL.split(",")[0].trim()}/r/${business.slug}`;
 
     let message: string;
     if (data.customMessage) {

@@ -1,5 +1,5 @@
-const API = "https://review-ewye.onrender.com/api";
-const FRONTEND = "https://review-nine-inky.vercel.app";
+const API = process.env.E2E_API_URL || "http://localhost:4000/api";
+const FRONTEND = process.env.E2E_FRONTEND_URL || "http://localhost:3000";
 
 let token, userId, businessId, feedbackId, replyId;
 

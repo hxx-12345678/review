@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
 import { toast } from "sonner"
 import { api } from "@/lib/api"
+import { useAuth } from "@/lib/auth-context"
 
 /**
  * Extracts a direct image URL from various URL formats.
@@ -96,6 +97,7 @@ function getImageUrlStatus(url: string): { valid: boolean; message: string; extr
 }
 
 export function SettingsForm({ business }: { business: any }) {
+  const { user } = useAuth()
   const [name, setName] = useState(business?.name || "")
   const [googleUrl, setGoogleUrl] = useState(business?.googleReviewUrl || "")
   const [googlePlaceId, setGooglePlaceId] = useState(business?.googlePlaceId || "")
@@ -209,6 +211,41 @@ export function SettingsForm({ business }: { business: any }) {
     } finally {
       setUploading(false)
       e.target.value = ""
+    }
+  }
+
+  // ── Password change (only for non-OAuth users) ───────────────────────────
+  const [currentPassword, setCurrentPassword] = useState("")
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmNewPassword, setConfirmNewPassword] = useState("")
+  const [changingPassword, setChangingPassword] = useState(false)
+  const [passwordError, setPasswordError] = useState("")
+  const [passwordSuccess, setPasswordSuccess] = useState("")
+
+  async function handleChangePassword() {
+    setPasswordError("")
+    setPasswordSuccess("")
+
+    if (newPassword.length < 8) {
+      setPasswordError("New password must be at least 8 characters")
+      return
+    }
+    if (newPassword !== confirmNewPassword) {
+      setPasswordError("New passwords do not match")
+      return
+    }
+
+    setChangingPassword(true)
+    try {
+      await api.auth.changePassword({ currentPassword, newPassword })
+      setPasswordSuccess("Password updated successfully")
+      setCurrentPassword("")
+      setNewPassword("")
+      setConfirmNewPassword("")
+    } catch (err: any) {
+      setPasswordError(err.message || "Failed to change password")
+    } finally {
+      setChangingPassword(false)
     }
   }
 
@@ -528,6 +565,62 @@ export function SettingsForm({ business }: { business: any }) {
           <LockedToggle title="Authenticity checks" body="Generic, templated text is flagged so reviews stay specific and real." />
         </div>
       </Card>
+
+      {user && !user.googleId && (
+        <Card className="p-6">
+          <div className="flex items-center gap-2">
+            <Lock className="size-5 text-amber-500" />
+            <h2 className="font-medium text-foreground">Change password</h2>
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Update your account password. This only applies to email/password logins — Google-linked accounts use Google authentication.
+          </p>
+          <div className="mt-5 space-y-4">
+            {passwordError && (
+              <div className="rounded-xl bg-destructive/10 p-3.5 text-sm text-destructive shadow-sm">{passwordError}</div>
+            )}
+            {passwordSuccess && (
+              <div className="rounded-xl bg-emerald-500/10 p-3.5 text-sm text-emerald-600 shadow-sm">{passwordSuccess}</div>
+            )}
+            <div className="space-y-1.5">
+              <Label htmlFor="current-password" className="text-xs font-semibold uppercase tracking-wider text-foreground/70">Current password</Label>
+              <Input
+                id="current-password"
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                placeholder="Enter current password"
+                className="h-11 w-full rounded-xl border-border/70 bg-white/70 px-4 text-sm shadow-sm"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="new-password" className="text-xs font-semibold uppercase tracking-wider text-foreground/70">New password</Label>
+              <Input
+                id="new-password"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Min. 8 characters"
+                className="h-11 w-full rounded-xl border-border/70 bg-white/70 px-4 text-sm shadow-sm"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="confirm-new-password" className="text-xs font-semibold uppercase tracking-wider text-foreground/70">Confirm new password</Label>
+              <Input
+                id="confirm-new-password"
+                type="password"
+                value={confirmNewPassword}
+                onChange={(e) => setConfirmNewPassword(e.target.value)}
+                placeholder="Repeat new password"
+                className="h-11 w-full rounded-xl border-border/70 bg-white/70 px-4 text-sm shadow-sm"
+              />
+            </div>
+            <Button onClick={handleChangePassword} disabled={changingPassword} className="h-11 rounded-xl text-sm font-bold">
+              {changingPassword ? "Updating..." : "Update password"}
+            </Button>
+          </div>
+        </Card>
+      )}
 
       <Card className="p-6">
         <h2 className="font-medium text-foreground flex items-center gap-2">
