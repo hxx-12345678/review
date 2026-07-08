@@ -17,6 +17,7 @@ import aiRoutes from "./routes/ai";
 import activityRoutes from "./routes/activity";
 import communicationRoutes from "./routes/communications";
 import googleReviewsRoutes from "./routes/google-reviews";
+import googlePlacesRoutes from "./routes/google-places";
 import uploadRoutes from "./routes/upload";
 import paymentsRoutes from "./routes/payments";
 
@@ -189,6 +190,7 @@ app.use("/api/ai", aiRoutes);
 app.use("/api/activity", activityRoutes);
 app.use("/api/communications", communicationRoutes);
 app.use("/api/google-reviews", googleReviewsRoutes);
+app.use("/api/google-places", googlePlacesRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/payments", paymentsRoutes);
 

@@ -1,9 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { ArrowRight, ArrowLeft, Check, Plus, X } from "lucide-react"
+import { ArrowRight, ArrowLeft, Check, Plus, X, Search, MapPin, Star, Loader2, AlertCircle, ChevronDown } from "lucide-react"
 import { Logo } from "@/components/logo"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -33,16 +33,42 @@ const INDUSTRIES: { value: string; label: string; topics: string[] }[] = [
 
 const STEPS = ["Business", "Industry", "Google link", "Done"]
 
+type SearchResult = {
+  placeId: string
+  name: string
+  address: string
+  rating: number | null
+  totalRatings: number | null
+}
+
 export function OnboardingWizard() {
   const router = useRouter()
   const [step, setStep] = useState(0)
   const [name, setName] = useState("")
+  const [location, setLocation] = useState("")
   const [industry, setIndustry] = useState<string>("")
   const [googleUrl, setGoogleUrl] = useState("")
+  const [googlePlaceId, setGooglePlaceId] = useState("")
   const [topics, setTopics] = useState<string[]>([])
   const [newTopic, setNewTopic] = useState("")
 
+  const [searching, setSearching] = useState(false)
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([])
+  const [selectedPlace, setSelectedPlace] = useState<SearchResult | null>(null)
+  const [showManualInput, setShowManualInput] = useState(false)
+  const searchAttempted = useRef(false)
+
   const progress = ((step + 1) / STEPS.length) * 100
+
+  useEffect(() => {
+    if (step === 2 && !searchAttempted.current && !selectedPlace && !showManualInput) {
+      const query = [name, location].filter(Boolean).join(" ")
+      if (query.length > 2) {
+        searchAttempted.current = true
+        doSearch(query)
+      }
+    }
+  }, [step])
 
   function selectIndustry(value: string) {
     setIndustry(value)
@@ -53,7 +79,7 @@ export function OnboardingWizard() {
   function canAdvance() {
     if (step === 0) return name.trim().length > 1
     if (step === 1) return industry !== ""
-    if (step === 2) return googleUrl.trim().length > 4
+    if (step === 2) return !!(googleUrl.trim().length > 4 || selectedPlace)
     return true
   }
 
@@ -69,12 +95,44 @@ export function OnboardingWizard() {
     }
   }
 
+  async function doSearch(query: string) {
+    setSearching(true)
+    setSearchResults([])
+    try {
+      const res = await api.googlePlaces.search(query)
+      setSearchResults(res.results)
+    } catch (err: any) {
+      toast.error(err.message || "Search failed")
+    } finally {
+      setSearching(false)
+    }
+  }
+
+  function selectListing(place: SearchResult) {
+    setSelectedPlace(place)
+    setGooglePlaceId(place.placeId)
+    setGoogleUrl(`https://search.google.com/local/writereview?placeid=${place.placeId}`)
+  }
+
+  function clearSelection() {
+    setSelectedPlace(null)
+    setGooglePlaceId("")
+    setGoogleUrl("")
+  }
+
+  function switchToManual() {
+    setShowManualInput(true)
+    clearSelection()
+  }
+
   async function finish() {
     try {
       await api.businesses.create({
         name: name.trim(),
         industry,
         googleReviewUrl: googleUrl.trim() || undefined,
+        googlePlaceId: googlePlaceId.trim() || undefined,
+        location: location.trim() || undefined,
         promptTopics: topics,
       });
       toast.success("Your ReviewOS workspace is ready");
@@ -107,17 +165,32 @@ export function OnboardingWizard() {
 
       <div className="mt-10 flex-1">
         {step === 0 && (
-          <StepShell title="What's your business name?" subtitle="This is what customers will see when they leave a review.">
-            <div className="space-y-2">
-              <Label htmlFor="biz-name">Business name</Label>
-              <Input
-                id="biz-name"
-                autoFocus
-                placeholder="e.g. Brightsmile Dental Studio"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && canAdvance() && next()}
-              />
+          <StepShell title="Tell us about your business" subtitle="We'll use this to find your Google listing automatically.">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="biz-name">Business name</Label>
+                <Input
+                  id="biz-name"
+                  autoFocus
+                  placeholder="e.g. Brightsmile Dental Studio"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && canAdvance() && next()}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="biz-location">
+                  City, State
+                  <span className="ml-2 text-xs font-normal text-muted-foreground">(helps us find your exact listing)</span>
+                </Label>
+                <Input
+                  id="biz-location"
+                  placeholder="e.g. Austin, TX"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && canAdvance() && next()}
+                />
+              </div>
             </div>
           </StepShell>
         )}
@@ -182,43 +255,163 @@ export function OnboardingWizard() {
 
         {step === 2 && (
           <StepShell
-            title="Connect your Google review link"
-            subtitle="This is the most critical step. Having a direct Google review link bypasses standard Maps navigation, taking customers straight to the 'Write a Review' box, which boosts conversions by up to 300%."
+            title="Find your Google listing"
+            subtitle="Select your business from the search results so we can automatically connect your Google review link."
           >
-            <div className="space-y-4">
-              <div className="rounded-xl border border-teal-500/20 bg-teal-500/5 p-4 text-sm text-teal-800 dark:text-teal-200">
-                <span className="font-semibold block mb-1">💡 How to find your direct review link:</span>
-                <ol className="list-decimal pl-4 space-y-1 text-xs text-muted-foreground">
-                  <li>Go to Google Search or Maps and search for your business.</li>
-                  <li>If logged into your business account, tap the <strong>"Get more reviews"</strong> or <strong>"Ask for reviews"</strong> card.</li>
-                  <li>Copy the shortened Google link (looks like <code className="bg-muted px-1.5 py-0.5 rounded font-mono text-[10px]">https://g.page/r/...</code> or <code className="bg-muted px-1.5 py-0.5 rounded font-mono text-[10px]">https://g.co/kgs/...</code>).</li>
-                </ol>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="google-url" className="font-semibold">Google Review URL</Label>
-                <Input
-                  id="google-url"
-                  autoFocus
-                  placeholder="https://g.page/r/YOUR_BUSINESS_CUID/review"
-                  value={googleUrl}
-                  onChange={(e) => setGoogleUrl(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && canAdvance() && next()}
-                />
-              </div>
-
-              <div className="rounded-lg border bg-card p-3.5 text-xs text-muted-foreground space-y-2">
-                <p className="font-medium text-foreground">🔗 Supported Formats & Workarounds:</p>
-                <ul className="list-disc pl-4 space-y-1 text-[11px]">
-                  <li>Official: <code className="bg-muted px-1 py-0.2 rounded font-mono">https://g.page/r/[BusinessID]/review</code></li>
-                  <li>Maps Search URL: <code className="bg-muted px-1 py-0.2 rounded font-mono">https://maps.google.com/?cid=[ID]</code></li>
-                  <li>Local Search Write-Review (bypasses Maps): <code className="bg-muted px-1 py-0.2 rounded font-mono">https://search.google.com/local/writereview?placeid=[PlaceID]</code></li>
-                </ul>
-                <p className="text-[10px] text-orange-600/90 dark:text-orange-400">
-                  ⚠️ Service area businesses or D2C brands: Search your business name on the Google Place ID Finder website or construct using your Google Maps Place ID.
+            {selectedPlace ? (
+              <div className="space-y-4">
+                <div className="rounded-xl border border-teal-500/30 bg-teal-500/5 p-4">
+                  <div className="flex items-center gap-2 text-teal-700 dark:text-teal-300">
+                    <Check className="size-5" />
+                    <span className="font-medium">Connected</span>
+                  </div>
+                  <div className="mt-3 flex items-start gap-3 rounded-lg border border-border bg-card p-3">
+                    <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                      <MapPin className="size-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-foreground">{selectedPlace.name}</p>
+                      <p className="text-sm text-muted-foreground">{selectedPlace.address}</p>
+                      {selectedPlace.rating && (
+                        <div className="mt-1 flex items-center gap-1.5 text-sm">
+                          <Star className="size-4 fill-amber-400 text-amber-400" />
+                          <span className="font-medium text-foreground">{selectedPlace.rating}</span>
+                          {selectedPlace.totalRatings && (
+                            <span className="text-muted-foreground">({selectedPlace.totalRatings} reviews)</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Your Google review URL will be: <code className="rounded bg-muted px-1 py-0.5 font-mono">https://search.google.com/local/writereview?placeid={selectedPlace.placeId.slice(0, 8)}...</code>
                 </p>
+                <Button variant="ghost" size="sm" onClick={clearSelection} className="text-xs text-muted-foreground">
+                  Change selection
+                </Button>
               </div>
-            </div>
+            ) : showManualInput ? (
+              <div className="space-y-4">
+                <div className="rounded-xl border border-teal-500/20 bg-teal-500/5 p-4 text-sm text-teal-800 dark:text-teal-200">
+                  <p className="font-semibold mb-1">Paste your Google review URL</p>
+                  <p className="text-xs text-muted-foreground">
+                    Find it in your Google Business Profile dashboard under &ldquo;Get more reviews&rdquo;.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="google-url" className="font-semibold">Google Review URL</Label>
+                  <Input
+                    id="google-url"
+                    autoFocus
+                    placeholder="https://g.page/r/YOUR_BUSINESS_CUID/review"
+                    value={googleUrl}
+                    onChange={(e) => setGoogleUrl(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && canAdvance() && next()}
+                  />
+                </div>
+                <Button variant="link" size="sm" onClick={() => { setShowManualInput(false); searchAttempted.current = false; }} className="text-xs">
+                  Try auto-search instead
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 rounded-lg border border-border bg-card p-3 text-sm">
+                  <Search className="size-4 shrink-0 text-muted-foreground" />
+                  <span className="text-muted-foreground">
+                    Searching for: <strong className="text-foreground">{[name, location].filter(Boolean).join(", ")}</strong>
+                  </span>
+                </div>
+
+                {searching && (
+                  <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
+                    <Loader2 className="size-5 animate-spin" />
+                    <span>Searching Google...</span>
+                  </div>
+                )}
+
+                {!searching && searchResults.length === 0 && !searchAttempted.current && (
+                  <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
+                    <Loader2 className="size-5 animate-spin" />
+                    <span>Preparing search...</span>
+                  </div>
+                )}
+
+                {!searching && searchResults.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground">Select your business:</p>
+                    {searchResults.map((place) => (
+                      <button
+                        key={place.placeId}
+                        type="button"
+                        onClick={() => selectListing(place)}
+                        className="w-full rounded-lg border border-border bg-card p-3 text-left transition-colors hover:border-primary/50 hover:bg-accent"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                            <MapPin className="size-5" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium text-foreground">{place.name}</p>
+                            <p className="text-sm text-muted-foreground">{place.address}</p>
+                            {place.rating && (
+                              <div className="mt-1 flex items-center gap-1.5 text-sm">
+                                <Star className="size-4 fill-amber-400 text-amber-400" />
+                                <span className="font-medium text-foreground">{place.rating}</span>
+                                {place.totalRatings && (
+                                  <span className="text-muted-foreground">({place.totalRatings} reviews)</span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          <ChevronDown className="size-5 -rotate-90 text-muted-foreground shrink-0 mt-2" />
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {!searching && searchResults.length === 0 && searchAttempted.current && (
+                  <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-sm">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="mt-0.5 size-4 shrink-0 text-amber-600" />
+                      <div>
+                        <p className="font-medium text-amber-800 dark:text-amber-200">No results found</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          We couldn&apos;t find a matching Google listing. Try entering your URL manually.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {!searching && (
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const query = [name, location].filter(Boolean).join(" ")
+                        if (query.length > 2) {
+                          searchAttempted.current = true
+                          doSearch(query)
+                        }
+                      }}
+                      className="text-xs text-primary underline-offset-2 hover:underline"
+                    >
+                      Search again
+                    </button>
+                    <span className="mx-2 text-xs text-muted-foreground">or</span>
+                    <button
+                      type="button"
+                      onClick={switchToManual}
+                      className="text-xs text-primary underline-offset-2 hover:underline"
+                    >
+                      Enter URL manually
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </StepShell>
         )}
 
@@ -231,6 +424,7 @@ export function OnboardingWizard() {
                 </div>
                 <div>
                   <p className="font-medium text-foreground">{name || "Your business"}</p>
+                  {location && <p className="text-sm text-muted-foreground">{location}</p>}
                   <p className="text-sm text-muted-foreground">
                     {INDUSTRIES.find((i) => i.value === industry)?.label ?? "Business"}
                   </p>
@@ -241,7 +435,7 @@ export function OnboardingWizard() {
                   <Check className="size-4 text-primary" /> {topics.length} customer prompts configured
                 </li>
                 <li className="flex items-center gap-2">
-                  <Check className="size-4 text-primary" /> Google review link connected
+                  <Check className="size-4 text-primary" /> {selectedPlace ? "Google listing connected" : "Google review link connected"}
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="size-4 text-primary" /> Compliant AI talking points enabled

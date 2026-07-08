@@ -59,6 +59,7 @@ export const api = {
       name: string;
       industry: string;
       googleReviewUrl?: string;
+      googlePlaceId?: string;
       location?: string;
       phoneNumber?: string;
       website?: string;
@@ -212,6 +213,10 @@ export const api = {
   activity: {
     list: (businessId: string) =>
       request<{ logs: any[] }>(`/activity/${businessId}`),
+  },
+  googlePlaces: {
+    search: (query: string) =>
+      request<{ results: { placeId: string; name: string; address: string; rating: number | null; totalRatings: number | null }[] }>(`/google-places/search?query=${encodeURIComponent(query)}`),
   },
   payments: {
     plans: () =>

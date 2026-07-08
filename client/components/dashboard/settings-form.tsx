@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Save, ShieldCheck, Lock, MessageSquare, Mail, Palette, Eye, AlertTriangle, CheckCircle2, Upload, X, Loader2, Globe, RefreshCw, Trash2 } from "lucide-react"
+import { useState, useEffect, useRef } from "react"
+import { Save, ShieldCheck, Lock, MessageSquare, Mail, Palette, Eye, AlertTriangle, CheckCircle2, Upload, X, Loader2, Globe, RefreshCw, Trash2, Search, MapPin, Star } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -113,6 +113,40 @@ export function SettingsForm({ business }: { business: any }) {
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
 
+  // Google listing search
+  const [searching, setSearching] = useState(false)
+  const [searchResults, setSearchResults] = useState<any[]>([])
+  const [selectedPlace, setSelectedPlace] = useState<any>(null)
+  const [showManualGoogleFields, setShowManualGoogleFields] = useState(false)
+  const searchInputRef = useRef<HTMLInputElement>(null)
+
+  async function doSearch(query: string) {
+    if (!query || query.length < 2) return
+    setSearching(true)
+    setSearchResults([])
+    try {
+      const res = await api.googlePlaces.search(query)
+      setSearchResults(res.results)
+    } catch (err: any) {
+      toast.error(err.message || "Search failed")
+    } finally {
+      setSearching(false)
+    }
+  }
+
+  function selectListing(place: any) {
+    setSelectedPlace(place)
+    setGooglePlaceId(place.placeId)
+    setGoogleUrl(`https://search.google.com/local/writereview?placeid=${place.placeId}`)
+    setShowManualGoogleFields(false)
+  }
+
+  function clearSelection() {
+    setSelectedPlace(null)
+    setGooglePlaceId("")
+    setGoogleUrl("")
+  }
+
   async function save() {
     if (!business?.id) return
     setSaving(true)
@@ -181,26 +215,126 @@ export function SettingsForm({ business }: { business: any }) {
             <Label htmlFor="name">Business name</Label>
             <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="google">Google review URL</Label>
-            <Input id="google" value={googleUrl} onChange={(e) => setGoogleUrl(e.target.value)} placeholder="https://g.co/kgs/..." />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="googlePlaceId">
-              Google Place ID
-              <span className="ml-2 text-xs font-normal text-muted-foreground">(for importing reviews)</span>
-            </Label>
-            <Input
-              id="googlePlaceId"
-              value={googlePlaceId}
-              onChange={(e) => setGooglePlaceId(e.target.value)}
-              placeholder="ChIJN1t_tDeuEmsRUsoyG83frY4"
-            />
-            <p className="text-xs text-muted-foreground">
-              Find your Place ID at{" "}
-              <a href="https://developers.google.com/maps/documentation/javascript/examples/places-placeid-finder" target="_blank" rel="noopener noreferrer" className="underline text-blue-500">Place ID Finder</a>.
-              Enables public review import without GBP API approval.
-            </p>
+          <div className="sm:col-span-2 space-y-2">
+            <Label>Google listing</Label>
+
+            {/* Connected state */}
+            {selectedPlace && !showManualGoogleFields && (
+              <div className="rounded-lg border border-teal-500/30 bg-teal-500/5 p-3">
+                <div className="flex items-start gap-3">
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <MapPin className="size-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-foreground">{selectedPlace.name}</p>
+                    <p className="text-xs text-muted-foreground">{selectedPlace.address}</p>
+                    {selectedPlace.rating && (
+                      <div className="mt-0.5 flex items-center gap-1 text-xs">
+                        <Star className="size-3 fill-amber-400 text-amber-400" />
+                        <span className="font-medium text-foreground">{selectedPlace.rating}</span>
+                        {selectedPlace.totalRatings && (
+                          <span className="text-muted-foreground">({selectedPlace.totalRatings} reviews)</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <button type="button" onClick={clearSelection} className="text-xs text-muted-foreground underline-offset-2 hover:underline shrink-0">
+                    Change
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Search input */}
+            {(!selectedPlace || showManualGoogleFields) && (
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <Input
+                    ref={searchInputRef}
+                    placeholder={`Search "${business?.name || "your business"}" on Google...`}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        doSearch((e.target as HTMLInputElement).value)
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => doSearch(searchInputRef.current?.value || "")}
+                    disabled={searching}
+                  >
+                    {searching ? <Loader2 className="size-4 animate-spin" /> : <Search className="size-4" />}
+                    Search
+                  </Button>
+                </div>
+
+                {/* Search results */}
+                {!searching && searchResults.length > 0 && (
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto rounded-lg border border-border">
+                    {searchResults.map((place) => (
+                      <button
+                        key={place.placeId}
+                        type="button"
+                        onClick={() => selectListing(place)}
+                        className="w-full px-3 py-2 text-left text-sm transition-colors hover:bg-accent border-b border-border last:border-b-0"
+                      >
+                        <p className="font-medium text-foreground">{place.name}</p>
+                        <p className="text-xs text-muted-foreground">{place.address}</p>
+                        {place.rating && (
+                          <div className="mt-0.5 flex items-center gap-1 text-xs">
+                            <Star className="size-3 fill-amber-400 text-amber-400" />
+                            <span className="font-medium text-foreground">{place.rating}</span>
+                            {place.totalRatings && (
+                              <span className="text-muted-foreground">({place.totalRatings} reviews)</span>
+                            )}
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {!searching && !selectedPlace && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowManualGoogleFields(!showManualGoogleFields)}
+                      className="text-xs text-primary underline-offset-2 hover:underline"
+                    >
+                      {showManualGoogleFields ? "Search on Google instead" : "Enter URL manually"}
+                    </button>
+                  </div>
+                )}
+
+                {/* Manual fields */}
+                {showManualGoogleFields && (
+                  <div className="space-y-3 rounded-lg border border-border p-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="google" className="text-xs">Google review URL</Label>
+                      <Input id="google" value={googleUrl} onChange={(e) => setGoogleUrl(e.target.value)} placeholder="https://g.co/kgs/..." />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="googlePlaceId" className="text-xs">
+                        Google Place ID
+                        <span className="ml-1 font-normal text-muted-foreground">(for importing reviews)</span>
+                      </Label>
+                      <Input
+                        id="googlePlaceId"
+                        value={googlePlaceId}
+                        onChange={(e) => setGooglePlaceId(e.target.value)}
+                        placeholder="ChIJN1t_tDeuEmsRUsoyG83frY4"
+                      />
+                      <p className="text-[11px] text-muted-foreground">
+                        Find your Place ID at{" "}
+                        <a href="https://developers.google.com/maps/documentation/javascript/examples/places-placeid-finder" target="_blank" rel="noopener noreferrer" className="underline text-blue-500">Place ID Finder</a>
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="location">Location</Label>
