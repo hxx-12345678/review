@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { Logo } from "@/components/logo";
 
-export default function GoogleAuthSuccessPage() {
+function GoogleAuthSuccessHandler() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [error, setError] = useState("");
@@ -14,7 +14,6 @@ export default function GoogleAuthSuccessPage() {
     const token = searchParams.get("token");
     if (token) {
       localStorage.setItem("reviewos_token", token);
-      // Dispatch storage event so auth-context picks up the change
       window.dispatchEvent(new Event("storage"));
       router.replace("/dashboard");
     } else {
@@ -36,5 +35,17 @@ export default function GoogleAuthSuccessPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function GoogleAuthSuccessPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen min-w-0 items-center justify-center">
+        <Loader2 className="size-6 animate-spin text-primary" />
+      </div>
+    }>
+      <GoogleAuthSuccessHandler />
+    </Suspense>
   );
 }
