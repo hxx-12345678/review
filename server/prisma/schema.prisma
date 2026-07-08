@@ -32,17 +32,20 @@ enum ReplyStatus {
 }
 
 model User {
-  id             String     @id @default(cuid())
-  email          String     @unique
-  passwordHash   String
-  name           String?
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
+  id                  String     @id @default(cuid())
+  email               String     @unique
+  passwordHash        String
+  name                String?
+  googleId            String?    @unique
+  resetToken          String?
+  resetTokenExpiresAt DateTime?
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
 
-  businesses     Business[]
-  sessions       Session[]
-  activityLogs   ActivityLog[]
-  subscriptions  Subscription[]
+  businesses          Business[]
+  sessions            Session[]
+  activityLogs        ActivityLog[]
+  subscriptions       Subscription[]
 }
 
 model Session {

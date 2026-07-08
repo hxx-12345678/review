@@ -85,6 +85,31 @@ export async function sendWelcomeEmail(email: string, name: string) {
   });
 }
 
+export async function sendPasswordResetEmail(email: string, name: string, resetLink: string) {
+  const env = getEnv();
+  const t = getTransporter();
+  if (!t) return;
+
+  const html = `
+    <div style="font-family: sans-serif; max-width: 560px;">
+      <h2>Reset your ReviewOS password</h2>
+      <p>Hi ${name || "there"},</p>
+      <p>We received a request to reset the password for your ReviewOS account. Click the button below to set a new password. This link expires in 15 minutes.</p>
+      <a href="${resetLink}" style="display: inline-block; padding: 12px 24px; background: #0d9488; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">Reset Password</a>
+      <p style="margin-top: 24px; color: #666; font-size: 13px;">If you did not request a password reset, please ignore this email. No changes have been made to your account.</p>
+      <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
+      <p style="color: #9ca3af; font-size: 12px;">This link expires in 15 minutes. If it has expired, request a new reset from the ReviewOS login page.</p>
+    </div>
+  `;
+
+  await t.sendMail({
+    from: env.SMTP_FROM,
+    to: email,
+    subject: "Reset your ReviewOS password",
+    html,
+  });
+}
+
 interface SendReviewRequestOptions {
   toEmail: string;
   businessName: string;

@@ -50,6 +50,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     fetchUser();
   }, [fetchUser]);
 
+  // Re-fetch when localStorage token changes (e.g. after Google OAuth redirect)
+  useEffect(() => {
+    function onStorageChange() {
+      const currentToken = localStorage.getItem("reviewos_token");
+      if (currentToken !== token) {
+        setLoading(true);
+        fetchUser();
+      }
+    }
+    window.addEventListener("storage", onStorageChange);
+    window.addEventListener("focus", onStorageChange);
+    return () => {
+      window.removeEventListener("storage", onStorageChange);
+      window.removeEventListener("focus", onStorageChange);
+    };
+  }, [token, fetchUser]);
+
   const login = useCallback(async (email: string, password: string) => {
     const data = await api.auth.login({ email, password });
     localStorage.setItem("reviewos_token", data.token);

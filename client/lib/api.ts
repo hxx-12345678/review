@@ -49,6 +49,18 @@ export const api = {
       request<{ user: { id: string; email: string; name: string | null; createdAt: string }; businesses: any[] }>("/auth/me"),
     logout: () =>
       request<{ message: string }>("/auth/logout", { method: "POST" }),
+    forgotPassword: (email: string) =>
+      request<{ message: string }>("/auth/forgot-password", {
+        method: "POST",
+        body: JSON.stringify({ email }),
+      }),
+    resetPassword: (token: string, password: string) =>
+      request<{ message: string }>("/auth/reset-password", {
+        method: "POST",
+        body: JSON.stringify({ token, password }),
+      }),
+    googleUrl: () =>
+      request<{ url: string }>("/auth/google"),
   },
   businesses: {
     list: () =>
