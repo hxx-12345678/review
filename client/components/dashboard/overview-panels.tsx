@@ -62,14 +62,15 @@ export function RecentActivity({ feedback, googleReviews }: { feedback: any[]; g
       rating: f.rating,
       createdAt: f.createdAt,
       displayName: f.customerName || "Anonymous",
-      reviewText: f.reviewDraft?.content || (f.status === "PRIVATE_FEEDBACK" && f.privateNote ? f.privateNote : "") || f.liked || f.purchaseInfo || "",
+      reviewText: f.reviewDraft?.content || "",
       liked: f.liked,
       purchaseInfo: f.purchaseInfo,
       improvement: f.improvement,
       privateNote: f.privateNote,
       status: f.status,
       hasDraft: !!f.reviewDraft,
-      replyStatus: "NEEDS_REPLY",
+      reviewReply: f.generatedReply?.content,
+      replyStatus: f.generatedReply?.status || "NEEDS_REPLY",
     })),
   ].sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, 15)
@@ -126,7 +127,7 @@ export function RecentActivity({ feedback, googleReviews }: { feedback: any[]; g
                     <span className="text-xs text-muted-foreground">{timeAgo(item.createdAt)}</span>
                     {item.hasDraft && <span className="text-[10px] font-medium text-primary">Draft saved</span>}
                   </div>
-                  <p className="mt-0.5 text-sm text-foreground line-clamp-2">{item.reviewText || "No details provided"}</p>
+                  <p className="mt-0.5 text-sm text-foreground line-clamp-2">{item.reviewText || item.liked || item.purchaseInfo || item.privateNote || "No details provided"}</p>
                   {item.liked && !item.reviewText && (
                     <p className="mt-0.5 text-xs text-muted-foreground">{item.liked}</p>
                   )}

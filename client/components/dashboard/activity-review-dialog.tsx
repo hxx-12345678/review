@@ -1,7 +1,7 @@
 "use client"
 
-import { Globe, QrCode, Check, Clock, Sparkles, X } from "lucide-react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog"
+import { Globe, Check, Clock, Sparkles, X } from "lucide-react"
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { StarRating } from "@/components/star-rating"
@@ -44,18 +44,28 @@ export function ActivityReviewDialog({
     ? (item.replyStatus || "NEEDS_REPLY")
     : (item.replyStatus || "NEEDS_REPLY")
 
+  const statusLabel = !item.isGoogleReview
+    ? item.status === "REDIRECTED_TO_GOOGLE"
+      ? { label: "Posted to Google", className: "bg-primary/10 text-primary" }
+      : item.status === "PRIVATE_FEEDBACK"
+        ? { label: "Private feedback", className: "bg-accent text-accent-foreground" }
+        : { label: "Did not finish", className: "bg-muted text-muted-foreground" }
+    : null
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg gap-0 p-0">
-        <DialogHeader className="flex flex-row items-center justify-between border-b border-border px-5 py-4">
+      <DialogContent className="sm:max-w-lg gap-0 p-0 overflow-hidden">
+        <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <DialogTitle className="text-base font-medium">Review details</DialogTitle>
-          <DialogClose className="rounded-full p-1 text-muted-foreground hover:text-foreground">
+          <button
+            onClick={() => onOpenChange(false)}
+            className="rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          >
             <X className="size-4" />
-          </DialogClose>
-        </DialogHeader>
+          </button>
+        </div>
 
         <div className="overflow-y-auto max-h-[70vh] p-5 space-y-4">
-          {/* Header: avatar, name, rating, time, badge */}
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-start gap-3 min-w-0">
               <Avatar className={`size-10 shrink-0 ${item.isGoogleReview ? "bg-blue-500/10 text-blue-600" : "bg-secondary text-secondary-foreground"}`}>
@@ -83,19 +93,22 @@ export function ActivityReviewDialog({
                   <StarRating value={item.rating} readOnly size={14} />
                   <span className="text-xs text-muted-foreground">{timeAgo(item.createdAt)}</span>
                 </div>
+                {statusLabel && (
+                  <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-medium ${statusLabel.className}`}>
+                    {statusLabel.label}
+                  </span>
+                )}
               </div>
             </div>
             <ReplyStatusBadge status={replyStatus} />
           </div>
 
-          {/* Google review comment */}
           {item.isGoogleReview && item.comment && (
             <div className="rounded-lg border border-border/50 bg-muted/20 p-3 text-sm text-foreground">
               <p className="whitespace-pre-wrap leading-relaxed">{item.comment}</p>
             </div>
           )}
 
-          {/* Local feedback details */}
           {!item.isGoogleReview && (
             <div className="space-y-3">
               {(item.liked || item.privateNote || item.purchaseInfo || item.improvement) && (
