@@ -49,7 +49,7 @@ export function Hero() {
                   size="lg"
                   className="btn-3d magnetic-child group rounded-xl bg-primary px-8 py-4 text-sm font-bold text-primary-foreground squishy"
                 >
-                  Start collecting reviews
+                  Get started
                   <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
                 </Button>
               </div>
