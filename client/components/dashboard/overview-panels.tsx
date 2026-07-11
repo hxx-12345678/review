@@ -1,7 +1,9 @@
+import { useState } from "react"
 import { QrCode, MessageSquareReply, ShieldCheck, Globe } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { StarRating } from "@/components/star-rating"
 import { timeAgo } from "@/lib/format"
+import { ActivityReviewDialog } from "./activity-review-dialog"
 
 const STATUS_LABEL: Record<string, { label: string; className: string }> = {
   REDIRECTED_TO_GOOGLE: { label: "Posted to Google", className: "bg-primary/10 text-primary" },
@@ -41,10 +43,12 @@ export function RatingBreakdown({ reviews }: { reviews: { rating: number; count:
 }
 
 export function RecentActivity({ feedback, googleReviews }: { feedback: any[]; googleReviews?: any[] }) {
+  const [selectedItem, setSelectedItem] = useState<any>(null)
+
   const allItems: any[] = [
     ...(googleReviews || []).map((g: any) => ({
       id: `google-${g.id}`,
-      isGoogleReview: true as const,
+      isGoogleReview: true,
       rating: g.starRating,
       createdAt: g.createTime,
       displayName: g.reviewerName || "Google User",
@@ -54,7 +58,7 @@ export function RecentActivity({ feedback, googleReviews }: { feedback: any[]; g
     })),
     ...feedback.map((f: any) => ({
       id: f.id,
-      isGoogleReview: false as const,
+      isGoogleReview: false,
       rating: f.rating,
       createdAt: f.createdAt,
       displayName: f.customerName || "Anonymous",
@@ -65,6 +69,7 @@ export function RecentActivity({ feedback, googleReviews }: { feedback: any[]; g
       privateNote: f.privateNote,
       status: f.status,
       hasDraft: !!f.reviewDraft,
+      replyStatus: "NEEDS_REPLY",
     })),
   ].sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, 15)
@@ -83,7 +88,11 @@ export function RecentActivity({ feedback, googleReviews }: { feedback: any[]; g
           {allItems.map((item: any) => {
             if (item.isGoogleReview) {
               return (
-                <li key={item.id} className="flex items-start gap-3 py-3">
+                <li
+                  key={item.id}
+                  className="flex cursor-pointer items-start gap-3 py-3 transition-colors hover:bg-muted/50 -mx-3 px-3 rounded-lg"
+                  onClick={() => setSelectedItem(item)}
+                >
                   <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400">
                     <Globe className="size-4" />
                   </div>
@@ -103,7 +112,11 @@ export function RecentActivity({ feedback, googleReviews }: { feedback: any[]; g
             }
             const status = STATUS_LABEL[item.status] || STATUS_LABEL.ABANDONED
             return (
-              <li key={item.id} className="flex items-start gap-3 py-3">
+              <li
+                key={item.id}
+                className="flex cursor-pointer items-start gap-3 py-3 transition-colors hover:bg-muted/50 -mx-3 px-3 rounded-lg"
+                onClick={() => setSelectedItem(item)}
+              >
                 <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
                   <QrCode className="size-4" />
                 </div>
@@ -126,6 +139,12 @@ export function RecentActivity({ feedback, googleReviews }: { feedback: any[]; g
           })}
         </ul>
       </div>
+
+      <ActivityReviewDialog
+        item={selectedItem}
+        open={!!selectedItem}
+        onOpenChange={(open) => { if (!open) setSelectedItem(null) }}
+      />
     </Card>
   )
 }

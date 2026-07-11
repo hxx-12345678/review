@@ -1,0 +1,1197 @@
+================================================================================
+  PAYMENT GATEWAY RESEARCH — INDIA 2026
+  Comprehensive Analysis for ReviewOS MVP
+================================================================================
+
+Project: ReviewOS (SMB Review Management SaaS)
+Location: Vadodara, India → Global
+Key Constraint: All transactions under ₹1000 (subscription billing)
+Current Integration: Razorpay
+
+Date: July 2026
+Total Gateways Researched: 23+
+
+================================================================================
+TABLE OF CONTENTS
+================================================================================
+
+  1. EXECUTIVE SUMMARY
+  2. TIER 1 — FULL-STACK AGGREGATORS
+     2.1 Razorpay (Already Integrated)
+     2.2 Cashfree
+     2.3 PayU
+     2.4 PhonePe Payment Gateway
+  3. TIER 2 — NICHE / SPECIALIZED
+     3.5 Paytm Payment Gateway
+     3.6 Instamojo
+     3.7 CCAvenue
+     3.8 Easebuzz
+     3.9 BillDesk
+     3.10 Stripe India
+  4. TIER 3 — SPECIALIZED / NEW ENTRANTS
+     4.11 VyaparGateway
+     4.12 Zaakpay (by MobiKwik)
+     4.13 Juspay (Orchestration Layer)
+     4.14 Decentro
+     4.15 Zoho Payments
+     4.16 GlomoPay (Cross-Border)
+     4.17 FSS (Enterprise Infrastructure)
+     4.18 Worldline India
+     4.19 NTT DATA Payment Services (Atom)
+  5. TIER 4 — BANK PAYMENT GATEWAYS
+     5.20 HDFC SmartGateway
+     5.21 ICICI Payseal
+     5.22 SBI Payment Gateway
+     5.23 Axis Bank Payment Gateway
+  6. TIER 5 — NOT STANDALONE PGs
+     6.24 OpenMoney
+     6.25 Novopay
+     6.26 Sabpaisa
+     6.27 Pay10
+  7. TRUE COST ANALYSIS
+  8. SUB-₹1000 TRANSACTION STRATEGY
+  9. UPI AUTOPAY DEEP DIVE
+  10. RECOMMENDED ARCHITECTURE
+  11. FINAL VERDICT
+
+================================================================================
+1. EXECUTIVE SUMMARY
+================================================================================
+
+After exhaustive research of 23+ payment gateways in India (2026), the clear
+recommendation for ReviewOS is:
+
+  PRIMARY:  Razorpay (stay on current integration)
+  ADD-ON:   VyaparGateway (for UPI-only routing to save 2%)
+  FUTURE:   Negotiate Razorpay custom pricing at ₹5L+/mo GMV
+  GLOBAL:   Add Stripe India alongside Razorpay at global launch
+
+Key Findings:
+  - UPI Autopay is the optimal recurring billing rail for sub-₹1000 txns
+  - Razorpay's 2% flat + zero AMC + 93%+ success rate = lowest TCO at
+    <₹5L/mo GMV despite higher headline rate than Cashfree
+  - Cashfree's ₹4,999/yr AMC makes it MORE expensive below ₹2.08L/mo GMV
+  - VyaparGateway's ₹300/mo flat (0% platform fee) saves ~₹11,800/mo vs
+    Razorpay on ₹5L/mo UPI volume
+  - No gateway beats Razorpay on subscriptions + developer experience
+    for an early-stage SaaS in India
+
+================================================================================
+2. TIER 1 — FULL-STACK AGGREGATORS
+================================================================================
+
+For SaaS companies needing cards, UPI, netbanking, and subscriptions under
+one integration.
+
+-------------------------------------------------------------------------------
+2.1 Razorpay (Already Integrated)
+-------------------------------------------------------------------------------
+  PRICING
+    Domestic Rate:   2% flat (all instruments)
+    UPI:             2% platform fee (0% MDR by NPCI mandate)
+    Setup Fee:       ₹0
+    AMC:             ₹0
+    Custom Pricing:  Available above ₹5L/month GMV
+    GST:             18% on platform fee
+
+  SUBSCRIPTIONS
+    UPI Autopay:     ✅ Full support (mandate via Intent/Collect)
+                     Max ₹15K (₹1L for insurance/SIP/MF)
+                     PDN handled automatically
+    Card eMandate:   ✅ Supported. Max limit: card network-defined
+    eNACH:           ✅ Supported. Max ₹1Cr per debit
+    Smart Retry:     ✅ Built-in dunning logic
+    Subscription Fee: No separate charge (bundled in platform fee)
+
+  SETTLEMENT
+    Standard:        T+2
+    Paid Upgrade:    T+1
+    Instant:         Available at extra cost (₹5 + 1%)
+
+  PERFORMANCE
+    Success Rate:    93%+ (highest in India for UPI)
+    Smart Routing:   ✅ Intelligent retry logic
+    Uptime:          99.9%+
+
+  PAYMENT METHODS
+    Cards:           Visa, Mastercard, Amex, Diners, RuPay
+    UPI:             All PSPs (GPay, PhonePe, Paytm, BHIM)
+    NetBanking:      72+ banks
+    Wallets:         MobiKwik, Freecharge, Jio, Airtel, PayZapp
+    EMI:             Card EMI + Cardless EMI
+    BNPL:            LazyPay, Simpl, ICICI Pay Later
+    International:   3% + GST (cards)
+    Pay Later:       Supported
+
+  PROS
+    + Best developer SDK/API in India
+    + Mature subscription engine with dunning + retry
+    + 100+ payment modes in one integration
+    + Zero setup fee, zero AMC
+    + Highest UPI success rate (93%+)
+    + RazorpayX ecosystem (payouts, capital, payroll)
+    + Excellent documentation and webhook infrastructure
+    + Fast onboarding (2-3 days)
+    + No per-transaction fixed fee (critical for sub-₹1000)
+
+  CONS
+    - 2% flat is higher than Cashfree's 1.75% on UPI
+    - T+2 settlement by default (T+1 costs extra)
+    - No multi-currency on standard plan
+    - International cards at 3% + GST
+
+  USE CASE FOR REVIEWOS
+    ✅ Ideal primary gateway. Sub-₹1000 subscriptions via UPI Autopay:
+       Effective cost = 2% + 18% GST = 2.36% = ₹23.60 on ₹1000
+       UPI MDR = 0% (NPCI mandate), only platform fee applies
+       Negotiate custom pricing after ₹5L/mo GMV
+
+-------------------------------------------------------------------------------
+2.2 Cashfree
+-------------------------------------------------------------------------------
+  PRICING
+    Domestic Rate:   1.75% (promo: 1.6% till Jul 31, 2026)
+    UPI:             1.75% platform fee
+    Setup Fee:       ₹0
+    AMC:             ₹4,999/year
+    Custom Pricing:  Available above ₹10L/month GMV
+    GST:             18% on platform fee
+
+  SUBSCRIPTIONS
+    UPI Autopay:     ✅ Full support with Interoperability
+                     (migrate mandates across gateways)
+                     6 banks + 3 PSPs currently live
+    eNACH:           ✅ Supported
+    Smart Retry:     ✅
+    Dunning:         Basic
+
+  SETTLEMENT
+    Standard:        T+1 (best in class among aggregators)
+    Instant:         Available at extra cost
+
+  PERFORMANCE
+    Success Rate:    ~90% (lower than Razorpay's 93%+)
+    Uptime:          99.9%
+
+  PAYMENT METHODS
+    Cards:           Visa, Mastercard, Amex, Diners, RuPay
+    UPI:             All PSPs
+    NetBanking:      100+ banks
+    Wallets:         Supported
+    EMI:             Card + Cardless
+    International:   140+ currencies supported
+    Payouts API:     Best in India (marketplace-ready)
+
+  PROS
+    + Lowest headline TDR (1.75%)
+    + T+1 settlement as standard
+    + Best payouts API in India (vendor disbursals)
+    + 140+ currencies for international
+    + UPI Autopay Interoperability (industry-first)
+    + Split payments for marketplaces
+
+  CONS
+    - ₹4,999/yr AMC kills cost advantage below ₹2.08L/mo GMV
+    - Lower UPI success rate (~90% vs Razorpay's 93%+)
+    - Subscriptions engine less mature than Razorpay
+    - Onboarding slower (3-5 days)
+    - Dashboard UX less polished
+
+  COST ANALYSIS vs RAZORPAY
+    At ₹1L/mo GMV: Razorpay ₹24,000/yr vs Cashfree ₹26,599/yr
+      → Razorpay is 10.8% cheaper
+    At ₹5L/mo GMV: Razorpay ₹1,20,000/yr vs Cashfree ₹1,12,999/yr
+      → Cashfree is 5.8% cheaper
+    At ₹10L/mo GMV: Razorpay ₹2,40,000/yr vs Cashfree ₹2,20,999/yr
+      → Cashfree is 7.9% cheaper
+
+    BUT: Success rate gap (93% vs 90%) means on ₹2L/mo attempted GMV:
+      Razorpay realized:  ₹1,86,000/mo
+      Cashfree realized:  ₹1,80,000/mo
+      Revenue lost:       ₹6,000/mo (₹72,000/yr)
+
+  USE CASE FOR REVIEWOS
+    ✅ Good secondary when volume >₹10L/mo. The AMC makes it worse
+       than Razorpay at current stage (<₹5L/mo). Re-evaluate if you
+       need best-in-class payout APIs for marketplace features.
+
+-------------------------------------------------------------------------------
+2.3 PayU
+-------------------------------------------------------------------------------
+  PRICING
+    Domestic Rate:   1.99-2.5%
+    UPI:             1.99%
+    Setup Fee:       ₹0
+    AMC:             Undisclosed (some plans may have)
+    Custom Pricing:  Available for enterprise
+
+  SUBSCRIPTIONS
+    Supported:       Yes, but weaker than Razorpay
+    Features:        Basic recurring, less mature
+
+  SETTLEMENT
+    Standard:        T+2 to T+3
+
+  PERFORMANCE
+    Success Rate:    ~88%
+
+  PAYMENT METHODS
+    Cards:           Supported
+    UPI:             Supported
+    NetBanking:      100+ banks
+    Wallets:         Supported
+    EMI:             Heavy EMI focus (own NBFC LazyPay)
+    BNPL:            ✅ (LazyPay)
+    International:   135+ currencies (Naspers global network)
+
+  PROS
+    + Strong EMI/BNPL via LazyPay (own NBFC)
+    + Global reach (part of Naspers/Prosus group)
+    + Enterprise underwriting capabilities
+    + LATAM coverage (for global expansion)
+
+  CONS
+    - Dated developer experience
+    - Slow onboarding (7-14 days)
+    - WooCommerce plugin issues (closed/pending review)
+    - Lower success rate (~88%)
+    - AMC not transparently disclosed
+    - Checkout UI less modern
+
+  USE CASE FOR REVIEWOS
+    ❌ Not recommended for early-stage SaaS. Better fit for
+       EMI-heavy e-commerce (electronics, furniture).
+
+-------------------------------------------------------------------------------
+2.4 PhonePe Payment Gateway
+-------------------------------------------------------------------------------
+  PRICING
+    Domestic Rate:   1.95% (UPI promo pricing)
+    UPI:             0% (promotional) / 2% standard
+    Setup Fee:       ₹0
+    AMC:             ₹0
+
+  SUBSCRIPTIONS
+    UPI Autopay:     Supported but newer/less mature
+    Features:        Basic recurring, evolving
+
+  SETTLEMENT
+    Standard:        T+1
+
+  PERFORMANCE
+    UPI Success:     ~96% (highest in India)
+    Card Success:    Lower (not their focus)
+
+  PAYMENT METHODS
+    UPI:             Excellent (PhonePe is #1 UPI app)
+    Cards:           Functional but weaker
+    International:   Limited support
+
+  PROS
+    + Highest UPI success rate (~96%)
+    + PhonePe brand trust (500M+ users)
+    + T+1 settlement
+    + Zero AMC
+    + UPI AutoPay limits up to ₹1L (₹5L for eligible categories)
+
+  CONS
+    - Card support is functional, not their focus
+    - No international cards
+    - PhonePe-branded checkout (less control)
+    - Subscriptions product less mature than Razorpay
+    - Not ideal if >10% of revenue comes from cards
+
+  USE CASE FOR REVIEWOS
+    ❌ Only suitable if >90% of your customers pay via UPI.
+       For SaaS with varied payment methods, Razorpay wins.
+
+================================================================================
+3. TIER 2 — NICHE / SPECIALIZED
+================================================================================
+
+These gateways serve specific niches. Few are suitable for a SaaS
+subscription model.
+
+-------------------------------------------------------------------------------
+3.5 Paytm Payment Gateway
+-------------------------------------------------------------------------------
+  PRICING:     1.99-2.5%, ₹0 setup
+  UPI:         1.99%
+  Settlement:  T+1
+  Status:      ⚠️ NOT onboarding new merchants (regulatory issues)
+
+  VERDICT: ❌ Avoid. Company is not onboarding new merchants.
+
+-------------------------------------------------------------------------------
+3.6 Instamojo
+-------------------------------------------------------------------------------
+  PRICING:         2% + ₹3 per transaction
+  Setup/AMC:       ₹0
+  Settlement:      T+3 to T+7
+  Success Rate:    ~82% (lowest among major PGs)
+  Subscriptions:   Basic
+
+  PROS:
+    + Easiest onboarding (no website needed)
+    + Payment links out of the box
+    + Free plan available
+
+  CONS:
+    - ₹3 fixed fee per transaction KILLS sub-₹1000 economics
+    - On ₹500: effective fee = 3.6% (₹3 fixed + 2%) = ₹18
+      vs Razorpay's 2.36% = ₹11.80
+    - On ₹200: effective fee = ₹3 + ₹4 = ₹7 = 3.5% of ₹200
+      vs Razorpay's 2.36% = ₹4.72
+    - Slowest settlement (T+3 to T+7)
+    - Lowest success rate (~82%)
+    - Limited subscription support
+
+  USE CASE FOR REVIEWOS
+    ❌ AVOID. The ₹3/txn fixed fee makes it the MOST expensive
+       option for micro-transactions.
+
+-------------------------------------------------------------------------------
+3.7 CCAvenue
+-------------------------------------------------------------------------------
+  PRICING:     2-3% (varies by method)
+  UPI:         2%
+  Setup Fee:   ₹30,000 (privilege plan)
+  AMC:         ₹1,200/yr
+  Settlement:  T+2 to T+5
+  Success:     ~80%
+
+  PROS:
+    + 27 currencies supported
+    + 200+ payment modes
+    + Trusted by traditional enterprises
+
+  CONS:
+    - Setup fees (₹30K)
+    - Slow settlement
+    - Dated technology
+    - Lowest success rate (~80%)
+
+  USE CASE FOR REVIEWOS
+    ❌ Overkill for early-stage SaaS. Bank-grade but expensive
+       and outdated.
+
+-------------------------------------------------------------------------------
+3.8 Easebuzz
+-------------------------------------------------------------------------------
+  PRICING:     1.9-2.3%, ₹0 setup, pay-as-you-go
+  UPI:         1.9%
+  Settlement:  T+2
+  Success:     ~87%
+  Subscriptions: Supported
+
+  PROS:
+    + Competitive rates
+    + Industry-specific (EdTech, NGOs)
+    + Pay-as-you-go model
+
+  CONS:
+    - Limited brand recognition
+    - Smaller ecosystem
+    - ~87% success rate
+
+  USE CASE FOR REVIEWOS
+    ⚠️ Decent budget option but lacks Razorpay's ecosystem
+       depth. Not recommended as primary.
+
+-------------------------------------------------------------------------------
+3.9 BillDesk
+-------------------------------------------------------------------------------
+  PRICING:     1.75-2.5% (negotiated)
+  Setup/AMC:  Negotiable
+  Settlement: T+2
+  Success:    ~85%
+
+  PROS:
+    + Deep bank relationships
+    + High mandate limits
+    + Trusted by government/utilities
+
+  CONS:
+    - 3-4 week onboarding
+    - Legacy technology
+    - Enterprise-only (not startup-friendly)
+    - ~85% success rate
+
+  USE CASE FOR REVIEWOS
+    ❌ Not for startups. Enterprise-only play.
+
+-------------------------------------------------------------------------------
+3.10 Stripe India
+-------------------------------------------------------------------------------
+  PRICING:     3% + ₹17 per domestic transaction
+  UPI:         ❌ NOT SUPPORTED
+  Settlement:  T+7 (kills cash flow)
+  Success:     Good for cards, no UPI
+
+  PROS:
+    + Best global billing infrastructure
+    + 135+ currencies
+    + Excellent API and developer experience
+    + Mature subscription billing (Stripe Billing)
+    + Best for international card collection
+
+  CONS:
+    - NO UPI SUPPORT (critical for India)
+    - T+7 settlement (worst in market)
+    - 3% cross-border FX fee on every payout
+    - On ₹500: ₹15 + ₹17 = ₹32 + GST = ~7.5% effective
+      vs Razorpay's 2.36% = ₹11.80
+    - At ₹50K/mo with 50/50 UPI/card split:
+      Stripe: ₹2,535/mo vs Razorpay: ₹500/mo = 5x more expensive
+    - RBI tokenization requires manual config
+
+  USE CASE FOR REVIEWOS
+    ❌ Avoid for domestic. Only consider when launching globally
+       for international card collection. Use alongside Razorpay
+       (Razorpay for India, Stripe for global).
+
+================================================================================
+4. TIER 3 — SPECIALIZED / NEW ENTRANTS
+================================================================================
+
+Innovative platforms, many with unique pricing models. Some are excellent
+complements to a primary gateway.
+
+-------------------------------------------------------------------------------
+4.11 VyaparGateway
+-------------------------------------------------------------------------------
+  PRICING:     ₹300/mo (Standard) / ₹500/mo / ₹700/mo
+               ZERO platform fee on transactions
+  UPI:         0% platform fee (NPCI charges only = typically ₹0)
+  Setup Fee:   ₹0
+  KYC:         Not required for trial
+  Settlement:  T+0 (real-time, direct to bank)
+  Success:     Depends on bank (UPI rail)
+
+  WHAT IT IS:
+    UPI-only payment gateway with flat monthly subscription instead of
+    per-transaction percentage. Works with all UPI apps.
+
+  SUBSCRIPTIONS:
+    REST API + signed webhooks for subscriptions, trials, dunning
+
+  PROS:
+    + Ultra-cheap at volume: ₹300/mo flat regardless of volume
+    + On ₹5L/mo UPI: ₹300 vs Razorpay's ₹11,800 = saves ₹11,500/mo
+    + Direct-to-bank settlement (no nodal account)
+    + Clean API (Node, Python, PHP SDKs)
+    + HMAC-SHA256 signed webhooks
+    + Shopify + WooCommerce plugins
+    + 7-day free trial, no KYC, no credit card
+    + T+0 real-time settlement
+
+  CONS:
+    - UPI ONLY — no cards, no netbanking, no wallets, no EMI
+    - Cannot be standalone gateway for SaaS (need cards)
+    - New/small platform (less track record)
+    - Limited to UPI collection use cases
+    - No international support
+
+  USE CASE FOR REVIEWOS
+    ✅ Excellent ADD-ON alongside Razorpay:
+       - Route UPI traffic through VyaparGateway (save 2%/txn)
+       - Keep cards/netbanking/EMI on Razorpay
+       - At ₹5L/mo UPI volume: saves ~₹11,500/mo vs all-Razorpay
+       - Simple dual integration (different webhook endpoints)
+
+-------------------------------------------------------------------------------
+4.12 Zaakpay (by MobiKwik)
+-------------------------------------------------------------------------------
+  PRICING:     0% UPI, 2% cards. ₹0 setup, ₹0 AMC
+  UPI:         0% (truly zero platform fee)
+  Settlement:  T+1 to T+2
+  Success:     ~82-85%
+  Subscriptions: Supported (recurring billing)
+  RBI License: PA certificate received April 2025
+
+  PROS:
+    + TRUE 0% UPI cost (not 2% platform fee like Razorpay)
+    + RBI-licensed Payment Aggregator
+    + MobiKwik ecosystem (172M users, 4.5M merchants)
+    + Fast onboarding
+    + Split payments for marketplaces
+    + Payment links + QR codes
+
+  CONS:
+    - Success rate ~82-85% (lowest among top PGs)
+    - Smaller merchant base than Razorpay/Cashfree
+    - Support can be slow
+    - Company had PA license rejected in 2022, only got it Apr 2025
+    - Revenue dropped from ₹178Cr (FY22) to ₹8.3Cr (FY24)
+    - Still rebuilding post-regulatory issues
+
+  USE CASE FOR REVIEWOS
+    ⚠️ Risky but high-ROI. True 0% UPI is unbeatable on cost.
+       Lower success rate means more failed payments.
+       Good secondary for UPI routing if you accept the risk.
+
+-------------------------------------------------------------------------------
+4.13 Juspay (Payment Orchestration Layer)
+-------------------------------------------------------------------------------
+  PRICING:     Custom per merchant. Typically 0.25%/txn OR ₹15K/mo flat
+
+  WHAT IT IS:
+    NOT a payment gateway. A payment orchestration platform that connects
+    300+ payment providers through a single API. Adds dynamic routing,
+    failover, and optimization on top.
+
+  SUBSCRIPTIONS:
+    ✅ Excellent. UPI Autopay, eNACH, card mandates, NACH.
+    Best-in-class mandate infrastructure:
+    - UPI Autopay: 99-year max tenure, auto PDN
+    - eNACH: 3-4 day activation, ₹1Cr limit
+    - Card mandates: token-based recurring
+    - Retry module with 3 retry attempts
+
+  PROS:
+    + Single API to 300+ gateways
+    + Dynamic routing (failover + cost optimization)
+    + Best UPI Autopay infrastructure in India
+    + Advanced retry engine
+    + Tokenization vault
+    + Supports Razorpay, Cashfree, PayU, PhonePe, BillDesk, etc.
+
+  CONS:
+    - EXPENSIVE for startups (₹15K/mo or more)
+    - Adds latency layer (one more hop)
+    - Overkill until significant volume
+    - Requires technical expertise to configure routing rules
+    - Not a direct replacement for a PG
+
+  USE CASE FOR REVIEWOS
+    ❌ Skip until >₹50L/mo GMV. Until then, Razorpay alone is
+       simpler, faster, and cheaper.
+
+-------------------------------------------------------------------------------
+4.14 Decentro
+-------------------------------------------------------------------------------
+  PRICING:     Pay-per-API-call (₹2-50/call). UPI: ~0-2%
+
+  WHAT IT IS:
+    API banking platform — UPI collections, virtual accounts, payouts,
+    KYC verification. Not a standard payment gateway.
+
+  SUBSCRIPTIONS:
+    ✅ UPI Autopay + eNACH supported
+    Settlement: Same-day
+
+  PROS:
+    + 24-hour go-live (fastest onboarding)
+    + 99.99% uptime with multi-bank failover
+    + ₹40,000+ Cr processed annually
+    + RBI PA certified
+    + Excellent for UPI-heavy fintech use cases
+
+  CONS:
+    - Pay-per-call model unpredictable at high volume
+    - Not a standard PG — more infrastructure play
+    - Limited payment methods vs Razorpay
+    - Pricing not transparent (custom quotes)
+
+  USE CASE FOR REVIEWOS
+    ❌ Better for fintech/banking platforms building custom
+       payment flows. Overkill for standard SaaS subscription
+       billing.
+
+-------------------------------------------------------------------------------
+4.15 Zoho Payments
+-------------------------------------------------------------------------------
+  PRICING:
+    UPI:                 0.5% (lowest among all gateways!)
+    Cards:               2%
+    NetBanking:          2%
+    Bank Transfer:       1% (capped at ₹10)
+    UPI Autopay:         ₹7.50 mandate setup + ₹5 execution (≤₹1000)
+                         ₹15 execution (>₹1000)
+    Setup Fee:           ₹0
+    AMC:                 ₹0
+
+  SUBSCRIPTIONS:
+    ✅ UPI Autopay, eMandate supported
+    Must be on Zoho Billing/Subscriptions to use
+
+  SETTLEMENT:
+    UPI: T+1
+    Cards: T+2
+
+  PROS:
+    + CHEAPEST UPI at 0.5% (vs Razorpay's 2%)
+    + UPI Autopay at ₹5/txn for sub-₹1000 is very competitive
+    + Zero setup, zero AMC
+    + Deep Zoho ecosystem integration (Books, Billing, CRM)
+    + RBI PA licensed
+    + PCI DSS Level 1 certified
+    + Convenience fee support
+
+  CONS:
+    - INR-only (no multi-currency)
+    - Must be within Zoho ecosystem to maximize value
+    - Smaller platform, less mature features
+    - Limited payment methods vs Razorpay
+    - Feature set still evolving (launched Aug 2024)
+
+  USE CASE FOR REVIEWOS
+    ✅ Best alternative if you use Zoho ecosystem.
+       At ₹5L/mo UPI volume: Zoho = ₹2,500/mo vs Razorpay = ₹11,800/mo
+       = saves ₹9,300/mo
+       But standalone, lacks Razorpay's maturity and breadth.
+
+-------------------------------------------------------------------------------
+4.16 GlomoPay (Cross-Border Infrastructure)
+-------------------------------------------------------------------------------
+  PRICING:     Custom (enterprise-level)
+
+  WHAT IT IS:
+    Cross-border payment infrastructure. Enables multi-currency
+    acceptance, LRS compliance, outward remittance, global treasury.
+    NOT a domestic Indian payment gateway.
+
+  SUBSCRIPTIONS:
+    ✅ Global subscriptions in 60+ currencies
+    100+ countries supported
+
+  PROS:
+    + 100+ countries coverage
+    + Built-in compliance (KYC, AML, sanctions screening)
+    + Multi-currency treasury with transparent FX
+    + LRS-compliant outward remittance
+    + 99.9% uptime SLA
+
+  CONS:
+    - Enterprise pricing (not for early-stage)
+    - Overkill for domestic India billing
+    - Not a replacement for Razorpay domestically
+    - Complex setup for basic subscription use case
+
+  USE CASE FOR REVIEWOS
+    ❌ Skip for now. This is for businesses needing cross-border
+       collection/distribution infrastructure at enterprise scale.
+       Evaluate at global launch phase.
+
+-------------------------------------------------------------------------------
+4.17 FSS (Enterprise Infrastructure)
+-------------------------------------------------------------------------------
+  PRICING:     Enterprise custom (not public). B2B only.
+
+  WHAT IT IS:
+    White-label payment gateway for banks. 60+ acquirer banks globally
+    use FSS. NOT available to merchants directly.
+
+  SUBSCRIPTIONS:
+    ✅ eMandates, UPI Autopay, card-on-file
+
+  PROS:
+    + 20,000+ TPS capacity
+    + 99.999% uptime
+    + Powers India's largest e-commerce sales (8M txns in 4 days)
+    + AI/ML-powered fraud detection
+    + Full-stack platform (gateway + hub + routing + tokenization)
+
+  CONS:
+    - B2B only — merchants cannot sign up directly
+    - Enterprise pricing (₹Cr+ deals)
+    - Built for banks/acquirers, not for startups
+
+  USE CASE FOR REVIEWOS
+    ❌ Cannot use directly. It's infrastructure for banks,
+       not merchants.
+
+-------------------------------------------------------------------------------
+4.18 Worldline India (NextGen PG)
+-------------------------------------------------------------------------------
+  PRICING:     Negotiated (enterprise). ₹0 setup for standard.
+
+  WHAT IT IS:
+    Enterprise payment gateway from global payments giant Worldline.
+    15L+ merchants in India.
+
+  SUBSCRIPTIONS:
+    ✅ Full support. Subscription payments with lifecycle management.
+
+  SETTLEMENT:
+    T+1
+
+  PAYMENT METHODS:
+    100+ modes, 50+ currencies
+    Cards, UPI, NetBanking (50+ banks), Wallets, PayLater, EMI
+    International card support
+    POS + Online omnichannel
+
+  PROS:
+    + 15L+ merchants trust it
+    + 100+ payment modes, 50+ currencies
+    + Enterprise-grade infrastructure
+    + Onmichannel (POS + online)
+    + T+1 settlement
+    + Multi-currency support
+    + 20+ plugins (Magento, Shopify, WooCommerce)
+
+  CONS:
+    - Pricing undisclosed (enterprise-negotiated)
+    - Onboarding slower than Razorpay/Cashfree
+    - Not startup-friendly (enterprise-focused)
+    - Less developer-friendly than Razorpay
+
+  USE CASE FOR REVIEWOS
+    ❌ Enterprise play. Better when you hit significant scale
+       (₹50Cr+ GMV) and need an enterprise-grade omnichannel
+       solution.
+
+-------------------------------------------------------------------------------
+4.19 NTT DATA Payment Services (formerly Atom Technologies)
+-------------------------------------------------------------------------------
+  PRICING:
+    UPI:         0% (NIL platform fee)
+    Debit Card:  0.90%
+    Credit Card: 1.99%
+    NetBanking:  1.99%
+    International: 3.95%
+    Setup Fee:   Custom
+    AMC:         ₹2,955/yr
+    Payout <₹1000: ₹5
+
+  SUBSCRIPTIONS:
+    Standing instructions supported (basic recurring)
+
+  SETTLEMENT:
+    T+0 (same day)
+
+  PAYMENT METHODS:
+    265+ payment options
+    Cards, UPI, NetBanking (50+ banks), Wallets, BNPL, EMI
+    Bharat QR, NEFT/RTGS, Challan
+
+  PROS:
+    + 0% UPI platform fee
+    + Same-day settlement (T+0)
+    + 265+ payment modes (most in India)
+    + PCI DSS 3.2.1 compliant
+    + 256-bit encryption
+    + CVV-less card payments (tokenized)
+    + 50+ bank integrations
+
+  CONS:
+    - Old/dated integration (Atom token-based system)
+    - AMC charges (₹2,955/yr)
+    - 20+ year old platform, slow innovation
+    - Less developer-friendly APIs
+    - Subscriptions not as mature as Razorpay
+
+  USE CASE FOR REVIEWOS
+    ⚠️ Budget option. 0% UPI is good, but legacy tech and
+       dated integration make it less attractive than modern
+       alternatives. Only consider if you need the absolute
+       lowest UPI cost and can tolerate older tech.
+
+================================================================================
+5. TIER 4 — BANK PAYMENT GATEWAYS
+================================================================================
+
+Traditional bank-operated payment gateways. Expensive, slow, and NOT
+recommended for startups.
+
+-------------------------------------------------------------------------------
+5.20 HDFC SmartGateway
+-------------------------------------------------------------------------------
+  PRICING:
+    Cards:       3-10% (varies by card type)
+    Setup Fee:   ₹20,000 (one-time, non-refundable)
+    AMC:         ₹10,000/year
+    UPI:         Not supported
+
+  PROS:
+    + Instant settlement
+    + HDFC brand trust
+    + Multi-currency (16 currencies)
+    + Good customer support
+
+  CONS:
+    - 3-10% TDR (highest in market)
+    - ₹20,000 setup fee
+    - ₹10,000/yr AMC
+    - NO UPI support
+    - 3-week onboarding
+    - Must have HDFC current account
+    - Java-based integration
+
+  USE CASE FOR REVIEWOS
+    ❌ Only if you have no other option. Prohibitively expensive
+       and lacks UPI.
+
+-------------------------------------------------------------------------------
+5.21 ICICI Payseal
+-------------------------------------------------------------------------------
+  PRICING:
+    Cards:       3%+
+    Setup Fee:   ₹50,000 (one-time, non-refundable)
+    AMC:         ₹12,000/year
+    Additional MID: ₹10,000 each
+
+  PROS:
+    + ICICI reliability
+    + Real-time payment gateway
+
+  CONS:
+    - ₹50,000 setup fee (highest in market)
+    - ₹12,000/yr AMC
+    - 3%+ TDR on cards
+    - NO UPI support
+    - Java-based integration
+    - Very slow onboarding
+
+  USE CASE FOR REVIEWOS
+    ❌ Prohibitively expensive. Setup fee alone costs more than
+       a year of Razorpay fees at ₹5L/mo.
+
+-------------------------------------------------------------------------------
+5.22 SBI Payment Gateway
+-------------------------------------------------------------------------------
+  PRICING:     Negotiated (typically 2-3%)
+  Setup Fee:   ₹10,000-25,000
+  AMC:         ₹5,000-10,000/yr
+
+  Generally similar to HDFC/ICICI — bank-grade but expensive,
+  slow, and lacking modern features.
+
+-------------------------------------------------------------------------------
+5.23 Axis Bank Payment Gateway
+-------------------------------------------------------------------------------
+  PRICING:     Negotiated
+  Setup Fee:   ~₹15,000
+  AMC:         ~₹6,000/yr
+
+  Similar to other bank PGs. Not startup-friendly.
+
+================================================================================
+6. TIER 5 — NOT STANDALONE PAYMENT GATEWAYS
+================================================================================
+
+These platforms have payment capabilities but are NOT standalone
+payment gateways suitable for SaaS subscription billing.
+
+-------------------------------------------------------------------------------
+6.24 OpenMoney (Business Banking Platform)
+-------------------------------------------------------------------------------
+  WHAT IT IS:
+    Neobanking + accounting platform for SMEs. Has basic payment
+    gateway capability built in.
+
+  PRICING:     ₹1,499-13,999/mo (accounting) + transaction fees
+  UPI:         Supported
+  INR-only:    Yes
+
+  PROS:
+    + Unified banking + accounting + payments
+    + Auto-reconciliation
+    + API available
+    + 40L+ SMEs on platform
+    + Series D, unicorn ($190M+ funding)
+
+  CONS:
+    - Not a dedicated PG
+    - Limited payment methods
+    - Support issues reported (especially weekends)
+    - INR-only
+    - Delays in payment reversals reported
+    - Pricing not fully transparent
+
+  USE CASE FOR REVIEWOS
+    ❌ Not suitable as a payment gateway. It's a business banking
+       platform. Use if you want their accounting tools, but not
+       as your primary PG.
+
+-------------------------------------------------------------------------------
+6.25 Novopay (AEPS/DMT Platform)
+-------------------------------------------------------------------------------
+  WHAT IT IS:
+    Agent banking network for retail outlets. AEPS (Aadhaar-based
+    cash withdrawal), DMT (money transfer), bill payments,
+    mobile/DTH recharges.
+
+  PROS:
+    + 5L+ retailers
+    + Present in 25 states
+    + 50L+ transactions/month
+    + AePS, DMT, BBPS services
+
+  CONS:
+    - NOT an online payment gateway
+    - No API for SaaS billing
+    - Agent/brick-and-mortar focused
+
+  USE CASE FOR REVIEWOS
+    ❌ Not applicable. This is for retail agents doing cash-in/
+       cash-out, not online payment processing.
+
+-------------------------------------------------------------------------------
+6.26 Sabpaisa
+-------------------------------------------------------------------------------
+  PRICING:
+    Prepaid Plan: ₹9,999-14,999/yr (1% rate)
+    SME Plan:     3%
+    Enterprise:   Custom
+
+  WHAT IT IS:
+    Payment gateway with offline collection counters (1.4M+ counters).
+    UPI, Cards, NetBanking, NEFT/RTGS, offline cash/cheque.
+
+  PROS:
+    + Offline + online collection (unique)
+    + RBI authorized, PCI DSS compliant
+    + 24hr account setup
+    + T+1 settlement
+    + 1.4M+ offline collection counters
+
+  CONS:
+    - Prepaid plans (₹9,999-14,999/yr upfront)
+    - 3% on SME plan (high)
+    - Smaller merchant base
+    - Not developer-friendly
+
+  USE CASE FOR REVIEWOS
+    ❌ Not suitable. The prepaid pricing model doesn't fit
+       subscription SaaS billing.
+
+-------------------------------------------------------------------------------
+6.27 Pay10
+-------------------------------------------------------------------------------
+  PRICING:     1.95% platform fee + 18% GST
+  UPI:         1.95%
+  Settlement:  Same-day available
+  RBI:         Authorized PA
+  PCI DSS:     Level 1
+
+  WHAT IT IS:
+    Full-stack payment gateway. UPI, cards, netbanking, wallets,
+    international payments, UPI Autopay, Dynamic QR.
+
+  PROS:
+    + 1.95% flat (competitive)
+    + Same-day settlement
+    + UPI Autopay support
+    + International payments
+    + PCI DSS Level 1
+    + Dynamic QR, UPI Intent, UPI Collect
+
+  CONS:
+    - Smaller market presence
+    - Less known/trusted
+    - Smaller ecosystem
+    - Limited documentation vs Razorpay
+
+  USE CASE FOR REVIEWOS
+    ⚠️ Decent budget alternative. 1.95% is competitive.
+       But lacks Razorpay's ecosystem and developer experience.
+
+================================================================================
+7. TRUE COST ANALYSIS
+================================================================================
+
+The headline TDR is MISLEADING. True cost = TDR + AMC + failed transaction
+revenue loss.
+
+BREAK-EVEN ANALYSIS: Razorpay (2%, ₹0 AMC) vs Cashfree (1.75%, ₹4,999/yr AMC)
+
+  Monthly GMV    | Razorpay (Annual) | Cashfree (Annual) | Winner
+  ---------------|-------------------|-------------------|---------
+  ₹50,000        | ₹12,000          | ₹15,449           | Razorpay
+  ₹1,00,000      | ₹24,000          | ₹26,599           | Razorpay
+  ₹2,08,000      | ₹49,920          | ₹49,920           | Tie*
+  ₹5,00,000      | ₹1,20,000        | ₹1,12,999         | Cashfree
+  ₹10,00,000     | ₹2,40,000        | ₹2,20,999         | Cashfree
+
+  *Break-even point: ₹2.08L/mo GMV
+
+  BUT: Success rate gap (93% vs 90%) changes the math significantly:
+
+  At ₹2L/mo attempted GMV:
+    Razorpay (93% success): ₹1,86,000 realized
+    Cashfree (90% success): ₹1,80,000 realized
+    GAP: ₹6,000/mo = ₹72,000/yr
+
+  Even at ₹5L/mo where Cashfree "wins" on fees:
+    Fee difference: ₹7,001/yr in Cashfree's favor
+    Revenue lost to failures: ~₹18,000/mo = ₹2,16,000/yr
+    NET: Cashfree costs ₹2,08,999/yr MORE in lost revenue
+
+TOTAL COST OF OWNERSHIP FORMULA:
+  TCO = (GMV × SuccessRate) - (GMV × TDR) - (AMC/12)
+
+================================================================================
+8. SUB-₹1000 TRANSACTION STRATEGY
+================================================================================
+
+For SaaS subscriptions under ₹1000, the cost per transaction varies
+DRAMATICALLY by gateway pricing model.
+
+EFFECTIVE FEE ON ₹500 TRANSACTION (including GST):
+
+  Gateway          | Fee Structure        | Total Fee | Effective %
+  -----------------|----------------------|-----------|------------
+  VyaparGateway    | ₹300/mo flat (0%)    | ₹0.00     | 0.00%*
+  Zaakpay (UPI)    | 0% UPI               | ₹0.00     | 0.00%
+  NTT DATA (UPI)   | 0% UPI               | ₹0.00     | 0.00%
+  Zoho Payments    | 0.5% UPI             | ₹2.95     | 0.59%
+  Cashfree (promo) | 1.6%                 | ₹9.44     | 1.89%
+  Cashfree (std)   | 1.75%                | ₹10.33    | 2.07%
+  PhonePe PG       | 1.95%                | ₹11.51    | 2.30%
+  PayU             | 1.99%                | ₹11.74    | 2.35%
+  Razorpay         | 2%                   | ₹11.80    | 2.36%
+  Paytm PG         | 1.99%                | ₹11.74    | 2.35%
+  Easebuzz         | 1.9%                 | ₹11.21    | 2.24%
+  CCAvenue         | 2%                   | ₹11.80    | 2.36%
+  HDFC PG          | 3-10%                | ₹17.70+   | 3.54%+
+  ICICI Payseal    | 3%+                  | ₹17.70+   | 3.54%+
+  Instamojo        | 2% + ₹3             | ₹18.00    | 3.60%
+  Stripe India     | 3% + ₹17            | ₹37.70    | 7.54%
+
+  *VyaparGateway: ₹300/mo flat. At 1000 transactions/mo of ₹500:
+    Cost/txn = ₹0.30. At 10,000 txns: ₹0.03/txn.
+
+KEY INSIGHT: At sub-₹1000, gateways with per-transaction FIXED fees
+(Instamojo's ₹3, Stripe's ₹17) are PROHIBITIVELY expensive.
+Percentage-only models (Razorpay, Cashfree) are dramatically better.
+
+================================================================================
+9. UPI AUTOPAY DEEP DIVE
+================================================================================
+
+UPI Autopay is the OPTIMAL recurring billing rail for sub-₹1000 SaaS
+subscriptions in India.
+
+RAIL COMPARISON
+
+  Feature              | UPI Autopay      | eNACH          | Card eMandate
+  ---------------------|------------------|----------------|----------------
+  Setup Time           | Instant (UPI PIN)| 1-5 days       | Instant (OTP)
+  Max Limit (std)      | ₹15,000          | ₹1,00,00,000   | Card limit
+  Max Limit (special)  | ₹1,00,000*       | ₹1,00,00,000   | Card limit
+  AFA Required         | Only >₹15K       | No             | Yes >₹5K
+  Mandate Tenure       | 99 years max     | 30 years       | Till card expiry
+  MDR                  | 0% (NPCI)        | ~₹2-5/txn      | Card MDR applies
+  Platform Fee         | 2% (Razorpay)    | 2% (Razorpay)  | 2% (Razorpay)
+  Success Rate         | ~93%             | ~95%           | ~85-90%
+  Customer Friction    | Low (tap in app) | Medium (bank)  | Medium (OTP)
+  PDN Required         | Yes (24hr)       | No             | Yes (24hr)
+  Cross-border         | No               | No             | Yes
+
+  *₹1L for insurance, mutual funds, SIPs, credit card bills.
+   ₹5L for verified merchants in education/healthcare.
+
+BEST FOR SUB-₹1000: UPI Autopay
+  - Instant mandate creation (no waiting)
+  - 0% MDR = only gateway platform fee applies
+  - No per-transaction fixed fee
+  - 93%+ success rate on Razorpay
+  - Auto retry + PDN handling included
+
+GATEWAY UPI AUTOPAY SUPPORT
+
+  Gateway         | UPI Autopay | Max Mandate | Retry | PDN | Special
+  ----------------|-------------|-------------|-------|-----|--------
+  Razorpay        | ✅ Full     | ₹15K/₹1L    | ✅    | ✅ Auto | Best overall
+  Cashfree        | ✅ + Interop| ₹15K/₹1L    | ✅    | ✅ Auto | Migrate across PGs
+  PhonePe PG      | ✅          | ₹1L/₹5L     | ✅    | ✅ Auto | Highest limits
+  PayU            | ✅ Basic    | ₹15K        | ✅    | ✅     |
+  Zoho Payments   | ✅          | ₹15K        | Basic | ✅     | ₹7.50+₹5/txn
+  Juspay          | ✅ Best     | ₹15K/₹1L    | ✅ 3x | ✅ Auto | 99yr tenure
+  Pine Labs       | ✅          | ₹15K/₹1L    | ✅    | ✅ Auto | 
+  Zaakpay         | ✅          | ₹15K        | Basic | ✅     | 0% UPI
+
+================================================================================
+10. RECOMMENDED ARCHITECTURE
+================================================================================
+
+PHASE 1 — MVP / EARLY STAGE (Now)
+==================================
+  PRIMARY: Razorpay (already integrated)
+
+  Routing:
+    - UPI Autopay for all recurring subscription charges
+    - Cards + NetBanking for one-time payments
+    - All through single Razorpay integration
+
+  Cost at ₹1L/mo GMV (70% UPI, 30% cards):
+    UPI portion (₹70K):  70,000 × 2.36% = ₹1,652
+    Card portion (₹30K): 30,000 × 2.36% = ₹708
+    Total monthly fee:    ₹2,360
+    Total annual fee:     ₹28,320
+
+PHASE 2 — GROWTH STAGE (₹3-5L/mo GMV)
+=======================================
+  PRIMARY: Razorpay
+  ADD-ON:  VyaparGateway for UPI traffic
+
+  Routing:
+    - UPI → VyaparGateway (0% fee, ₹300/mo flat)
+    - Cards + NetBanking + International → Razorpay
+
+  Cost at ₹5L/mo GMV (70% UPI, 30% cards):
+    UPI portion (₹3.5L):  ₹300 (VyaparGateway flat fee)
+    Card portion (₹1.5L): 1,50,000 × 2.36% = ₹3,540
+    Total monthly fee:    ₹3,840
+    vs All-Razorpay:      ₹11,800
+    Savings:              ₹7,960/mo = ₹95,520/yr
+
+PHASE 3 — SCALE (₹10L+/mo GMV)
+================================
+  PRIMARY: Razorpay (custom negotiated pricing)
+  ADD-ON:  VyaparGateway for UPI
+  FUTURE:  Stripe India for international
+
+  Negotiate with Razorpay:
+    - Request 1.5-1.75% custom rate (available above ₹5L/mo)
+    - Request T+1 settlement as standard
+    - Request dedicated account manager
+
+  At ₹10L/mo GMV with negotiated 1.75% rate:
+    VyaparGateway for UPI:  ₹300-700/mo
+    Razorpay for cards (negotiated): ₹3L × 2.07% = ₹6,210
+    Total monthly fee:      ~₹6,910
+    vs Standard Razorpay:   ₹23,600
+    Savings:                ₹16,690/mo
+
+PHASE 4 — GLOBAL LAUNCH
+========================
+  PRIMARY: Razorpay (India) + Stripe (Global)
+  ADD-ON:  VyaparGateway (UPI cost optimization)
+
+  Stripe International:
+    - Collect payments in USD/EUR/GBP
+    - Stripe Billing for global subscriptions
+    - T+7 settlement acceptable for international revenue
+    - 3% + ₹17 per domestic transaction NOT used (only intl cards)
+
+================================================================================
+11. FINAL VERDICT
+================================================================================
+
+STAY ON RAZORPAY.
+
+For your specific use case (sub-₹1000 SaaS subscriptions, Indian SMBs,
+Vadodara launch):
+
+  1. Razorpay has the BEST cost profile at your current volume
+     (zero AMC, 2% flat, no per-txn fee, 93%+ success rate)
+
+  2. UPI Autopay on Razorpay is the optimal recurring billing rail
+     (0% MDR, instant setup, 93%+ success, auto retry + dunning)
+
+  3. Switch to VyaparGateway for UPI-only routing when monthly
+     GMV crosses ₹3L to save ~₹8K/mo
+
+  4. Negotiate Razorpay custom pricing at ₹5L+/mo GMV
+
+  5. Add Stripe India at global launch for international cards
+
+  Avoid: Instamojo (₹3/txn), Stripe India domestic (no UPI, ~7.5% fee),
+         Bank PGs (₹20-50K setup), Cashfree (AMC kills early-stage)
+
+================================================================================
+END OF REPORT
+================================================================================

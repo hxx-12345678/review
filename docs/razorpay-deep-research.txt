@@ -1,0 +1,730 @@
+================================================================================
+  RAZORPAY DEEP RESEARCH — COMPLETE REFERENCE FOR REVIEWOS
+  Account Setup, Subscriptions API, Pricing, Compliance, Gotchas
+================================================================================
+Project: ReviewOS (SMB Review Management SaaS)
+All transactions under ₹1000 (subscription billing)
+Business type: Unregistered / Individual (MVP)
+Date: July 2026
+
+================================================================================
+TABLE OF CONTENTS
+================================================================================
+  1. ACCOUNT SETUP & KYC (UNREGISTERED BUSINESS)
+  2. PRICING — ALL FEES BROKEN DOWN
+  3. SUBSCRIPTIONS ARCHITECTURE OVERVIEW
+  4. API FLOW — STEP BY STEP
+  5. PLAN CREATION API DETAILS
+  6. SUBSCRIPTION CREATION API DETAILS
+  7. SUBSCRIPTION STATES & LIFECYCLE
+  8. WEBHOOK EVENTS & PAYLOADS
+  9. PAYMENT RETRY MODEL
+  10. UPI AUTOPAY SPECIFICS
+  11. CARD eMANDATE SPECIFICS
+  12. eNACH SPECIFICS
+  13. RBI 2026 COMPLIANCE
+  14. KEY LIMITATIONS & GOTCHAS
+  15. IMPLEMENTATION PLAN FOR REVIEWOS
+  16. SETTLEMENT & RECONCILIATION
+
+================================================================================
+1. ACCOUNT SETUP & KYC (UNREGISTERED BUSINESS)
+================================================================================
+
+  1.1 ACCOUNT TYPE NEEDED
+      - SAVINGS ACCOUNT ✅ (for unregistered/individual businesses)
+      - Current account NOT required
+      - Razorpay FAQ: "You can select 'I don't have GST' and proceed with a
+        savings account."
+
+  1.2 REQUIRED DOCUMENTS
+      For Individual / Sole Proprietor (Unregistered):
+        - Personal PAN card (mandatory)
+        - Aadhaar card (or Passport/Voter ID as alternative)
+        - Savings bank account (any Indian bank)
+        - No GST required (select "I don't have GSTIN")
+        - No business registration proof needed
+        - No Shop & Establishment certificate needed
+
+  1.3 ONBOARDING PROCESS
+      Step 1: Sign up at razorpay.com with email or phone
+      Step 2: Select business type → "Individual" or "Unregistered"
+      Step 3: Enter personal PAN → system auto-fetches CKYC data
+      Step 4: If CKYC record exists → OTP verification (instant)
+              If CKYC not found → Video KYC (~5 min)
+      Step 5: Link savings account → Razorpay deposits ₹1 to verify
+      Step 6: Account activated → can generate API keys
+
+  1.4 CKYC (CENTRAL KYC) — EFFECTIVE JAN 2026
+      - If you have CKYC records from bank/mutual fund/insurance →
+        instant verification, no document uploads, no Video KYC
+      - Documents auto-fetched from CKYC database
+      - OTP sent to CKYC-linked mobile number for consent
+
+  1.5 KEY NOTES
+      - UPI Autopay enabled from Day 0 (no separate onboarding)
+      - API keys generated from Dashboard after KYC
+      - Test mode available before going live
+      - Can upgrade to registered business + current account later
+      - Multi-Account feature: same email/phone can have multiple merchant
+        accounts (separate businesses)
+
+  1.6 WHAT YOU NEED BEFORE SIGNING UP
+      - Personal PAN card
+      - Aadhaar card (linked to mobile)
+      - Savings account (any bank, name must match PAN)
+      - Mobile number (for OTP)
+      - Email address
+
+================================================================================
+2. PRICING — ALL FEES BROKEN DOWN
+================================================================================
+
+  2.1 DOMESTIC PAYMENT FEES (as of June 2026)
+
+      Instrument                          | Platform Fee | Network MDR
+      ------------------------------------|-------------|------------
+      UPI (bank account)                  | 2%          | 0% (NPCI mandate)
+      UPI (RuPay credit card)             | 2.15%       | ~1.1-2%
+      Credit/Debit cards (Visa/MC/RuPay)  | 2%          | Included
+      Amex, Diners, Corporate cards       | 3%          | Included
+      EMI, Pay Later                      | 3%          | Included
+      Net banking                         | 2%          | Included
+      Wallets                             | 2%          | Included
+      International cards                 | 3%          | Included
+
+  2.2 SUBSCRIPTIONS ADD-ON FEE ⚠️ CRITICAL
+      - ADDITIONAL 0.99% per transaction ON TOP of base rate
+      - Applied when payment is captured through Subscriptions/Recurring API
+      - So a 2% UPI payment via Subscriptions becomes 2.99% + GST
+      - A 2% card payment via Subscriptions becomes 2.99% + GST
+      - This is the SINGLE BIGGEST COST for subscription businesses
+      - Verify against your signed contract — sometimes auto-enabled
+
+  2.3 GST TREATMENT
+      - 18% GST applied on platform fee (NOT on transaction amount)
+      - Example: ₹1000 UPI payment
+        - Platform fee: 2% = ₹20
+        - Subscription add-on: 0.99% = ₹9.90
+        - Total fee: ₹29.90
+        - GST (18% on fee): ₹5.38
+        - Net settlement: ₹1000 - ₹29.90 - ₹5.38 = ₹964.72
+      - GST is ITC-eligible for GST-registered merchants
+
+  2.4 OTHER FEES
+      - Setup fee: ₹0
+      - Annual Maintenance Charge (AMC): ₹0
+      - Refund processing fee: ₹0 (but original MDR is NOT refunded)
+      - Chargeback dispute fee: ₹200 to ₹750 per case
+      - Integration/support fee: ₹0
+
+  2.5 SETTLEMENT TIMING
+      - Standard: T+2 working days
+      - T+1: Available for established merchants (request basis)
+      - T+0 (Instant Settlement): Available at 0.30% + GST per settlement
+        - On-Demand: Merchant-triggered, 24/7
+        - Scheduled: Auto twice daily (9 AM, 5 PM) on working days
+
+  2.6 COST SUMMARY FOR REVIEWOS (Sub-₹1000 subscriptions)
+
+      UPI Autopay via Subscriptions:
+        Platform fee:         2%       = ₹20 on ₹1000
+        Subscriptions add-on: 0.99%    = ₹9.90 on ₹1000
+        GST (18% on fee):              = ₹5.38
+        Network MDR:          0%
+        Total:                         = ₹35.28 (3.53%)
+
+      Card eMandate via Subscriptions:
+        Platform fee:         2%       = ₹20 on ₹1000
+        Subscriptions add-on: 0.99%    = ₹9.90 on ₹1000
+        GST (18% on fee):              = ₹5.38
+        Card MDR:             ~1.5-2%  = ₹15-20
+        Total:                         = ~₹50-55 (5-5.5%)
+
+      ⚠️ Without Subscriptions add-on (if negotiated away):
+        UPI: 2% + GST = ₹23.60 (2.36%)
+        Card: 2% + 1.5% + GST = ~₹41.30 (4.13%)
+
+================================================================================
+3. SUBSCRIPTIONS ARCHITECTURE OVERVIEW
+================================================================================
+
+  Three distinct concepts:
+    1. Plans — reusable templates (pricing, frequency)
+    2. Subscriptions — customer-specific instances (plan + start + cycles)
+    3. Authentication transactions — customer authorization (mandate setup)
+
+  Payment methods supported:
+    - Cards (Visa, Mastercard, RuPay — credit & debit)
+    - UPI Autopay (PhonePe, GPay, Paytm, BHIM, etc.)
+    - eMandate/eNACH (Netbanking, Debit Card, Aadhaar)
+
+  Billing models:
+    - Fixed plans (period: daily/weekly/monthly/quarterly/yearly)
+    - Custom intervals (e.g., every 2 months, every 3 weeks)
+    - Trial periods (future start date)
+    - Upfront amounts (addons — setup fees, delivery charges)
+    - Quantity-based billing (per-seat pricing)
+
+  Maximum subscription duration: 100 years
+  Maximum billing cycles: depends on frequency (100 years worth)
+
+================================================================================
+4. API FLOW — STEP BY STEP
+================================================================================
+
+  STEP 1: Create a Plan (one-time, reusable)
+    POST /v1/plans
+    Body: { period, interval, item: { name, amount, currency } }
+    Response: plan_id (e.g., plan_00000000000001)
+
+  STEP 2: Create a Subscription (per customer)
+    POST /v1/subscriptions
+    Body: { plan_id, total_count, customer_notify, start_at?, expire_by? }
+    Response: subscription_id (e.g., sub_00000000000001), short_url
+
+  STEP 3: Customer Authorization (via Checkout)
+    - Pass subscription_id to Razorpay Checkout JS
+    - Customer completes authentication → enters UPI PIN/card OTP
+    - On success, Checkout returns:
+      razorpay_payment_id
+      razorpay_subscription_id
+      razorpay_signature
+
+  STEP 4: Verify Signature (server-side, mandatory)
+    generated = hmac_sha256(payment_id + "|" + subscription_id, secret)
+    if (generated == razorpay_signature) → payment is authentic
+
+  STEP 5: Auto-charging
+    - Razorpay automatically charges customer at scheduled intervals
+    - Webhooks fire for every state change
+    - Invoices auto-generated per billing cycle
+
+  KEY POINTS:
+    - No need to create Customer separately — auto-created on first auth
+    - Authentication payment is auto-captured (or auto-refunded if ₹5 token)
+    - Subsequent charges are always auto-captured
+
+================================================================================
+5. PLAN CREATION API DETAILS
+================================================================================
+
+  POST /v1/plans
+
+  Request parameters:
+    period*  : string — "daily" | "weekly" | "monthly" | "quarterly" | "yearly"
+    interval*: integer — e.g., 1 for every period, 2 for every 2 periods
+    item*    : object — { name, amount, currency, description? }
+      name*       : string — plan display name
+      amount*     : integer — in paise (₹500 = 50000)
+      currency    : string — "" defaults to INR
+      description : string
+    notes    : object — key-value pairs (max 15)
+
+  Response:
+    id        : string — plan_xxxxxxxxxxxxx (19 chars)
+    entity    : "plan"
+    interval  : integer
+    period    : string
+    item      : object — full item details with item_id
+    notes     : object
+    created_at: unix timestamp
+
+  IMPORTANT RULES:
+    - Plans CANNOT be updated or deleted after creation
+    - To modify, create a new plan (or duplicate from Dashboard)
+    - Amount minimum: ₹1 (100 paise)
+    - For daily plans, interval minimum is 7
+    - Currency must be supported (INR, USD, etc.)
+
+  CUSTOM FREQUENCIES:
+    - Create custom: period="monthly" interval=3 → every 3 months
+    - For UPI: undefined frequencies treated as "as-presented"
+    - For Cards: only weekly/monthly/yearly standard; others "as-presented"
+    - For Emandate: all frequencies "as-presented"
+
+================================================================================
+6. SUBSCRIPTION CREATION API DETAILS
+================================================================================
+
+  POST /v1/subscriptions
+
+  Request parameters:
+    plan_id*       : string — plan ID from Step 1
+    total_count*   : integer — number of billing cycles (or use end_at)
+    quantity       : integer — seats/licenses (default 1)
+    customer_notify: boolean — true=Razorpay handles comms (default)
+    start_at       : unix timestamp — future date = trial period
+    expire_by      : unix timestamp — deadline for auth payment (default 30yr)
+    end_at         : unix timestamp — alternative to total_count
+    addons         : array — upfront amount items [{item: {name, amount}}]
+    offer_id       : string — link an offer
+    notes          : object — key-value pairs (max 15)
+
+  Note: Provide EITHER total_count OR end_at, not both.
+
+  Response:
+    id              : string — sub_xxxxxxxxxxxxx
+    entity          : "subscription"
+    plan_id         : string
+    customer_id     : string — populated after auth
+    status          : string — "created" initially
+    current_start   : unix timestamp
+    current_end     : unix timestamp
+    ended_at        : unix timestamp or null
+    quantity        : integer
+    charge_at       : unix timestamp
+    start_at        : unix timestamp
+    end_at          : unix timestamp
+    auth_attempts   : integer
+    total_count     : integer
+    paid_count      : integer
+    customer_notify : boolean
+    created_at      : unix timestamp
+    expire_by       : unix timestamp
+    short_url       : string — payment link
+    has_scheduled_changes: boolean
+    remaining_count : integer
+
+  STATUS VALUES:
+    created → authenticated → active → pending → halted → cancelled
+                                                      → completed → expired
+
+  TRIAL PERIOD:
+    - Pass future start_at → free trial until that date
+    - During trial: no charge, customer can cancel anytime
+    - Example: start_at = 30 days from now → 30-day free trial
+
+  UPFRONT AMOUNT:
+    - Pass addons array with items
+    - Charged during authentication transaction
+    - Example: setup fee collected before subscription starts
+
+================================================================================
+7. SUBSCRIPTION STATES & LIFECYCLE
+================================================================================
+
+  CREATED
+    - Subscription object created
+    - No auth payment yet
+    - short_url available for payment link
+
+  AUTHENTICATED
+    - Customer completed authentication (UPI PIN / card OTP)
+    - Mandate registered
+    - For future start: waits here until start_at
+    - For immediate start: moves to active after first charge
+
+  ACTIVE
+    - Billing cycle started
+    - Auto-charges happening per schedule
+    - Can be paused, updated, or cancelled
+
+  PENDING
+    - Auto-charge failed → retrying
+    - Razorpay auto-retries next day
+    - Customer can change card via email link
+    - After retries exhausted → HALTED
+
+  HALTED
+    - All retry attempts failed
+    - Invoices still generated, but no auto-charges
+    - Customer must update payment method to reactivate
+    - Previous missed charges NOT re-attempted on reactivation
+
+  CANCELLED
+    - Manually cancelled (merchant or customer)
+    - Cannot be restarted
+
+  PAUSED
+    - Only active subscriptions can be paused
+    - Customer can pause UPI mandates from their UPI app
+    - Merchant can pause via API/Dashboard
+
+  EXPIRED
+    - Auth payment not completed before expire_by
+    - Cannot be used again
+
+  COMPLETED
+    - All billing cycles successfully charged
+    - End of life
+
+================================================================================
+8. WEBHOOK EVENTS & PAYLOADS
+================================================================================
+
+  Events to subscribe to (mandatory):
+    subscription.authenticated
+    subscription.activated
+    subscription.charged       ← contains payment entity
+    subscription.pending
+    subscription.halted
+    subscription.cancelled
+    subscription.completed
+    subscription.updated
+    subscription.paused
+    subscription.resumed
+
+  Sample: subscription.charged payload
+    {
+      "entity": "event",
+      "event": "subscription.charged",
+      "contains": ["subscription", "payment"],
+      "payload": {
+        "subscription": { "entity": { ... subscription fields ... } },
+        "payment": { "entity": {
+          "id": "pay_xxxxxxxx",
+          "amount": 100000,
+          "currency": "INR",
+          "status": "captured",
+          "method": "card" | "upi",
+          "fee": 2900,
+          "tax": 0,
+          ...
+        }}
+      }
+    }
+
+  KEY WEBHOOK USAGE:
+    - subscription.charged → activate customer's paid features
+    - subscription.pending → send proactive notification to customer
+    - subscription.halted → suspend service (after grace period)
+    - subscription.cancelled → remove access
+    - subscription.completed → archive/cleanup
+
+================================================================================
+9. PAYMENT RETRY MODEL
+================================================================================
+
+  CARDS:
+    - Auto-retry next day on failure
+    - Email sent to customer with card change link
+    - After 3 retries → halted
+    - Customer can change card via hosted page
+    - Manual retry on same card possible via API
+
+  UPI:
+    - Retry depends on bank response timing
+    - May extend to T+1
+    - Customer can switch to card via hosted page
+    - No manual charge on UPI handle
+
+  eNACH:
+    - Attempted on bank holiday → T-1 or T-3
+    - Retries when confirmation/rejection received
+    - May take >24 hours for bank response
+
+  FAILURE REASONS:
+    - Card expired
+    - Bank blocked card
+    - Insufficient balance
+    - Customer cancelled mandate from UPI app
+
+  HOSTED PAGE FOR FAILURE:
+    - Email contains link to update payment method
+    - Customer can: retry same card, change card, switch to UPI, switch to
+      eMandate
+    - All handled without merchant dev work
+
+================================================================================
+10. UPI AUTOPAY SPECIFICS
+================================================================================
+
+  HOW IT WORKS:
+    1. Create Customer → customer_id
+    2. Create Order with mandate details → order_id
+    3. Create Authorization Payment → payment_id + token_id
+    4. token_id represents the registered mandate
+    5. Subsequent debits use token_id + new order_id
+
+  LIMITS:
+    - Frictionless (no AFA): Up to ₹15,000 per debit
+    - With AFA: Up to ₹1,00,000 (for specific MCCs: 6211, 6300, etc.)
+    - Minimum mandate amount: ₹1
+    - Max tenure: 99 years
+
+  UPI INTENT FLOW (Recommended):
+    - Customer redirected to their UPI app
+    - Approve mandate with UPI PIN
+    - Seamless native experience
+    - Supported apps: PhonePe, GPay, Paytm, BHIM, etc.
+    - Must contact Razorpay support to enable on Standard Checkout
+
+  UPI COLLECT FLOW (Deprecated from Feb 2026):
+    - NPCI deprecated UPI Collect from Feb 28, 2026
+    - Customers can no longer manually enter VPA/mobile number
+    - Use Intent flow instead
+
+  KEY RESTRICTIONS:
+    - INR only (no international currencies)
+    - Max ₹15K per transaction (higher for specific MCCs)
+    - Cannot update subscription authorized via UPI
+    - Cannot create additional charges on UPI subscription
+    - Customer can pause/cancel from UPI app anytime
+    - Merchant CANNOT resume a UPI subscription paused by customer
+
+  SUPPORTED APPS:
+    - PhonePe (@ybl, @paytm, @ibl, @pbl)
+    - Google Pay (@okhdfcbank, @okicici, @oksbi, @okaxis)
+    - Paytm (@paytm)
+    - BHIM (@sbi, @hdfcbank, @icici, etc.)
+    - CRED (@cred)
+    - And many more
+
+  INTELLIGENT REVENUE-PROTECT (New 2026):
+    - Automated WhatsApp recovery links for failed mandates
+    - Retention flow for cancel-intent detection
+    - Dynamic banking switch routing (99.99% uptime)
+    - Mandate interoperability (beta) — use mandates from other PGs
+    - Auto-enabled from Day 0
+
+================================================================================
+11. CARD eMANDATE SPECIFICS
+================================================================================
+
+  HOW IT WORKS:
+    1. Customer enters card details + consents to tokenization
+    2. First transaction: OTP/3DS authentication (creates mandate)
+    3. Card tokenized via TokenHQ (Razorpay's token vault)
+    4. Token stored against customer profile
+    5. On billing date: token + cryptogram sent to card network
+    6. PDN sent 24hr before each debit
+
+  LIMITS:
+    - Frictionless (no AFA): Up to ₹15,000 per debit
+    - With AFA: No practical upper limit (card network defined)
+    - Max tenure: Till card expiry (auto-maps to reissued card per 2026 rules)
+
+  SUPPORTED NETWORKS:
+    - Visa (all major banks)
+    - Mastercard (all major banks)
+    - RuPay (beta — contact Razorpay to enable)
+    - Amex, Diners (via 3% slab)
+
+  TOKENIZATION:
+    - TokenHQ handles all RBI tokenization compliance
+    - No raw card data stored on merchant servers
+    - Multi-network tokenization (Visa, Mastercard, RuPay)
+    - Auto-enabled for Standard Checkout
+    - Card change handled via hosted page (zero dev work)
+
+  PRE-DEBIT NOTIFICATION (36-hour window):
+    - Razorpay initiates debit 36 hours before actual date
+    - Bank sends PDN SMS to customer immediately
+    - For ≤₹15K: auto-debited after 36hr unless customer pauses/cancels
+    - For >₹15K: bank sends AFA link (valid 72hr), customer must approve
+
+  KEY RESTRICTIONS:
+    - Debit cards supported only from ICICI, Kotak, Citibank, Canara Bank
+    - Credit cards supported on Visa/MC/RuPay from all major banks
+    - Update only possible for card-authorized subscriptions (not UPI)
+    - Subscription can be updated when in authenticated or active state
+
+================================================================================
+12. eNACH SPECIFICS
+================================================================================
+
+  HOW IT WORKS:
+    1. Merchant creates mandate request
+    2. Customer authorizes via netbanking / debit card / Aadhaar OTP
+    3. Bank verifies and activates mandate (24-48 hours)
+    4. On each billing date: debit request through NPCI NACH system
+
+  LIMITS:
+    - Standard: Up to ₹1,00,00,000 (₹1 crore) per debit
+    - Setup time: 1-5 working days
+    - Max tenure: 30 years
+
+  AUTH METHODS:
+    - Netbanking (major banks)
+    - Debit Card (major banks)
+    - Aadhaar OTP (UIDAI)
+
+  KEY RESTRICTIONS:
+    - 1-5 day activation (not instant — high dropoff risk)
+    - Higher setup friction than UPI or Cards
+    - Domestic only
+    - Not suitable for sub-₹1000 transactions (setup cost doesn't amortize)
+    - Customer cannot pause/cancel from app (must contact bank)
+
+================================================================================
+13. RBI 2026 COMPLIANCE
+================================================================================
+
+  RAZORPAY HANDLES ALL OF THESE AUTOMATICALLY:
+
+  ✅ Mandate registration with AFA (OTP for cards, UPI PIN for UPI)
+  ✅ Pre-debit notification 24hr before every charge (Razorpay sends)
+  ✅ Post-debit notification with grievance details
+  ✅ Customer opt-out from PDN (via UPI app or bank portal)
+  ✅ Tokenization for card-on-file (TokenHQ)
+  ✅ Card reissuance continuity (auto-mapping of mandates to new cards)
+  ✅ No charges to customer for e-mandate
+  ✅ 100% data localization in India
+  ✅ PCI DSS Level 1 certification (highest tier)
+
+  WHAT YOU MUST DO:
+    ✅ Display Terms & Conditions on your website
+    ✅ Display Privacy Policy specifying data usage
+    ✅ Display Refund & Cancellation Policy with timelines
+    ✅ Display physical contact address, phone, email
+    ✅ Appoint Grievance/Nodal Officer (published on website)
+    ✅ TLS 1.2+ on all pages
+    ✅ No raw card data storage
+
+  RBI 2026 KEY RULES:
+    - ₹15K uniform frictionless limit across cards, UPI, PPIs
+    - Universal PDN for EVERY amount (not just above ₹15K)
+    - Card reissuance auto-mapping (new in 2026)
+    - AFA required for mandate registration AND modification
+    - Maximum T+3 settlement for domestic merchants
+
+================================================================================
+14. KEY LIMITATIONS & GOTCHAS ⚠️
+================================================================================
+
+  14.1 SUBSCRIPTIONS ADD-ON FEE
+    - 0.99% extra on every transaction through Subscriptions API
+    - Can be negotiated away at higher volumes (>₹5L/mo)
+    - Verify your contract — sometimes auto-enabled without explicit line item
+
+  14.2 PLANS ARE IMMUTABLE
+    - Cannot update or delete plans after creation
+    - Must create new plan or duplicate from Dashboard
+
+  14.3 UPI SUBSCRIPTIONS CANNOT BE UPDATED
+    - Only card-authorized subscriptions can have amount/duration changed
+    - UPI subscriptions: must cancel and re-create
+
+  14.4 NO eNACH FOR SUB-₹1000
+    - Setup cost (₹2-5/txn) kills margins on small transactions
+    - 1-5 day activation causes dropoff
+    - Not recommended for ReviewOS pricing
+
+  14.5 CARD UPDATE NOT POSSIBLE FOR UPI MANDATES
+    - Card change email link works only for card-based subscriptions
+    - UPI mandate updates require customer to cancel from UPI app
+
+  14.6 REFUNDED TRANSACTIONS LOSE MDR
+    - Razorpay does NOT refund MDR on refunded transactions
+    - Original MDR retained even on reversal
+    - Merchant effectively pays fee on zero revenue
+
+  14.7 AUTH PAYMENT HANDLING
+    - ₹5 token authorization is auto-refunded (don't capture it)
+    - Upfront/addon amounts are auto-captured
+    - Plan amount for immediate start is auto-captured
+
+  14.8 TEST MODE RESTRICTIONS
+    - Card tokens valid only 3 days in test mode
+    - Max 30 subscription links per merchant in test mode
+
+  14.9 DEBIT CARD SUPPORT LIMITED
+    - Only ICICI, Kotak, Citibank, Canara Bank debit cards
+    - Most Indian debit cards NOT supported for recurring
+
+  14.10 UPI COLLECT DEPRECATED
+    - NPCI deprecated UPI Collect from Feb 28, 2026
+    - Must use UPI Intent flow instead
+
+  14.11 RENEWAL IS A CHURN MOMENT
+    - RBI mandates 24hr PDN → customer sees notification every charge
+    - Every renewal is a potential opt-out
+    - Build value communication 48-72 hours BEFORE PDN
+
+  14.12 CUSTOMER CAN PAUSE UPI MANDATES
+    - From their UPI app, any time
+    - Merchant cannot resume if customer paused it
+    - Only customer can resume from their UPI app
+
+================================================================================
+15. IMPLEMENTATION PLAN FOR REVIEWOS
+================================================================================
+
+  PHASE 1 — MVP (NOW)
+  --------------------
+  Account: Razorpay with savings account (individual/unregistered)
+  Primary rail: UPI Autopay via Subscriptions API
+  Fallback: Card eMandate via Subscriptions API
+
+  Pricing plans to create (seeded on startup):
+    Plan ID    | Period  | Amount | Name
+    -----------|---------|--------|---------------------
+    plan_free  | monthly | ₹0     | Free (talking points)
+    plan_basic | monthly | ₹49900 | Basic (₹499/mo)
+    plan_pro   | monthly | ₹99900 | Pro (₹999/mo)
+    plan_biz   | yearly  | ₹999000| Business (₹9,990/yr)
+
+  INTEGRATION STEPS:
+    1. Create plans via API on first server startup (seed)
+    2. Create customer in our DB with razorpay_customer_id
+    3. On plan selection: create subscription via API
+    4. Redirect to Razorpay Checkout with subscription_id
+    5. Handle webhooks (subscription.charged, .pending, .halted, .cancelled)
+    6. Update subscription.status in our DB based on webhook events
+    7. Feature access based on subscription status + plan
+
+  WEBHOOKS TO IMPLEMENT:
+    - subscription.authenticated → mark mandate as active
+    - subscription.charged → log payment, extend access period
+    - subscription.pending → email customer, show warning in dashboard
+    - subscription.halted → suspend features after grace period
+    - subscription.cancelled → schedule access removal
+    - subscription.completed → archive customer record
+
+  COST MATH FOR MVP:
+    UPI Autopay (primary, ~80% of users):
+      Platform fee:         2%
+      Subscription add-on:  0.99%
+      GST (18%):            0.54%
+      Total:                3.53% → ₹35.28 on ₹1000
+
+    Card eMandate (fallback, ~20% of users):
+      Platform fee:         2%
+      Subscription add-on:  0.99%
+      Card MDR:             ~1.5%
+      GST (18%):            0.81%
+      Total:                5.30% → ₹53 on ₹1000
+
+  PHASE 2 — GROWTH (₹3-5L/mo GMV)
+  ---------------------------------
+  Negotiate removal of subscription add-on (0.99%)
+  Add VyaparGateway for UPI-only routing (0% fee, ₹300/mo flat)
+  Enable T+1 settlement (cash flow improvement)
+
+  PHASE 3 — SCALE (₹10L+/mo GMV)
+  --------------------------------
+  Negotiate custom pricing (target 1.4-1.6% on cards)
+  Add Stripe for international card recurring
+  Consider eNACH for enterprise B2B plans (>₹15K)
+
+================================================================================
+16. SETTLEMENT & RECONCILIATION
+================================================================================
+
+  SETTLEMENT FILE:
+    - Available in Dashboard CSV/Excel format
+    - Keyed by settlement_id (batch identifier)
+    - Each row: gross amount, MDR, GST, refund adjustments, net amount
+
+  RECONCILIATION POINTS:
+    - Match settlement_id against bank statement UTR + date + net amount
+    - Classify variances as: FEE_DEDUCTION, TAX_DEDUCTION, ROUNDING,
+      PARTIAL_PAYMENT, UNEXPLAINED
+    - Track original MDR retained on refunded transactions
+    - Maintain register of chargeback dispute fees (₹200-750/case)
+
+  GST INPUT CREDIT:
+    - Razorpay issues monthly GST invoice for MDR charged
+    - GST-registered merchants can claim ITC on GST component
+    - Reconcile settlement file deductions against tax invoice monthly
+
+  INSTANT SETTLEMENT:
+    - On-Demand: 0.30% + GST per settlement (merchant-triggered)
+    - Scheduled T+0: Auto twice daily (9 AM, 5 PM) working days
+    - Eligibility: ~50 days clean history, low dispute rate, complete KYC
+    - Initial cap for restricted IS: ₹50,000 per settlement
+
+================================================================================
+END OF DOCUMENT
+================================================================================
