@@ -85,8 +85,11 @@ export function ReviewInsights({ businessId }: Props) {
         cacheRef.current.set(cacheKey, { data: res, expiresAt: Date.now() + CACHE_TTL })
         return res
       })
-      .catch(() => {
+      .catch((err) => {
         if (!dataRef.current) setError(true)
+        // Cache the failure so we don't hammer the API on every render
+        cacheRef.current.set(cacheKey, { data: null as any, expiresAt: Date.now() + 60000 })
+        console.warn("Insights fetch failed:", err?.message || err)
         return null
       })
       .finally(() => {

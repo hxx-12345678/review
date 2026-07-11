@@ -54,7 +54,7 @@ export function ActivityReviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg gap-0 p-0 overflow-hidden">
+      <DialogContent className="sm:max-w-lg gap-0 p-0 overflow-hidden" showCloseButton={false}>
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <DialogTitle className="text-base font-medium">Review details</DialogTitle>
           <button

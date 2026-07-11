@@ -233,8 +233,6 @@ app.use(notFoundHandler);
 app.use(errorHandler);
 
 async function seedDefaultPlans() {
-  const count = await prisma.subscriptionPlan.count();
-  if (count > 0) return;
   const plans = [
     { name: "Free", slug: "free", price: 0, sortOrder: 0, aiCallsLimit: 1000, businessLimit: 1, features: ["1 business", "1000 AI calls/mo", "Unlimited QR codes", "Review inbox", "Basic analytics"], description: "For businesses just getting started." },
     { name: "Starter", slug: "starter", price: 49900, sortOrder: 1, aiCallsLimit: 500, businessLimit: 1, features: ["1 business", "500 AI calls/mo", "AI reply drafting", "Review insights", "SMS & email requests", "Priority support"], description: "For single-location businesses ready to grow." },
@@ -246,6 +244,18 @@ async function seedDefaultPlans() {
       create: p,
       update: p,
     });
+  }
+  // Also sync aiCallsLimit for all active subscriptions tied to updated plans
+  // so existing users don't hit the old limit after a plan change
+  const freePlan = await prisma.subscriptionPlan.findUnique({ where: { slug: "free" } });
+  if (freePlan) {
+    const updated = await prisma.subscription.updateMany({
+      where: { status: "active", planId: freePlan.id, aiCallsLimit: { lt: freePlan.aiCallsLimit } },
+      data: { aiCallsLimit: freePlan.aiCallsLimit },
+    });
+    if (updated.count > 0) {
+      console.log(`Synced aiCallsLimit for ${updated.count} active free subscriptions`);
+    }
   }
   console.log("Default subscription plans seeded");
 }
