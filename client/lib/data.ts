@@ -33,7 +33,7 @@ export const DEMO_REVIEWS: ManagedReview[] = [
     text: "Dr. Lee walked me through the whole crown procedure before starting, so I knew exactly what was happening. The hygienist, Priya, was gentle and I was out in under 40 minutes. Booking online was painless too.",
     createdAt: "2026-06-08T14:30:00.000Z",
     replyStatus: "needs_reply",
-    viaReviewOS: true,
+    viaBeyondVyu: true,
   },
   {
     id: "rev_2",
@@ -46,7 +46,7 @@ export const DEMO_REVIEWS: ManagedReview[] = [
     replyStatus: "replied",
     replyText:
       "Thank you so much, Sofia! We know dental visits can feel stressful, so we're really glad the team helped you feel at ease. See you at your next cleaning!",
-    viaReviewOS: true,
+    viaBeyondVyu: true,
   },
   {
     id: "rev_3",
@@ -57,7 +57,7 @@ export const DEMO_REVIEWS: ManagedReview[] = [
     text: "Cleaning was good but I waited almost 30 minutes past my appointment time. The front desk was apologetic about it.",
     createdAt: "2026-06-05T16:45:00.000Z",
     replyStatus: "needs_reply",
-    viaReviewOS: false,
+    viaBeyondVyu: false,
   },
   {
     id: "rev_4",
@@ -69,7 +69,7 @@ export const DEMO_REVIEWS: ManagedReview[] = [
     createdAt: "2026-06-03T11:20:00.000Z",
     replyStatus: "draft",
     replyText: "Thanks Hannah! We love seeing the whole family.",
-    viaReviewOS: true,
+    viaBeyondVyu: true,
   },
   {
     id: "rev_5",
@@ -80,7 +80,7 @@ export const DEMO_REVIEWS: ManagedReview[] = [
     text: "The dental work was fine but I felt the upsell on whitening was pushy. Not what I came in for.",
     createdAt: "2026-05-29T13:00:00.000Z",
     replyStatus: "needs_reply",
-    viaReviewOS: false,
+    viaBeyondVyu: false,
   },
   {
     id: "rev_6",
@@ -93,7 +93,7 @@ export const DEMO_REVIEWS: ManagedReview[] = [
     replyStatus: "replied",
     replyText:
       "We're so glad we could help, Aisha, and that you're feeling better. Thank you for trusting us with your care!",
-    viaReviewOS: true,
+    viaBeyondVyu: true,
   },
 ]
 

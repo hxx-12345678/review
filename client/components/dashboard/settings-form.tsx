@@ -193,7 +193,7 @@ export function SettingsForm({ business }: { business: any }) {
     try {
       const formData = new FormData()
       formData.append("logo", file)
-      const token = localStorage.getItem("reviewos_token")
+      const token = localStorage.getItem("beyondvyu_token")
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api"}/upload/logo`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },

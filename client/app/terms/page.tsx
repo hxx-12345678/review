@@ -281,7 +281,7 @@ export default function TermsPage() {
             For questions about these Terms, please contact us at:
           </p>
           <p className="text-muted-foreground">
-            Email: legal@reviewos.app
+            Email: legal@beyondvyu.app
           </p>
         </section>
       </main>

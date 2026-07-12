@@ -9,7 +9,7 @@ class ApiError extends Error {
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const token = typeof window !== "undefined" ? localStorage.getItem("reviewos_token") : null;
+  const token = typeof window !== "undefined" ? localStorage.getItem("beyondvyu_token") : null;
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",

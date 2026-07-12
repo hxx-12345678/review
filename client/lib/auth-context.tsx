@@ -30,7 +30,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchUser = useCallback(async () => {
     try {
-      const stored = localStorage.getItem("reviewos_token");
+      const stored = localStorage.getItem("beyondvyu_token");
       if (!stored) {
         setLoading(false);
         return;
@@ -39,7 +39,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const data = await api.auth.me();
       setUser(data.user);
     } catch {
-      localStorage.removeItem("reviewos_token");
+      localStorage.removeItem("beyondvyu_token");
       setToken(null);
       setUser(null);
     } finally {
@@ -54,7 +54,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Re-fetch when localStorage token changes (e.g. after Google OAuth redirect)
   useEffect(() => {
     function onStorageChange() {
-      const currentToken = localStorage.getItem("reviewos_token");
+      const currentToken = localStorage.getItem("beyondvyu_token");
       if (currentToken !== token) {
         setLoading(true);
         fetchUser();
@@ -70,14 +70,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     const data = await api.auth.login({ email, password });
-    localStorage.setItem("reviewos_token", data.token);
+    localStorage.setItem("beyondvyu_token", data.token);
     setToken(data.token);
     setUser(data.user);
   }, []);
 
   const signup = useCallback(async (email: string, password: string, name?: string) => {
     const data = await api.auth.signup({ email, password, name });
-    localStorage.setItem("reviewos_token", data.token);
+    localStorage.setItem("beyondvyu_token", data.token);
     setToken(data.token);
     setUser(data.user);
   }, []);
@@ -88,7 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // ignore
     }
-    localStorage.removeItem("reviewos_token");
+    localStorage.removeItem("beyondvyu_token");
     setToken(null);
     setUser(null);
     router.push("/");

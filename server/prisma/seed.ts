@@ -28,7 +28,7 @@ async function main() {
 
   // Skip demo data if already seeded
   const existingUser = await prisma.user.findUnique({
-    where: { email: "demo@reviewos.app" },
+    where: { email: "demo@beyondvyu.app" },
   });
   if (existingUser) {
     console.log("Plans upserted. Demo data already exists, skipping demo creation.");
@@ -40,7 +40,7 @@ async function main() {
 
   const user = await prisma.user.create({
     data: {
-      email: "demo@reviewos.app",
+      email: "demo@beyondvyu.app",
       passwordHash: "$2a$12$8nrvklsCUXOam.PmQTy1rO4xikKqz8hABNEgXkjKF2q1sVi1iZu4G",
       name: "Demo User",
     },
@@ -150,7 +150,7 @@ async function main() {
   console.log("Seed data created successfully!");
   console.log(`Created ${feedbacks.length} feedback entries across 14 days`);
   console.log(`Created ${clickable.length} review clicks`);
-  console.log("Demo login: demo@reviewos.app / password: demo123456");
+  console.log("Demo login: demo@beyondvyu.app / password: demo123456");
 }
 
 main()

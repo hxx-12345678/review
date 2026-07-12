@@ -1,7 +1,7 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
 
 function getToken(): string | null {
-  return typeof window !== "undefined" ? localStorage.getItem("reviewos_admin_token") : null;
+  return typeof window !== "undefined" ? localStorage.getItem("beyondvyu_admin_token") : null;
 }
 
 const ADMIN_BASE = (typeof process !== "undefined" && process.env.NEXT_PUBLIC_ADMIN_PATH) || "d1ff499050";
@@ -17,7 +17,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, { ...options, headers });
   if (!res.ok) {
     if (res.status === 401 && typeof window !== "undefined") {
-      localStorage.removeItem("reviewos_admin_token")
+      localStorage.removeItem("beyondvyu_admin_token")
       window.location.href = `/${ADMIN_BASE}/login`
     }
     const body = await res.json().catch(() => ({ error: "Request failed" }));

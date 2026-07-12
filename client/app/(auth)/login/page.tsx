@@ -96,7 +96,7 @@ export default function LoginPage() {
               <Input
                 id="email"
                 type="email"
-                placeholder="demo@reviewos.app"
+                placeholder="demo@beyondvyu.app"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required

@@ -24,22 +24,21 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     setMounted(true)
-    const token = localStorage.getItem("reviewos_admin_token")
+    const token = localStorage.getItem("beyondvyu_admin_token")
     if (!token) {
       if (pathname !== `/${ADMIN_BASE}/login`) router.replace(`/${ADMIN_BASE}/login`)
       return
     }
-    // Verify token is still valid with the server
     if (pathname !== `/${ADMIN_BASE}/login`) {
       fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api"}/admin/verify`, {
         headers: { Authorization: `Bearer ${token}` },
       }).then((res) => {
         if (!res.ok) {
-          localStorage.removeItem("reviewos_admin_token")
+          localStorage.removeItem("beyondvyu_admin_token")
           router.replace(`/${ADMIN_BASE}/login`)
         }
       }).catch(() => {
-        localStorage.removeItem("reviewos_admin_token")
+        localStorage.removeItem("beyondvyu_admin_token")
         router.replace(`/${ADMIN_BASE}/login`)
       })
     }
@@ -47,18 +46,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (!mounted) return null
 
-  const token = localStorage.getItem("reviewos_admin_token")
+  const token = localStorage.getItem("beyondvyu_admin_token")
   if (!token && pathname !== `/${ADMIN_BASE}/login`) return null
 
   if (pathname === `/${ADMIN_BASE}/login`) return <>{children}</>
 
   const handleLogout = () => {
-    localStorage.removeItem("reviewos_admin_token")
+    localStorage.removeItem("beyondvyu_admin_token")
     router.replace(`/${ADMIN_BASE}/login`)
   }
 
+  const isActive = (href: string) =>
+    pathname === href || (href !== `/${ADMIN_BASE}` && pathname.startsWith(href))
+
   return (
-    <div className="flex min-h-screen bg-zinc-950">
+    <div className="flex min-h-screen bg-zinc-950 pb-16 md:pb-0">
+      {/* Desktop sidebar */}
       <aside className="hidden w-56 shrink-0 flex-col border-r border-zinc-800 bg-zinc-900 md:flex">
         <div className="flex h-14 items-center gap-2 border-b border-zinc-800 px-4">
           <Shield className="size-5 text-amber-500" />
@@ -66,7 +69,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
         <nav className="flex-1 space-y-1 p-2">
           {ADMIN_NAV.map((item) => {
-            const active = pathname === item.href || (item.href !== `/${ADMIN_BASE}` && pathname.startsWith(item.href))
+            const active = isActive(item.href)
             return (
               <Link
                 key={item.href}
@@ -94,32 +97,49 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </button>
         </div>
       </aside>
+
+      {/* Main content area */}
       <div className="flex flex-1 flex-col">
-        <header className="flex h-14 items-center justify-between border-b border-zinc-800 bg-zinc-900/50 px-4 backdrop-blur">
-          <div className="flex items-center gap-2 md:hidden">
+        {/* Mobile header */}
+        <header className="flex h-14 items-center justify-between border-b border-zinc-800 bg-zinc-900/50 px-4 backdrop-blur md:px-6">
+          <div className="flex items-center gap-2">
             <Shield className="size-5 text-amber-500" />
             <span className="font-semibold text-zinc-100">Admin</span>
           </div>
-          <div className="flex items-center gap-4">
-            {ADMIN_NAV.map((item) => (
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-200"
+          >
+            <LogOut className="size-4" />
+            <span className="hidden sm:inline">Logout</span>
+          </button>
+        </header>
+        <main className="flex-1 overflow-auto p-4 pb-20 md:p-6 md:pb-6">{children}</main>
+      </div>
+
+      {/* Mobile bottom tab bar */}
+      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-zinc-800 bg-zinc-950 md:hidden">
+        <div className="flex items-center justify-around px-1 pb-[env(safe-area-inset-bottom,0px)]">
+          {ADMIN_NAV.map((item) => {
+            const active = isActive(item.href)
+            return (
               <Link
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "hidden text-sm text-zinc-400 transition-colors hover:text-zinc-200 md:block",
-                  pathname === item.href && "text-amber-400",
+                  "flex flex-col items-center gap-0.5 py-1.5 text-[10px] font-medium transition-colors min-w-0 flex-1",
+                  active
+                    ? "text-amber-400"
+                    : "text-zinc-500 hover:text-zinc-300",
                 )}
               >
-                {item.label}
+                <item.icon className="size-5" />
+                <span className="truncate max-w-full">{item.label}</span>
               </Link>
-            ))}
-            <button onClick={handleLogout} className="text-sm text-zinc-400 hover:text-zinc-200 md:hidden">
-              Logout
-            </button>
-          </div>
-        </header>
-        <main className="flex-1 overflow-auto p-4 md:p-6">{children}</main>
-      </div>
+            )
+          })}
+        </div>
+      </nav>
     </div>
   )
 }

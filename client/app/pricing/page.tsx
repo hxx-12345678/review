@@ -90,10 +90,10 @@ export default function PricingPage() {
                     <p className="mt-1 text-xs text-muted-foreground">
                       Email us at{" "}
                       <a
-                        href="mailto:sales@reviewos.app"
+                        href="mailto:sales@beyondvyu.app"
                         className="font-medium text-primary hover:underline"
                       >
-                        sales@reviewos.app
+                        sales@beyondvyu.app
                       </a>{" "}
                       or call +1 (555) 000-0000
                     </p>
@@ -101,7 +101,7 @@ export default function PricingPage() {
                       type="button"
                       onClick={() => {
                         const subject = encodeURIComponent("ReviewOS Multi-Plan Inquiry")
-                        window.location.href = `mailto:sales@reviewos.app?subject=${subject}`
+                        window.location.href = `mailto:sales@beyondvyu.app?subject=${subject}`
                       }}
                       className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-primary bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90"
                     >

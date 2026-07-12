@@ -86,7 +86,7 @@ export default function PrivacyPage() {
         <section className="space-y-4">
           <h2 className="text-xl font-semibold">8. Contact</h2>
           <p>
-            For privacy-related inquiries, contact us at privacy@reviewos.app.
+            For privacy-related inquiries, contact us at privacy@beyondvyu.app.
           </p>
         </section>
       </main>

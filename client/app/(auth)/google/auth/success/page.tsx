@@ -13,7 +13,7 @@ function GoogleAuthSuccessHandler() {
   useEffect(() => {
     const token = searchParams.get("token");
     if (token) {
-      localStorage.setItem("reviewos_token", token);
+      localStorage.setItem("beyondvyu_token", token);
       window.dispatchEvent(new Event("storage"));
       router.replace("/dashboard");
     } else {

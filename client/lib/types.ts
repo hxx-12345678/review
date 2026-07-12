@@ -74,5 +74,5 @@ export interface ManagedReview {
   replyStatus: ReplyStatus
   replyText?: string
   // Whether this review likely came through a ReviewOS session.
-  viaReviewOS: boolean
+  viaBeyondVyu: boolean
 }

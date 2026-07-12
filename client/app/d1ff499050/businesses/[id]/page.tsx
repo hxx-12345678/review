@@ -25,41 +25,39 @@ export default function AdminBusinessDetailPage() {
   const { business } = data
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       <Link href={`/${ADMIN_BASE}/businesses`} className="inline-flex items-center gap-1 text-sm text-zinc-500 hover:text-zinc-300">
         <ArrowLeft className="size-4" /> Back to businesses
       </Link>
 
       <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-4">
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-zinc-100">{business.name}</h1>
-            <p className="mt-1 text-sm text-zinc-500">
-              {business.industry} | {business.location || "No location"} | Slug: {business.slug}
-            </p>
-            <p className="text-sm text-zinc-500">
-              Owner: <Link href={`/${ADMIN_BASE}/users/${business.user.id}`} className="text-amber-400 hover:underline">{business.user.email}</Link>
-            </p>
-          </div>
+        <div>
+          <h1 className="text-xl font-bold text-zinc-100">{business.name}</h1>
+          <p className="mt-1 text-sm text-zinc-500">
+            {business.industry} | {business.location || "No location"} | Slug: {business.slug}
+          </p>
+          <p className="text-sm text-zinc-500">
+            Owner: <Link href={`/${ADMIN_BASE}/users/${business.user.id}`} className="text-amber-400 hover:underline">{business.user.email}</Link>
+          </p>
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-3">
-          <div className="flex items-center gap-2 text-emerald-400"><MessageSquare className="size-4" /> <span className="text-sm text-zinc-500">Feedback</span></div>
-          <p className="mt-1 text-xl font-bold text-zinc-100">{business._count.feedback}</p>
+          <div className="flex items-center gap-2 text-emerald-400"><MessageSquare className="size-4" /> <span className="text-xs text-zinc-500">Feedback</span></div>
+          <p className="mt-1 text-lg font-bold text-zinc-100 md:text-xl">{business._count.feedback}</p>
         </div>
         <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-3">
-          <div className="flex items-center gap-2 text-blue-400"><Star className="size-4" /> <span className="text-sm text-zinc-500">Google Reviews</span></div>
-          <p className="mt-1 text-xl font-bold text-zinc-100">{business._count.googleReviews}</p>
+          <div className="flex items-center gap-2 text-blue-400"><Star className="size-4" /> <span className="text-xs text-zinc-500">Google Reviews</span></div>
+          <p className="mt-1 text-lg font-bold text-zinc-100 md:text-xl">{business._count.googleReviews}</p>
         </div>
         <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-3">
-          <div className="flex items-center gap-2 text-violet-400"><Globe className="size-4" /> <span className="text-sm text-zinc-500">Replies</span></div>
-          <p className="mt-1 text-xl font-bold text-zinc-100">{business._count.generatedReplies}</p>
+          <div className="flex items-center gap-2 text-violet-400"><Globe className="size-4" /> <span className="text-xs text-zinc-500">Replies</span></div>
+          <p className="mt-1 text-lg font-bold text-zinc-100 md:text-xl">{business._count.generatedReplies}</p>
         </div>
         <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-3">
-          <div className="flex items-center gap-2 text-amber-400"><QrCode className="size-4" /> <span className="text-sm text-zinc-500">QR Codes</span></div>
-          <p className="mt-1 text-xl font-bold text-zinc-100">{business._count.qrCodes}</p>
+          <div className="flex items-center gap-2 text-amber-400"><QrCode className="size-4" /> <span className="text-xs text-zinc-500">QR Codes</span></div>
+          <p className="mt-1 text-lg font-bold text-zinc-100 md:text-xl">{business._count.qrCodes}</p>
         </div>
       </div>
 

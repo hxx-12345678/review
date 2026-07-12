@@ -30,16 +30,16 @@ export default function AdminUserDetailPage() {
   const { user } = data
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       <Link href={`/${ADMIN_BASE}/users`} className="inline-flex items-center gap-1 text-sm text-zinc-500 hover:text-zinc-300">
         <ArrowLeft className="size-4" /> Back to users
       </Link>
 
       <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-4">
-        <div className="flex items-start justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h1 className="text-xl font-bold text-zinc-100">{user.name || "Unnamed User"}</h1>
-            <div className="mt-1 flex items-center gap-4 text-sm text-zinc-500">
+            <div className="mt-1 flex flex-col gap-1 text-sm text-zinc-500 sm:flex-row sm:items-center sm:gap-4">
               <span className="flex items-center gap-1"><Mail className="size-3.5" /> {user.email}</span>
               <span className="flex items-center gap-1"><Calendar className="size-3.5" /> Joined {new Date(user.createdAt).toLocaleDateString()}</span>
             </div>
@@ -75,7 +75,7 @@ export default function AdminUserDetailPage() {
         <h2 className="mb-3 flex items-center gap-2 font-semibold text-zinc-100"><Building2 className="size-4" /> Businesses ({user.businesses?.length || 0})</h2>
         <div className="space-y-2">
           {user.businesses?.map((biz: any) => (
-            <Link key={biz.id} href={`/${ADMIN_BASE}/businesses/${biz.id}`} className="block rounded-md bg-zinc-800/50 p-3 text-sm transition-colors hover:bg-zinc-800">
+            <Link key={biz.id} href={`/${ADMIN_BASE}/businesses/${biz.id}`} className="block rounded-md bg-zinc-800/50 p-3 text-sm transition-colors hover:bg-zinc-800 active:bg-zinc-700">
               <div className="font-medium text-amber-400">{biz.name}</div>
               <div className="mt-0.5 text-zinc-500">{biz.industry} | {biz._count.feedback} feedback | {biz.location || "No location"}</div>
             </Link>
@@ -91,7 +91,7 @@ export default function AdminUserDetailPage() {
           <h2 className="mb-3 flex items-center gap-2 font-semibold text-zinc-100"><Activity className="size-4" /> Recent Activity</h2>
           <div className="space-y-1 text-sm">
             {user.activityLogs.map((log: any) => (
-              <div key={log.id} className="flex items-center justify-between rounded px-2 py-1 text-zinc-400">
+              <div key={log.id} className="flex items-center justify-between rounded px-2 py-1.5 text-zinc-400">
                 <span>{log.action}</span>
                 <span className="text-xs text-zinc-600">{new Date(log.createdAt).toLocaleString()}</span>
               </div>

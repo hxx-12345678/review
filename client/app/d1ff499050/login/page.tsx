@@ -11,7 +11,7 @@ import { ADMIN_BASE } from "@/lib/admin-path"
 
 export default function AdminLoginPage() {
   const router = useRouter()
-  const [email, setEmail] = useState("admin@reviewos.app")
+  const [email, setEmail] = useState("admin@beyondvyu.app")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
@@ -23,7 +23,7 @@ export default function AdminLoginPage() {
     setLoading(true)
     try {
       const res = await adminApi.login(email, password)
-      localStorage.setItem("reviewos_admin_token", res.token)
+      localStorage.setItem("beyondvyu_admin_token", res.token)
       router.replace(`/${ADMIN_BASE}`)
     } catch (err: any) {
       setError(err.message || "Login failed")
@@ -52,7 +52,7 @@ export default function AdminLoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="border-zinc-700 bg-zinc-900 text-zinc-100"
+              className="border-zinc-700 bg-zinc-900 text-zinc-100 h-11 md:h-10"
             />
           </div>
           <div className="space-y-2">
@@ -64,12 +64,12 @@ export default function AdminLoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="border-zinc-700 bg-zinc-900 text-zinc-100 pr-10"
+                className="border-zinc-700 bg-zinc-900 text-zinc-100 pr-10 h-11 md:h-10"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 p-2"
               >
                 {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
               </button>
@@ -80,7 +80,7 @@ export default function AdminLoginPage() {
             <div className="rounded-md bg-red-500/10 p-3 text-sm text-red-400">{error}</div>
           )}
 
-          <Button type="submit" disabled={loading} className="w-full bg-amber-500 text-black hover:bg-amber-400">
+          <Button type="submit" disabled={loading} className="w-full bg-amber-500 text-black hover:bg-amber-400 h-11 md:h-10">
             {loading ? "Signing in..." : "Sign in"}
           </Button>
         </form>
