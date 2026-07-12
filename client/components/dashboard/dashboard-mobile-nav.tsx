@@ -20,7 +20,7 @@ export function DashboardMobileNav() {
   return (
     <>
       <header className="flex h-14 items-center justify-between border-b border-border bg-background px-4 md:hidden">
-        <Link href="/" aria-label="ReviewOS home">
+        <Link href="/" aria-label="BEYONDVYU home">
           <Logo />
         </Link>
       </header>

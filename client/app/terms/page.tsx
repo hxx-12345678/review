@@ -12,7 +12,7 @@ export default function TermsPage() {
         <section className="mb-8 space-y-4">
           <h2 className="text-xl font-semibold">1. Acceptance of Terms</h2>
           <p>
-            These Terms of Service (&ldquo;Terms&rdquo;) govern your access to and use of the ReviewOS platform,
+            These Terms of Service (&ldquo;Terms&rdquo;) govern your access to and use of the BEYONDVYU platform,
             website, dashboard, API, widgets, and related services (collectively, the &ldquo;Service&rdquo;).
             By creating an account, accessing the dashboard, or using the Service in any way, you agree to be
             bound by these Terms. If you do not agree, do not use the Service.
@@ -26,7 +26,7 @@ export default function TermsPage() {
         <section className="mb-8 space-y-4">
           <h2 className="text-xl font-semibold">2. Description of Service</h2>
           <p>
-            ReviewOS is a software platform that helps local businesses collect authentic customer feedback and
+            BEYONDVYU is a software platform that helps local businesses collect authentic customer feedback and
             convert it into Google reviews. The Service provides:
           </p>
           <ul className="list-disc space-y-2 pl-6">
@@ -38,7 +38,7 @@ export default function TermsPage() {
             <li>SMS and email review request templates</li>
           </ul>
           <p>
-            ReviewOS never writes or posts reviews on behalf of any customer. All reviews are written by
+            BEYONDVYU never writes or posts reviews on behalf of any customer. All reviews are written by
             customers in their own words. The Service is designed to comply with Google&rsquo;s review policies
             and FTC guidelines on endorsements and testimonials.
           </p>
@@ -84,7 +84,7 @@ export default function TermsPage() {
             information, and contact lists.
           </p>
           <p>
-            You grant ReviewOS a worldwide, non-exclusive, royalty-free license to host, store, process,
+            You grant BEYONDVYU a worldwide, non-exclusive, royalty-free license to host, store, process,
             transmit, display, and reproduce Customer Data solely for the purpose of providing the Service to
             you and improving it. This license continues for the duration of your use of the Service.
           </p>
@@ -117,7 +117,7 @@ export default function TermsPage() {
         <section className="mb-8 space-y-4">
           <h2 className="text-xl font-semibold">7. Review Compliance</h2>
           <p>
-            ReviewOS is designed for compliant review collection. The following rules are enforced by the
+            BEYONDVYU is designed for compliant review collection. The following rules are enforced by the
             platform by design and cannot be disabled:
           </p>
           <ul className="list-disc space-y-2 pl-6">
@@ -143,7 +143,7 @@ export default function TermsPage() {
           </p>
           <p>
             When you connect a Google account or use the Google Places API integration, you authorize
-            ReviewOS to access, retrieve, and process data from those services on your behalf as needed to
+            BEYONDVYU to access, retrieve, and process data from those services on your behalf as needed to
             provide the Service. Google may restrict, block, or modify access to their data at any time, and
             we do not guarantee uninterrupted access to any third-party platform.
           </p>
@@ -173,7 +173,7 @@ export default function TermsPage() {
           <h2 className="text-xl font-semibold">10. Intellectual Property</h2>
           <p>
             The Service, including all software, designs, algorithms, trademarks, logos, documentation, and
-            related technology, is owned by ReviewOS or its licensors. We grant you a limited,
+            related technology, is owned by BEYONDVYU or its licensors. We grant you a limited,
             non-exclusive, non-transferable license to access and use the Service for your internal business
             purposes, subject to these Terms.
           </p>
@@ -187,7 +187,7 @@ export default function TermsPage() {
           <h2 className="text-xl font-semibold">11. Disclaimer of Warranties</h2>
           <p>
             THE SERVICE IS PROVIDED &ldquo;AS IS&rdquo; AND &ldquo;AS AVAILABLE&rdquo; WITHOUT WARRANTY OF
-            ANY KIND, EXPRESS OR IMPLIED. TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, REVIEWOS
+            ANY KIND, EXPRESS OR IMPLIED. TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, BEYONDVYU
             DISCLAIMS ALL WARRANTIES, INCLUDING IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
             PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
           </p>
@@ -206,7 +206,7 @@ export default function TermsPage() {
         <section className="mb-8 space-y-4">
           <h2 className="text-xl font-semibold">12. Limitation of Liability</h2>
           <p>
-            TO THE MAXIMUM EXTENT PERMITTED BY LAW, REVIEWOS SHALL NOT BE LIABLE FOR ANY INDIRECT,
+            TO THE MAXIMUM EXTENT PERMITTED BY LAW, BEYONDVYU SHALL NOT BE LIABLE FOR ANY INDIRECT,
             INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, INCLUDING LOST PROFITS, LOST REVENUE,
             LOST DATA, OR BUSINESS INTERRUPTION, ARISING OUT OF OR RELATED TO YOUR USE OF THE SERVICE.
           </p>
@@ -219,7 +219,7 @@ export default function TermsPage() {
         <section className="mb-8 space-y-4">
           <h2 className="text-xl font-semibold">13. Indemnification</h2>
           <p>
-            You agree to indemnify, defend, and hold harmless ReviewOS and its officers, directors,
+            You agree to indemnify, defend, and hold harmless BEYONDVYU and its officers, directors,
             employees, and agents from and against any claims, liabilities, damages, losses, and expenses
             (including reasonable legal fees) arising out of or related to:
           </p>

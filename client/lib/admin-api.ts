@@ -103,11 +103,18 @@ export const adminApi = {
     return request<{ logs: any[]; total: number; page: number; totalPages: number }>(`/admin/activity${qs ? `?${qs}` : ""}`);
   },
 
-  feedback: (params?: { page?: number; limit?: number }) => {
-    const sp = new URLSearchParams();
-    if (params?.page) sp.set("page", params.page.toString());
-    if (params?.limit) sp.set("limit", params.limit.toString());
-    const qs = sp.toString();
-    return request<{ feedback: any[]; total: number; page: number; totalPages: number }>(`/admin/feedback${qs ? `?${qs}` : ""}`);
-  },
+  suspendUser: (id: string, reason?: string) =>
+    request<{ user: any }>(`/admin/users/${id}/suspend`, { method: "PUT", body: JSON.stringify({ reason }) }),
+
+  unsuspendUser: (id: string) =>
+    request<{ user: any }>(`/admin/users/${id}/unsuspend`, { method: "PUT" }),
+
+  deleteUser: (id: string) =>
+    request<{ user: any }>(`/admin/users/${id}`, { method: "DELETE" }),
+
+  restoreUser: (id: string) =>
+    request<{ user: any }>(`/admin/users/${id}/restore`, { method: "PUT" }),
+
+  cancelSubscription: (userId: string) =>
+    request<{ subscription: any }>(`/admin/users/${userId}/subscription/cancel`, { method: "PUT" }),
 };

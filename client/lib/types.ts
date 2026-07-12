@@ -1,4 +1,4 @@
-// Core domain types for ReviewOS.
+// Core domain types for BEYONDVYU.
 // Designed to map 1:1 onto a future Supabase schema (snake_case columns -> camelCase here).
 
 export type Industry =
@@ -73,6 +73,6 @@ export interface ManagedReview {
   createdAt: string
   replyStatus: ReplyStatus
   replyText?: string
-  // Whether this review likely came through a ReviewOS session.
+  // Whether this review likely came through a BEYONDVYU session.
   viaBeyondVyu: boolean
 }

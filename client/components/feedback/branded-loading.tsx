@@ -183,7 +183,7 @@ export function BrandedLoading({
         ))}
       </div>
 
-      {/* "Powered by ReviewOS" — bottom center, respects iPhone safe area */}
+      {/* "Powered by BEYONDVYU" — bottom center, respects iPhone safe area */}
       {business.showPoweredBy !== false && (
         <div
           className="absolute left-1/2 flex items-center gap-1.5 px-3 py-1.5"
@@ -213,7 +213,7 @@ export function BrandedLoading({
               fontSize: "0.7rem",
             }}
           >
-            ReviewOS
+            BEYONDVYU
           </span>
         </div>
       )}

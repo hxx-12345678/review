@@ -31,12 +31,12 @@ export function MarketingHeader() {
         className={cn(
           "fixed top-0 z-50 w-full transition-all duration-500",
           scrolled
-            ? "glass-strong shadow-lg shadow-black/5 py-3 backdrop-blur-xl"
-            : "bg-black/60 py-4 backdrop-blur-md"
+            ? "bg-white shadow-sm border-b border-zinc-200 py-3"
+            : "bg-black py-4"
         )}
       >
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 sm:px-6">
-        <Link href="/" aria-label="ReviewOS home" className="relative z-10">
+        <Link href="/" aria-label="BEYONDVYU home" className="relative z-10">
           <Logo dark={!scrolled} />
         </Link>
 
@@ -52,8 +52,8 @@ export function MarketingHeader() {
               className={cn(
                 "rounded-lg px-3.5 py-2 text-sm font-medium transition-all duration-200",
                 scrolled
-                  ? "text-foreground/80 hover:bg-white/5 hover:text-foreground"
-                  : "text-white/95 hover:bg-white/10 hover:text-white"
+                  ? "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
+                  : "text-zinc-300 hover:bg-white/10 hover:text-white"
               )}
             >
               {link.label}
@@ -68,19 +68,22 @@ export function MarketingHeader() {
             variant="ghost"
             size="sm"
               className={cn(
-                "hidden rounded-lg px-4 py-2 text-sm font-medium sm:inline-flex",
-                scrolled ? "text-foreground/80 hover:bg-white/5 hover:text-foreground" : "text-white/95 hover:bg-white/10 hover:text-white"
+                "hidden relative overflow-hidden rounded-lg px-5 py-2 text-sm font-medium sm:inline-flex",
+                "before:absolute before:inset-0 before:rounded-lg before:transition-transform before:duration-500 before:-translate-x-full hover:before:translate-x-0",
+                scrolled
+                  ? "border border-zinc-300 text-zinc-700 before:bg-gradient-to-r before:from-zinc-200 before:to-zinc-100"
+                  : "border border-zinc-700 text-zinc-300 before:bg-gradient-to-r before:from-white/15 before:to-white/5"
               )}
           >
-            Log in
+            <span className="relative z-10">Log in</span>
           </Button>
           <Button
             render={<Link href="/signup" />}
             nativeButton={false}
             size="sm"
-            className="squishy rounded-lg bg-primary px-4 py-2 text-sm font-bold text-primary-foreground"
+            className="relative overflow-hidden rounded-lg bg-primary px-5 py-2 text-sm font-bold text-primary-foreground shadow-md hover:shadow-lg squishy before:absolute before:inset-0 before:rounded-lg before:bg-gradient-to-r before:from-white/25 before:to-transparent before:transition-transform before:duration-500 before:-translate-x-full hover:before:translate-x-0"
           >
-            Get started
+            <span className="relative z-10">Get started</span>
           </Button>
           <button
               className={cn(

@@ -25,7 +25,7 @@ export function ComplianceSection() {
 
             <p className="mt-4 text-pretty text-lg leading-relaxed text-muted-foreground">
               Google removes AI-generated reviews, and the FTC&apos;s rule makes fake reviews
-              illegal — penalties over $50,000 per violation. ReviewOS keeps your profile safe.
+              illegal — penalties over $50,000 per violation. BEYONDVYU keeps your profile safe.
             </p>
 
             {/* Comparison Cards */}
@@ -40,7 +40,7 @@ export function ComplianceSection() {
                 ]}
               />
               <Comparison
-                title="What ReviewOS does"
+                title="What BEYONDVYU does"
                 items={[
                   "AI gives reminders only",
                   "Same link for every customer",

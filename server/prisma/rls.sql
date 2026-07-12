@@ -1,4 +1,4 @@
--- Row-Level Security Policies for ReviewOS
+-- Row-Level Security Policies for BEYONDVYU
 -- Run this after schema migration
 
 -- Enable RLS on all tables

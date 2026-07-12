@@ -37,7 +37,7 @@ export function Hero() {
             </h1>
 
             <p className="mt-6 max-w-lg text-pretty text-base leading-relaxed text-white/70 sm:text-lg">
-              ReviewOS makes it effortless for customers to leave real reviews. Our AI jogs their memory with
+              BEYONDVYU makes it effortless for customers to leave real reviews. Our AI jogs their memory with
               personal talking points — it never writes the review for them.
             </p>
 

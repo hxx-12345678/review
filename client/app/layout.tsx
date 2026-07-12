@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
+import { Geist, Geist_Mono, Plus_Jakarta_Sans } from 'next/font/google'
 import { Toaster } from '@/components/ui/sonner'
 import { Providers } from '@/lib/providers'
 import './globals.css'
@@ -9,6 +9,11 @@ const geistMono = Geist_Mono({
   variable: '--font-geist-mono',
   subsets: ['latin'],
 })
+const headingFont = Plus_Jakarta_Sans({
+  variable: '--font-heading',
+  subsets: ['latin'],
+  display: 'swap',
+})
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -17,9 +22,9 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
-  title: 'ReviewOS — Turn happy customers into authentic Google reviews',
+  title: 'BEYONDVYU — Turn happy customers into authentic Google reviews',
   description:
-    'ReviewOS helps local businesses collect more authentic Google reviews with QR codes and an AI assistant that jogs your customers\u2019 memory — fully compliant with Google and FTC policy.',
+    'BEYONDVYU helps local businesses collect more authentic Google reviews with QR codes and an AI assistant that jogs your customers\u2019 memory — fully compliant with Google and FTC policy.',
   generator: 'v0.app',
   icons: {
     icon: [
@@ -46,7 +51,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} bg-background`}>
+    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} ${headingFont.variable} bg-background`}>
       <body className="font-sans antialiased">
         <Providers>
           {children}

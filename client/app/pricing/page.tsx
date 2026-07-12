@@ -100,7 +100,7 @@ export default function PricingPage() {
                     <button
                       type="button"
                       onClick={() => {
-                        const subject = encodeURIComponent("ReviewOS Multi-Plan Inquiry")
+                        const subject = encodeURIComponent("BEYONDVYU Multi-Plan Inquiry")
                         window.location.href = `mailto:sales@beyondvyu.app?subject=${subject}`
                       }}
                       className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-primary bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90"

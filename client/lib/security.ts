@@ -1,5 +1,5 @@
 /**
- * Security & Privacy Module for ReviewOS
+ * Security & Privacy Module for BEYONDVYU
  * 
  * CRITICAL HARDENING:
  * 1. Input validation & sanitization
@@ -90,7 +90,7 @@ export function validateGoogleUrl(url: unknown): boolean {
 export function logSecure(level: "info" | "warn" | "error", message: string) {
   if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
     const method = level === "info" ? console.log : level === "warn" ? console.warn : console.error
-    method(`[ReviewOS] ${message}`)
+    method(`[BEYONDVYU] ${message}`)
   }
   // In production, logs go to server only (not browser console)
 }

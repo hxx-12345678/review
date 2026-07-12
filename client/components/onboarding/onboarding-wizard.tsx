@@ -135,7 +135,7 @@ export function OnboardingWizard() {
         location: location.trim() || undefined,
         promptTopics: topics,
       });
-      toast.success("Your ReviewOS workspace is ready");
+      toast.success("Your BEYONDVYU workspace is ready");
       router.push("/dashboard");
     } catch (err: any) {
       toast.error(err.message || "Failed to create business");
@@ -145,7 +145,7 @@ export function OnboardingWizard() {
   return (
     <div className="mx-auto flex min-h-screen min-w-0 w-full max-w-xl flex-col overflow-hidden px-4 py-8 sm:px-6">
       <div className="flex items-center justify-between">
-        <Link href="/" aria-label="ReviewOS home">
+        <Link href="/" aria-label="BEYONDVYU home">
           <Logo />
         </Link>
         <Link href="/dashboard" className="text-sm text-muted-foreground hover:text-foreground">

@@ -12,6 +12,11 @@ export function CtaSection() {
         {/* Subtle decorative line */}
         <div className="mx-auto mb-10 h-px w-24 bg-gradient-to-r from-transparent via-white/30 to-transparent" aria-hidden="true" />
 
+        <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-1.5 text-xs font-semibold tracking-wide text-white/80 backdrop-blur-sm">
+          <span className="text-amber-300">BEYONDVYU</span>
+          <span className="text-white/40">·</span>
+          <span>Google & FTC compliant</span>
+        </div>
         <h2 className="text-balance text-4xl font-bold tracking-[-0.025em] text-white sm:text-5xl lg:text-6xl">
           Start collecting{" "}
           <span className="text-gradient">authentic</span>{" "}

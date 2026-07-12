@@ -125,6 +125,10 @@ router.get("/users", async (req: AdminRequest, res: Response) => {
         email: u.email,
         name: u.name,
         googleId: u.googleId ? true : false,
+        suspended: u.suspended,
+        suspendedAt: u.suspendedAt,
+        suspendedReason: u.suspendedReason,
+        deletedAt: u.deletedAt,
         createdAt: u.createdAt,
         businessCount: u._count.businesses,
         subscriptionCount: u._count.subscriptions,
@@ -160,6 +164,99 @@ router.get("/users/:id", async (req: AdminRequest, res: Response) => {
     res.json({ user });
   } catch (err) {
     console.error("Admin user detail error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ─── User Management Actions ──────────────────────────────────────────────────
+router.put("/users/:id/suspend", async (req: AdminRequest, res: Response) => {
+  try {
+    const userId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const { reason } = req.body;
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: { suspended: true, suspendedAt: new Date(), suspendedReason: reason || null },
+    });
+    await prisma.activityLog.create({
+      data: { userId, businessId: "", action: "admin:suspend_user", details: { reason, adminId: req.adminId } },
+    });
+    res.json({ user });
+  } catch (err) {
+    console.error("Admin suspend user error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.put("/users/:id/unsuspend", async (req: AdminRequest, res: Response) => {
+  try {
+    const userId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: { suspended: false, suspendedAt: null, suspendedReason: null },
+    });
+    await prisma.activityLog.create({
+      data: { userId, businessId: "", action: "admin:unsuspend_user", details: { adminId: req.adminId } },
+    });
+    res.json({ user });
+  } catch (err) {
+    console.error("Admin unsuspend user error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.delete("/users/:id", async (req: AdminRequest, res: Response) => {
+  try {
+    const userId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: { deletedAt: new Date(), suspended: true },
+    });
+    await prisma.activityLog.create({
+      data: { userId, businessId: "", action: "admin:delete_user", details: { adminId: req.adminId } },
+    });
+    res.json({ user });
+  } catch (err) {
+    console.error("Admin delete user error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.put("/users/:id/restore", async (req: AdminRequest, res: Response) => {
+  try {
+    const userId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: { deletedAt: null, suspended: false, suspendedAt: null, suspendedReason: null },
+    });
+    await prisma.activityLog.create({
+      data: { userId, businessId: "", action: "admin:restore_user", details: { adminId: req.adminId } },
+    });
+    res.json({ user });
+  } catch (err) {
+    console.error("Admin restore user error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.put("/users/:id/subscription/cancel", async (req: AdminRequest, res: Response) => {
+  try {
+    const userId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const activeSub = await prisma.subscription.findFirst({
+      where: { userId, status: "active" },
+    });
+    if (!activeSub) {
+      return res.status(404).json({ error: "No active subscription found" });
+    }
+    const sub = await prisma.subscription.update({
+      where: { id: activeSub.id },
+      data: { status: "cancelled", cancelledAt: new Date() },
+    });
+    await prisma.activityLog.create({
+      data: { userId, businessId: "", action: "admin:cancel_subscription", details: { subscriptionId: sub.id, adminId: req.adminId } },
+    });
+    res.json({ subscription: sub });
+  } catch (err) {
+    console.error("Admin cancel subscription error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });

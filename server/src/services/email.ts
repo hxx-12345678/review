@@ -45,7 +45,7 @@ export async function sendFeedbackNotification(userId: string, businessName: str
       <h2>New Feedback Received</h2>
       <p><strong>Business:</strong> ${businessName}</p>
       <p><strong>Rating:</strong> ${"★".repeat(rating)}${"☆".repeat(5 - rating)}</p>
-      <p style="color: #666;">Log in to ReviewOS to view the full feedback and respond.</p>
+      <p style="color: #666;">Log in to BEYONDVYU to view the full feedback and respond.</p>
       <a href="${env.FRONTEND_URL.split(",")[0].trim()}/dashboard/inbox" style="display: inline-block; padding: 12px 24px; background: #0d9488; color: white; text-decoration: none; border-radius: 6px;">View Feedback</a>
     </div>
   `;
@@ -65,7 +65,7 @@ export async function sendWelcomeEmail(email: string, name: string) {
 
   const html = `
     <div style="font-family: sans-serif; max-width: 600px;">
-      <h2>Welcome to ReviewOS!</h2>
+      <h2>Welcome to BEYONDVYU!</h2>
       <p>Hi ${name || "there"},</p>
       <p>Your account is ready. Start collecting authentic reviews from your customers today.</p>
       <ul>
@@ -80,7 +80,7 @@ export async function sendWelcomeEmail(email: string, name: string) {
   await t.sendMail({
     from: env.SMTP_FROM,
     to: email,
-    subject: "Welcome to ReviewOS",
+    subject: "Welcome to BEYONDVYU",
     html,
   });
 }
@@ -92,20 +92,20 @@ export async function sendPasswordResetEmail(email: string, name: string, resetL
 
   const html = `
     <div style="font-family: sans-serif; max-width: 560px;">
-      <h2>Reset your ReviewOS password</h2>
+      <h2>Reset your BEYONDVYU password</h2>
       <p>Hi ${name || "there"},</p>
-      <p>We received a request to reset the password for your ReviewOS account. Click the button below to set a new password. This link expires in 15 minutes.</p>
+      <p>We received a request to reset the password for your BEYONDVYU account. Click the button below to set a new password. This link expires in 15 minutes.</p>
       <a href="${resetLink}" style="display: inline-block; padding: 12px 24px; background: #0d9488; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">Reset Password</a>
       <p style="margin-top: 24px; color: #666; font-size: 13px;">If you did not request a password reset, please ignore this email. No changes have been made to your account.</p>
       <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
-      <p style="color: #9ca3af; font-size: 12px;">This link expires in 15 minutes. If it has expired, request a new reset from the ReviewOS login page.</p>
+      <p style="color: #9ca3af; font-size: 12px;">This link expires in 15 minutes. If it has expired, request a new reset from the BEYONDVYU login page.</p>
     </div>
   `;
 
   await t.sendMail({
     from: env.SMTP_FROM,
     to: email,
-    subject: "Reset your ReviewOS password",
+    subject: "Reset your BEYONDVYU password",
     html,
   });
 }
@@ -150,7 +150,7 @@ Thank you!
       <div style="background: #f9fafb; border-radius: 12px; padding: 32px; border: 1px solid #e5e7eb;">
         ${htmlBody}
         <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #9ca3af; text-align: center;">
-          Powered by ReviewOS
+          Powered by BEYONDVYU
         </div>
       </div>
     </div>

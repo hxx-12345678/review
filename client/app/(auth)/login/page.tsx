@@ -58,7 +58,7 @@ export default function LoginPage() {
             <Logo />
           </Link>
           <h1 className="mt-6 text-2xl font-bold tracking-tight text-foreground">Welcome back</h1>
-          <p className="mt-1.5 text-sm text-muted-foreground">Sign in to your ReviewOS account</p>
+          <p className="mt-1.5 text-sm text-muted-foreground">Sign in to your BEYONDVYU account</p>
         </div>
 
         <div className="glass-light rounded-2xl p-8">

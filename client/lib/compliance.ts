@@ -1,6 +1,6 @@
-// Compliance engine for ReviewOS.
+// Compliance engine for BEYONDVYU.
 //
-// This module encodes the rules that keep ReviewOS on the right side of
+// This module encodes the rules that keep BEYONDVYU on the right side of
 // Google's "Prohibited & Restricted Content" policy (updated Apr 2026),
 // the FTC's rule on fake/AI reviews (16 C.F.R. Part 465, effective Oct 2024),
 // and Google's 2026 review policy amendments.
@@ -37,7 +37,7 @@ export const COMPLIANCE_RULES = [
   {
     id: "ai-assisted-drafts",
     title: "AI-assisted, user-approved",
-    body: "ReviewOS generates a helpful draft from the customer's own answers. The customer always has full control — they can edit, rewrite, or regenerate until it sounds like them. Nothing gets posted without the customer's final approval.",
+    body: "BEYONDVYU generates a helpful draft from the customer's own answers. The customer always has full control — they can edit, rewrite, or regenerate until it sounds like them. Nothing gets posted without the customer's final approval.",
   },
   {
     id: "no-gating",

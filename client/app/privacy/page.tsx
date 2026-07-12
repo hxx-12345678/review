@@ -12,7 +12,7 @@ export default function PrivacyPage() {
         <section className="mb-8 space-y-4">
           <h2 className="text-xl font-semibold">1. Information We Collect</h2>
           <p>
-            When you use ReviewOS, we collect information you provide directly, including:
+            When you use BEYONDVYU, we collect information you provide directly, including:
           </p>
           <ul className="list-disc space-y-2 pl-6">
             <li>Account information: name, email address, and password</li>
@@ -78,7 +78,7 @@ export default function PrivacyPage() {
         <section className="mb-8 space-y-4">
           <h2 className="text-xl font-semibold">7. Consent</h2>
           <p>
-            By using ReviewOS, you consent to our collection and use of information as described in this policy.
+            By using BEYONDVYU, you consent to our collection and use of information as described in this policy.
             We collect explicit consent from customers before processing their feedback.
           </p>
         </section>

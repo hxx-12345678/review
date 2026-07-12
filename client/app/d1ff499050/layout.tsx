@@ -3,7 +3,7 @@
 import { useRouter, usePathname } from "next/navigation"
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { LayoutDashboard, Users, Building2, CreditCard, Receipt, Activity, MessageSquare, LogOut, Shield } from "lucide-react"
+import { LayoutDashboard, Users, Building2, CreditCard, Receipt, Activity, LogOut, Shield } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ADMIN_BASE } from "@/lib/admin-path"
 
@@ -14,7 +14,6 @@ const ADMIN_NAV = [
   { href: `/${ADMIN_BASE}/subscriptions`, label: "Subscriptions", icon: CreditCard },
   { href: `/${ADMIN_BASE}/invoices`, label: "Payments", icon: Receipt },
   { href: `/${ADMIN_BASE}/activity`, label: "Activity", icon: Activity },
-  { href: `/${ADMIN_BASE}/feedback`, label: "Feedback", icon: MessageSquare },
 ]
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

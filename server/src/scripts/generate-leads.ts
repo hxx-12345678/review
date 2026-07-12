@@ -1,5 +1,5 @@
 /**
- * ReviewOS - Vadodara Exhaustive Business Scanner v5
+ * BEYONDVYU - Vadodara Exhaustive Business Scanner v5
  *
  * Strategy: Divides Vadodara into a micro-area grid, searches each area × ICP category
  * × ALL keywords via Google Places API. Finds EVERY business with real phone numbers.
@@ -356,7 +356,7 @@ Rules:
 
 async function main() {
   console.log('\n╔═══════════════════════════════════════════════════════════╗');
-  console.log('║  ReviewOS - Vadodara EXHAUSTIVE Business Scanner v5   ║');
+  console.log('║  BEYONDVYU - Vadodara EXHAUSTIVE Business Scanner v5   ║');
   console.log(`║  ${MICRO_AREAS.length} areas × ${ICP_CATEGORIES.length} categories = ${MICRO_AREAS.length * ICP_CATEGORIES.length} jobs ║`);
   console.log('╚═══════════════════════════════════════════════════════════╝');
   console.log(`\n📅 ${new Date().toLocaleDateString('en-IN', { day:'numeric', month:'long', year:'numeric' })}`);

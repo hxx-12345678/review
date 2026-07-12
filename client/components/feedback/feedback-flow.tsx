@@ -314,7 +314,7 @@ export function FeedbackFlow({ business, slug, demo: isDemo = false }: { busines
           </p>
           {business.showPoweredBy !== false && (
             <p className="mt-2 text-[10px] text-muted-foreground/40 select-none">
-              powered by <span className="font-extrabold text-foreground/50 tracking-tight">ReviewOS</span>
+              powered by <span className="font-extrabold text-foreground/50 tracking-tight">BEYONDVYU</span>
             </p>
           )}
         </footer>
@@ -365,7 +365,7 @@ function WelcomeStep({ business, onStart }: { business: any; onStart: () => void
         </Button>
         <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground/50 select-none" style={{ animationDelay: "400ms" }}>
           <span>powered by</span>
-          <span className="font-extrabold text-foreground tracking-tight bg-gradient-to-r from-primary to-blue-500 bg-clip-text text-transparent">ReviewOS</span>
+          <span className="font-extrabold text-foreground tracking-tight bg-gradient-to-r from-primary to-violet-500 bg-clip-text text-transparent">BEYONDVYU</span>
         </div>
       </div>
     </div>
@@ -965,7 +965,7 @@ function PrivateStep({
         <div className="flex items-start gap-2">
           <input type="checkbox" id="pf-consent" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-1 size-4 rounded border-gray-300 text-primary focus:ring-primary" />
           <Label htmlFor="pf-consent" className="text-xs text-muted-foreground leading-relaxed">
-            I consent to ReviewOS processing my feedback and sharing it with {business.name}. See our{" "}
+            I consent to BEYONDVYU processing my feedback and sharing it with {business.name}. See our{" "}
             <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Privacy Policy</a>.
           </Label>
         </div>

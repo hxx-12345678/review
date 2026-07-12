@@ -2,17 +2,41 @@ import { cn } from "@/lib/utils"
 
 export function Logo({ className, dark }: { className?: string; dark?: boolean }) {
   return (
-    <div className={cn("flex items-center gap-2", className)}>
-      <div className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
-        <svg viewBox="0 0 24 24" fill="none" className="size-4" aria-hidden="true">
+    <div className={cn("flex items-center gap-2.5", className)}>
+      <div className={cn(
+        "flex size-8 items-center justify-center rounded-lg shadow-sm",
+        dark
+          ? "bg-white/20 text-white shadow-white/10"
+          : "bg-gradient-to-br from-primary to-violet-500 text-white"
+      )}>
+        <svg viewBox="0 0 24 24" fill="none" className="size-4.5" aria-hidden="true">
           <path
-            d="M12 2l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 15.8 6.6 18.5l1.2-6L3.3 8.3l6.1-.7L12 2z"
-            fill="currentColor"
+            d="M4 12L9 4L15 12L20 6"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M4 16L9 8L15 16L20 10"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            opacity="0.5"
           />
         </svg>
       </div>
-      <span className={cn("text-base font-semibold tracking-tight", dark ? "text-white" : "text-foreground")}>
-        Review<span className="text-primary">OS</span>
+      <span className={cn(
+        "flex items-baseline gap-0 font-heading text-lg font-bold tracking-tight",
+        dark ? "text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" : "text-foreground"
+      )}>
+        <span>BEYOND</span>
+        <span className={cn(
+          dark
+            ? "bg-gradient-to-r from-amber-200 via-amber-300 to-yellow-200 bg-clip-text text-transparent drop-shadow-[0_0_8px_rgba(251,191,36,0.3)]"
+            : "bg-gradient-to-r from-primary to-violet-500 bg-clip-text text-transparent"
+        )}>VYU</span>
       </span>
     </div>
   )

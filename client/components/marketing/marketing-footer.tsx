@@ -49,7 +49,7 @@ export function MarketingFooter() {
         <div className="mt-12 border-t border-border/30 pt-8">
           <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
             <p className="text-xs text-muted-foreground">
-              {"\u00A9"} {new Date().getFullYear()} ReviewOS. ReviewOS never writes reviews on your behalf. Reviews are
+              {"\u00A9"} {new Date().getFullYear()} BEYONDVYU. BEYONDVYU never writes reviews on your behalf. Reviews are
               always written by your customers in their own words.
             </p>
             <div className="flex items-center gap-4">

@@ -518,7 +518,7 @@ export function SettingsForm({ business }: { business: any }) {
           </div>
           <div className="flex items-center justify-between gap-4 rounded-lg border border-border p-4 sm:col-span-2">
             <div>
-              <p className="text-sm font-medium text-foreground">Show &quot;Powered by ReviewOS&quot;</p>
+              <p className="text-sm font-medium text-foreground">Show &quot;Powered by BEYONDVYU&quot;</p>
               <p className="text-sm text-muted-foreground">Display subtle attribution on the loading screen.</p>
             </div>
             <Switch checked={showPoweredBy} onCheckedChange={setShowPoweredBy} />
@@ -891,7 +891,7 @@ function PreviewBox({
       </p>
       {showPoweredBy && (
         <p className="mt-4 text-[9px] font-medium" style={{ color: textColor, opacity: 0.3 }}>
-          powered by ReviewOS
+          powered by BEYONDVYU
         </p>
       )}
     </div>

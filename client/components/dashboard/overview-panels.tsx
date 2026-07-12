@@ -160,7 +160,7 @@ export function ComplianceCard() {
         <div>
           <h2 className="font-medium text-foreground">Your reviews stay compliant</h2>
           <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-            ReviewOS never writes or pre-fills reviews, and never hides unhappy customers. That keeps your Google
+            BEYONDVYU never writes or pre-fills reviews, and never hides unhappy customers. That keeps your Google
             profile safe from filtering and FTC penalties.
           </p>
           <div className="mt-3 flex flex-wrap gap-2 text-xs">

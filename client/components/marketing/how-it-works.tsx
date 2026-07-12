@@ -71,7 +71,7 @@ export function HowItWorks() {
             Less friction. More reviews.
           </h2>
           <p className="mt-4 text-pretty text-lg leading-relaxed text-muted-foreground">
-            The biggest reason customers don&apos;t leave reviews is that it feels like work. ReviewOS removes
+            The biggest reason customers don&apos;t leave reviews is that it feels like work. BEYONDVYU removes
             every point of friction without ever crossing a compliance line.
           </p>
         </div>
