@@ -20,6 +20,7 @@ import googleReviewsRoutes from "./routes/google-reviews";
 import googlePlacesRoutes from "./routes/google-places";
 import uploadRoutes from "./routes/upload";
 import paymentsRoutes from "./routes/payments";
+import adminRoutes from "./routes/admin";
 
 const env = loadEnv();
 
@@ -193,6 +194,7 @@ app.use("/api/google-reviews", googleReviewsRoutes);
 app.use("/api/google-places", googlePlacesRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/payments", paymentsRoutes);
+app.use("/api/admin", adminRoutes);
 
 // Resolve uploads directory relative to THIS FILE's location
 // Dev (tsx):  __dirname = server/src/  → ../uploads = server/uploads/

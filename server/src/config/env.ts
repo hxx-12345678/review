@@ -29,6 +29,12 @@ const envSchema = z.object({
   RAZORPAY_KEY_ID: z.string().optional().default(""),
   RAZORPAY_KEY_SECRET: z.string().optional().default(""),
   RAZORPAY_WEBHOOK_SECRET: z.string().optional().default(""),
+
+  // Super Admin
+  ADMIN_EMAIL: z.string().email().default("admin@reviewos.app"),
+  ADMIN_PASSWORD_HASH: z.string().min(16).default(""), // bcrypt hash of admin password
+  ADMIN_JWT_SECRET: z.string().min(16).default(""),
+  ADMIN_PATH_PREFIX: z.string().default("admin"), // frontend path prefix for admin pages
 });
 
 export type Env = z.infer<typeof envSchema>;
