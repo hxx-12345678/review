@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ShieldCheck, ExternalLink, LogOut } from "lucide-react";
 import { SettingsForm } from "@/components/dashboard/settings-form"
+import { WhatsAppReportCard } from "@/components/dashboard/whatsapp-report-card"
 import { PageHeader } from "@/components/dashboard/page-header"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -93,6 +94,12 @@ export default function SettingsPage() {
       </div>
 
       <SettingsForm business={business} />
+
+      {business && (
+        <div className="px-4 sm:px-6 lg:px-8">
+          <WhatsAppReportCard businessId={business.id} />
+        </div>
+      )}
     </div>
   )
 }

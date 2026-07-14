@@ -2,9 +2,11 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
 
 class ApiError extends Error {
   status: number;
-  constructor(message: string, status: number) {
+  code?: string;
+  constructor(message: string, status: number, code?: string) {
     super(message);
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -27,7 +29,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({ error: "Request failed" }));
-    throw new ApiError(body.error || "Request failed", res.status);
+    throw new ApiError(body.error || "Request failed", res.status, body.code);
   }
 
   return res.json();
@@ -223,6 +225,11 @@ export const api = {
       }),
     sendSms: (data: { businessId: string; toPhone: string; customMessage?: string }) =>
       request<{ success: boolean; message: string }>("/communications/send-sms", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    whatsappReport: (data: { businessId: string; frequency: "weekly" | "monthly" | "none"; test?: boolean }) =>
+      request<{ success: boolean; message: string }>("/communications/whatsapp-report", {
         method: "POST",
         body: JSON.stringify(data),
       }),

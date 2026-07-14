@@ -1,4 +1,4 @@
-import { QrCode, MessageSquareText, Sparkles, Star, ShieldCheck, TrendingUp, Clock, Zap } from "lucide-react"
+import { QrCode, MessageSquareText, Sparkles, Star, ShieldCheck, TrendingUp, Clock, Zap, BarChart3, Newspaper } from "lucide-react"
 
 const STEPS = [
   {
@@ -14,7 +14,7 @@ const STEPS = [
   {
     icon: Star,
     title: "Rate their experience",
-    body: "Every customer sees the same path. No gating — everyone can post a public review.",
+    body: "Every customer sees the same path. No gating — everyone can share their honest experience.",
     color: "border-l-amber-500",
     iconBg: "bg-amber-500/10",
     iconColor: "text-amber-600",
@@ -23,8 +23,8 @@ const STEPS = [
   },
   {
     icon: MessageSquareText,
-    title: "Share a few details",
-    body: "Quick questions surface the specifics worth mentioning, in the customer's own words.",
+    title: "Share details in their language",
+    body: "Customers choose their preferred language, then answer specific questions based on their rating. AI generates talking points to help them write authentic Google reviews.",
     color: "border-l-blue-500",
     iconBg: "bg-blue-500/10",
     iconColor: "text-blue-600",
@@ -33,13 +33,23 @@ const STEPS = [
   },
   {
     icon: Sparkles,
-    title: "AI gives talking points",
-    body: "Not a written review — just personal reminders that make it easy to write something authentic on Google.",
+    title: "AI generates the review draft",
+    body: "Based on their feedback, AI creates a natural review draft. Customers review, edit, and own every word before posting to Google.",
     color: "border-l-violet-500",
     iconBg: "bg-violet-500/10",
     iconColor: "text-violet-600",
     cardBgGrad: "from-violet-500/12 via-violet-500/[0.03] to-transparent",
     index: 3,
+  },
+  {
+    icon: BarChart3,
+    title: "Get AI-powered business insights",
+    body: "Every review feeds into your dashboard. AI analyzes sentiment, tracks trends, finds top praises and complaints — delivered as weekly reports to your WhatsApp.",
+    color: "border-l-sky-500",
+    iconBg: "bg-sky-500/10",
+    iconColor: "text-sky-600",
+    cardBgGrad: "from-sky-500/12 via-sky-500/[0.03] to-transparent",
+    index: 4,
   },
   {
     icon: ShieldCheck,
@@ -49,7 +59,7 @@ const STEPS = [
     iconBg: "bg-emerald-500/10",
     iconColor: "text-emerald-600",
     cardBgGrad: "from-emerald-500/12 via-emerald-500/[0.03] to-transparent",
-    index: 4,
+    index: 5,
   },
 ]
 
@@ -68,11 +78,11 @@ export function HowItWorks() {
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary">How it works</p>
           <div className="line-reveal mt-3 w-16" />
           <h2 className="mt-4 text-balance text-4xl font-bold tracking-[-0.025em] text-foreground sm:text-5xl">
-            Less friction. More reviews.
+            Collect reviews. Get insights.
           </h2>
           <p className="mt-4 text-pretty text-lg leading-relaxed text-muted-foreground">
-            The biggest reason customers don&apos;t leave reviews is that it feels like work. BEYONDVYU removes
-            every point of friction without ever crossing a compliance line.
+            BEYONDVYU turns every review into actionable business intelligence. Collect authentic Google reviews,
+            analyze customer sentiment, track trends, and receive AI-powered weekly reports on your WhatsApp.
           </p>
         </div>
 

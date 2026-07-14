@@ -6,6 +6,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts"
 import { Card } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { api } from "@/lib/api"
+import { handleAiError } from "@/lib/ai-error-handler"
 import { cn } from "@/lib/utils"
 
 type Period = "week" | "month" | "all"
@@ -87,7 +88,7 @@ export function ReviewInsights({ businessId }: Props) {
       })
       .catch((err) => {
         if (!dataRef.current) setError(true)
-        // Cache the failure so we don't hammer the API on every render
+        handleAiError(err)
         cacheRef.current.set(cacheKey, { data: null as any, expiresAt: Date.now() + 60000 })
         console.warn("Insights fetch failed:", err?.message || err)
         return null

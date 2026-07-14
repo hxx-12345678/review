@@ -31,14 +31,14 @@ export function Hero() {
             </div>
 
             <h1 className="mt-7 text-balance text-[2.75rem] font-bold leading-[1.03] tracking-[-0.03em] text-white sm:text-6xl lg:text-[4.25rem]">
-              Turn happy customers into{" "}
-              <span className="text-gradient">authentic</span>{" "}
-              Google reviews
+              Turn reviews into{" "}
+              <span className="text-gradient">business</span>{" "}
+              insights
             </h1>
 
             <p className="mt-6 max-w-lg text-pretty text-base leading-relaxed text-white/70 sm:text-lg">
-              BEYONDVYU makes it effortless for customers to leave real reviews. Our AI jogs their memory with
-              personal talking points — it never writes the review for them.
+              BEYONDVYU turns every customer review into actionable business intelligence. Collect authentic Google
+              reviews, analyze sentiment, track trends, and get AI-powered insights delivered to your WhatsApp weekly.
             </p>
 
             <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:gap-4">

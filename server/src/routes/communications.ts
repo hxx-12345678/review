@@ -6,6 +6,12 @@ import { authRequired, AuthRequest } from "../middleware/auth";
 import { sendReviewRequestEmail } from "../services/email";
 import { sendSms } from "../services/sms";
 
+const whatsappReportSchema = z.object({
+  businessId: z.string().min(1),
+  frequency: z.enum(["weekly", "monthly", "none"]),
+  test: z.boolean().optional(),
+});
+
 const router = Router();
 
 const sendEmailSchema = z.object({
@@ -117,6 +123,66 @@ router.post("/send-sms", authRequired, async (req: AuthRequest, res: Response) =
       return res.status(400).json({ error: "Invalid input", details: err.errors });
     }
     console.error("Send SMS error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post("/whatsapp-report", authRequired, async (req: AuthRequest, res: Response) => {
+  try {
+    const data = whatsappReportSchema.parse(req.body);
+
+    const business = await prisma.business.findFirst({
+      where: { id: data.businessId, userId: req.userId },
+    });
+    if (!business) {
+      return res.status(404).json({ error: "Business not found" });
+    }
+
+    const days = data.frequency === "weekly" ? 7 : 30;
+    const since = new Date(Date.now() - days * 86400000);
+
+    const recentFeedback = await prisma.feedback.findMany({
+      where: { businessId: business.id, createdAt: { gte: since } },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const totalFeedback = recentFeedback.length;
+    const avgRating = totalFeedback > 0
+      ? (recentFeedback.reduce((s, f) => s + f.rating, 0) / totalFeedback).toFixed(1)
+      : "N/A";
+
+    const report = [
+      `[WhatsApp Report] ${business.name} — ${data.frequency === "weekly" ? "Weekly" : "Monthly"} Summary`,
+      `Period: Last ${days} days`,
+      `New feedback collected: ${totalFeedback}`,
+      `Average rating: ${avgRating}`,
+      ...(data.test ? ["\n(This is a test report)"] : []),
+    ].join("\n");
+
+    console.log("--- WhatsApp Report ---");
+    console.log(report);
+    console.log("-----------------------");
+
+    await prisma.activityLog.create({
+      data: {
+        userId: req.userId!,
+        businessId: business.id,
+        action: data.test ? "whatsapp_report_test" : "whatsapp_report_sent",
+        details: { frequency: data.frequency, days, totalFeedback, avgRating },
+      },
+    });
+
+    res.json({
+      success: true,
+      message: data.test
+        ? "Test WhatsApp report sent successfully"
+        : `WhatsApp report preference saved (${data.frequency})`,
+    });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return res.status(400).json({ error: "Invalid input", details: err.errors });
+    }
+    console.error("WhatsApp report error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });

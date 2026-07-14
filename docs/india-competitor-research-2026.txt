@@ -1,0 +1,474 @@
+============================================================================
+INDIA REVIEW MANAGEMENT COMPETITOR DEEP RESEARCH — 2026
+============================================================================
+Research date: July 2026
+Scope: Every Indian review/reputation management platform identified
+via web research across review sites, company pages, and comparison blogs.
+
+============================================================================
+1. MARKET OVERVIEW
+============================================================================
+- The Indian review management space has fragmented into 3 tiers:
+  - Tier 1 (Enterprise, ₹20K+/mo): Birdeye, Podium, Simplify360, Famepilot
+  - Tier 2 (SMB Growth, ₹2K-12K/mo): ReviewPilot, RankTada, ReviewWala, Emitrr
+  - Tier 3 (Budget/India-first, ₹0-1.5K/mo): MapLift, Aivonity ReviewBot,
+    ReviewBee, Reviewflowz, ReviewMonk
+
+- Common gap across ALL competitors: None offer a compliant review request
+  funnel + QR code + WhatsApp/SMS + Google sync + AI drafting + review gating
+  prohibition all in one at SMB pricing.
+
+- "Review gating" (only happy customers get the Google link) is implemented
+  by ReviewWala, ReviewBee, and Famepilot — this is an FTC violation risk.
+
+============================================================================
+2. DETAILED COMPETITOR PROFILES
+============================================================================
+
+--- 2A. FAMEPILOT ---
+Website: famepilot.com
+HQ: India
+Target: Mid-market to enterprise (5-100+ locations)
+Pricing: Quote-based (not published). Reports suggest ₹15K-50K+/mo.
+Customers: 5000+ including Biryani By Kilo, Chaayos, Wow! Momo, Spree
+Hospitality, Lords Hotels.
+Funding: Bootstrapped, profitable.
+
+FEATURES:
+- Review monitoring: Google, Facebook, Zomato, Tripadvisor, 25+ platforms
+- Reply management: dashboard replies, 15 smart templates, intelligent auto-reply
+- Review generation: SMS, Email, WhatsApp campaigns, configurable landing page
+- QR code feedback system
+- Fame AI: AI-generated personalized responses
+- Sentiment analysis & customer insights
+- Competitor analysis & benchmarking
+- Social listening (brand mentions tracking)
+- Ticketing & escalation system (service tickets from feedback)
+- Complaint management system
+- Listings management console (GBP, NAP consistency)
+- Local SEO & store locator
+- Offline/paper feedback collection
+- Deep Insights add-on (category/keyword performance)
+- Multi-location management
+- 90+ reports (ratings, NPS, sentiment, tags)
+- Daily/weekly/monthly email summaries
+
+NOTABLE:
+- DOES review gating (negative feedback goes to private inbox)
+- Full ORM stack (not just review management)
+- No published pricing — sales-led
+- No Play Store review support advertised
+- 7-day free trial
+
+--- 2B. REVIEWPILOT ---
+Website: reviewpilot.live
+HQ: India
+Target: Indian SMBs, agencies, app developers
+Pricing: $16/mo Starter, $32/mo Growth, $85/mo Agency (INR at checkout)
+Founded: 2026
+
+FEATURES:
+- Google Business Profile review management
+- Google Play Store review management (350-char limit enforcement)
+- AI reply generation (Claude-powered)
+- Auto/Semi-Auto/Manual reply modes
+- Multi-location support
+- Sentiment dashboard/analysis
+- InsightPilot (Zomato, Swiggy, Reddit analytics — coming soon)
+- App Store reviews (coming soon)
+- Hindi, Tamil, Telugu AI replies (coming soon)
+- Auto-sync (24hr)
+- One-click posting
+- Regenerate options (unlimited tries)
+- Mobile optimised
+- Google OAuth 2.0 security
+
+NOTABLE:
+- Only tool unifying GBP + Play Store in one inbox at SMB price
+- Published transparent pricing
+- Self-serve onboarding
+- New (2026), small user base
+- No review collection (requests/campaigns) yet
+- 15-day free trial
+
+--- 2C. REVIEWWALA ---
+Website: reviewwala.in
+HQ: India (by Digiocular)
+Target: Indian SMBs (hotels, salons, clinics, gyms, retail, cafés)
+Pricing: Not published (14-day free trial)
+
+FEATURES:
+- WhatsApp-first review requests (via AiSensy official API)
+- Review gating (1-3★ → private form, 4-5★ → Google)
+- AI reply drafts (English & Hindi)
+- Google & Zomato sync
+- Competitor tracking (up to 10 competitors)
+- Deep analytics (sentiment, review funnel, keyword insights)
+- Daily WhatsApp briefing
+- Multi-location (up to 10)
+- Loyalty program module
+- WhatsApp campaigns
+- Team management (up to 15)
+
+NOTABLE:
+- WhatsApp-native (India's primary communication channel)
+- EXPLICIT review gating: "1–3★ feedback stays private — never reaches
+  Google" — FTC/GMB policy violation risk
+- No Play Store support
+- Powered by AiSensy WhatsApp Business API partner
+- TRAI & Meta compliant
+
+--- 2D. MAPLIFT ---
+Website: maplift.app
+HQ: India
+Target: Indian SMBs focused on Google Maps ranking
+Pricing: ₹299-1,499/mo (Essentials ₹299, Pro ₹799, Premium ₹1,499)
+Customers: 50+ Indian local businesses tested in their comparison
+
+FEATURES:
+- Google Maps review quality analysis
+- Keyword-rich review templates
+- Review health score
+- Google-only focus (by design — "87% customers check Google only")
+- AI-powered review analysis (48hr AI caching, 94% approval rate)
+- Free tier available
+
+NOTABLE:
+- NOT a full review management platform — focused on review quality/SEO
+- Google-only (not multi-platform)
+- Cheapest option in market
+- No reply management
+- No review request campaigns
+
+--- 2E. RANKTADA ---
+Website: ranktada.com
+HQ: India
+Target: Indian restaurants, salons, clinics, service businesses
+Pricing: ₹499/mo Silver, Gold (unlimited locations) tier available
+Customers: 2,000+ Indian businesses
+
+FEATURES:
+- AI-powered review responses (sentiment + context analysis)
+- Review analytics dashboard (rating distribution, sentiment trends)
+- Multi-platform review aggregation (Google, Facebook, Yelp)
+- Review request system (SMS, Email, WhatsApp)
+- Magic QR codes & review cards
+- Social posting engine (GBP, Facebook, Instagram)
+- Competitor tracking
+
+NOTABLE:
+- Well-priced for single-location SMBs (₹499/mo)
+- Includes social posting (unique feature)
+- 14-day free trial
+- Indian data centers, GDPR compliant
+- No Play Store support
+
+--- 2F. REVIEWBEE ---
+Website: reviewbee.in
+HQ: India
+Target: Indian local business owners
+Pricing: Not published publicly (starts from a base plan)
+
+FEATURES:
+- Multi-platform dashboard (Google, Justdial, Facebook, Trustpilot)
+- AI sentiment analysis
+- AI reply generation (human-like, professional)
+- QR feedback system (positive→Google, negative→private inbox) ← REVIEW GATING
+- Hindi + English templates
+- Advanced sentiment AI
+- Custom analytics dashboards
+- Bulk QR kits for multi-outlet
+- API + Justdial integrations
+- Weekly insight email
+
+NOTABLE:
+- Explicitly implements review gating via QR code
+- Covers Justdial (important for India)
+- Made in India branding
+- Also serves US, UK, UAE, Singapore, Australia markets
+
+--- 2G. SIMPLIFY360 ---
+Website: simplify360.com
+HQ: India
+Target: Enterprise (mid-market to large)
+Pricing: $50/user/mo (Standard), $90/user/mo (Growth), custom Enterprise
+Funding: VC-backed
+
+FEATURES (Review Management module, part of larger CX suite):
+- Omnichannel support platform (email, social, web, app)
+- Online review management (cross-channel monitoring & response)
+- AI-powered chatbots
+- Social listening
+- Support automation
+- Agent collaboration
+- Intelligent routing
+- Predefined review response templates
+
+NOTABLE:
+- Reviews is ONE module in a broader CX platform
+- Enterprise pricing/approach
+- Quote-based for review module
+- Not a pure review management play
+- Also does social media management, customer support
+
+--- 2H. AIVONITY REVIEWBOT ---
+Website: aivonity.com/products/ai-reviewbot
+HQ: India
+Target: Indian businesses wanting AI reply automation
+Pricing: ₹999 ONE-TIME purchase
+
+FEATURES:
+- AI reply generation (Hindi, Hinglish, English)
+- SEO keyword injection in replies (business name, city, service)
+- Auto-reply mode
+- Multi-location support
+- Testimonial widget for website
+- Multiple reply tones (Professional, Friendly, Apologetic, Enthusiastic)
+- Google OAuth connection
+
+NOTABLE:
+- One-time purchase model (unique in market)
+- Source code purchase available
+- SEO-optimized replies (unique feature)
+- No dashboard/analytics
+- No review collection
+- No multi-platform monitoring
+
+--- 2I. REVIEWMONK ---
+Website: reviewmonk.in
+HQ: India
+Target: Multi-location businesses, retail chains, hospitality, clinics
+Pricing: ₹2K-18K range (not precisely published)
+
+FEATURES:
+- Google Business Profile OAuth 2.0 connection
+- Multi-location unified dashboard
+- Real-time sentiment notifications
+- AI-generated response drafts (manual approval required)
+- Sentiment analysis across locations
+- Daily/weekly/monthly executive summaries
+- Trend identification
+- No auto-posting (manual review/approve only — compliance focused)
+
+NOTABLE:
+- Compliance-conscious (doesn't post without manual approval)
+- Multi-location focused
+- Google-only (no Zomato, Justdial)
+- No review collection features
+
+--- 2J. RANKREVIEW ---
+Website: rankreview.in
+HQ: India
+Target: Multi-location brands (1,000+ brands)
+Pricing: Not published ("Get Started Free / Book a Demo")
+
+FEATURES:
+- AI agents for reputation management
+- Listings management across platforms
+- Review request campaigns (WhatsApp, email)
+- Competitor intelligence (rankings, reviews, listings)
+- Local search ranking tracking (Google Maps + Search)
+- Sentiment analysis
+- Industry-specific AI training
+- Marketing automation
+
+NOTABLE:
+- "Agentic marketing platform" positioning (AI agents)
+- Multi-location enterprise focus
+- Not a pure review tool — full marketing platform
+- Sales-led, no self-serve
+
+--- 2K. REVIEWFLOWZ ---
+Website: reviewflowz.com
+HQ: India (inferred from pricing)
+Target: SMBs needing focused review monitoring
+Pricing: ~₹2,400/mo (reported in comparisons)
+
+FEATURES:
+- Review monitoring across platforms
+- AI auto-replies
+- Review automation
+- Aggregation & monitoring
+- Custom reports, dashboards & filters
+
+NOTABLE:
+- Limited publicly available information
+- Positioned as "no feature bloat" alternative
+- 14x cheaper than Podium per comparisons
+
+--- 2L. REVIEWINDIA ---
+Website: reviewindia.com
+HQ: India
+Target: Indian businesses (10,000+ businesses)
+Pricing: Not published ("Register for free")
+
+FEATURES:
+- Automated review collection (WhatsApp, SMS, email)
+- Multi-platform monitoring (Google, Zomato, Justdial, 10+ platforms)
+- Unified reply dashboard
+- Review showcase widget
+- RITS score (proprietary trust score)
+- Integrations
+
+NOTABLE:
+- Proprietary RITS (Review India Trust Score)
+- Multi-platform including Zomato, Justdial
+- Free tier available
+- Focus on review collection + showcase
+
+============================================================================
+3. FEATURE COMPARISON MATRIX
+============================================================================
+                          Fame   RevP   RWala  MapL   RTada  RBee   S360
+                          pilot  ilot          ift          (Rev   (Simp
+                                                         Bee)   lify)
+
+Review Monitoring
+  Google                 ✓      ✓      ✓      ✓      ✓      ✓      ✓
+  Zomato                 ✓      -      ✓      -      -      -      -
+  Justdial               -      -      -      -      -      ✓      -
+  Facebook               ✓      -      -      -      ✓      ✓      ✓
+  Tripadvisor            ✓      -      -      -      -      -      -
+  Play Store             -      ✓      -      -      -      -      -
+  25+ platforms          ✓      -      -      -      -      -      -
+
+AI Features
+  AI reply gen           ✓      ✓      ✓      -      ✓      ✓      ✓
+  Hindi/Hinglish         -      ✓      ✓      -      -      ✓      -
+  SEO keyword injection  -      -      -      -      -      -      -
+  Auto-reply             ✓      ✓      ✓      -      ✓      -      ✓
+  Sentiment analysis     ✓      ✓      ✓      ✓      ✓      ✓      ✓
+
+Review Collection
+  WhatsApp requests      ✓      -      ✓      -      ✓      -      -
+  SMS requests           ✓      -      -      -      ✓      -      -
+  Email requests         ✓      -      -      -      ✓      -      -
+  QR code feedback       ✓      -      -      -      ✓      ✓      -
+  Review gating          ✓      -      ✓      -      -      ✓      -
+
+Compliance
+  Explicit review gating ✓      -      ✓      -      -      ✓      -
+  No-gating guarantee    -      ✓      -      ✓      -      -      -
+  Manual approval        -      ✓      -      -      ✓      -      -
+
+Other
+  Multi-location         ✓      ✓      ✓      -      ✓      -      ✓
+  Competitor tracking    ✓      -      ✓      -      ✓      -      -
+  Social posting         -      -      -      -      ✓      -      ✓
+  Listings management    ✓      -      -      -      -      -      -
+  Dashboard reports      ✓      ✓      ✓      ✓      ✓      ✓      ✓
+  Play Store support     -      ✓      -      -      -      -      -
+
+Pricing
+  Starting price         Quote  $16/m  Quote  ₹299   ₹499   Quote  $50/u
+  Free trial             ✓      ✓      ✓      ✓      ✓      -      ✓
+  Published pricing      -      ✓      -      ✓      ✓      -      -
+
+============================================================================
+4. KEY GAPS & OPPORTUNITIES FOR REVIEWOS
+============================================================================
+
+A. COMPLIANCE-FIRST POSITIONING
+- 3 major Indian competitors (Famepilot, ReviewWala, ReviewBee) explicitly
+  implement REVIEW GATING (negative→private, positive→Google).
+- This is a clear FTC/Google policy violation risk.
+- ReviewOS's no-gating, compliant approach is a genuine differentiator.
+- NO competitor markets compliance as a core feature.
+
+B. WHATSAPP + SMS + QR + EMAIL REQUEST FUNNEL
+- Only ReviewWala does WhatsApp-first well (but uses gating).
+- Famepilot has campaigns but enterprise-priced.
+- RankTada has it but at ₹499/mo.
+- ReviewOS already has this at free tier with proper compliance.
+
+C. UNIFIED INBOX (GOOGLE + ZOMATO + JUSTDIAL + FEEDBACK)
+- No Indian competitor unifies Google + Zomato + Justdial + own feedback
+  in one inbox at SMB pricing.
+- Famepilot does multi-platform but enterprise-priced.
+- ReviewPilot does Google + Play Store but NOT Zomato/Justdial.
+- ReviewIndia does multi-platform but feedback collection is secondary.
+- This is ReviewOS's strongest potential differentiator.
+
+D. LOCAL LANGUAGE AI
+- ReviewPilot promises Hindi/Tamil/Telugu AI replies (coming soon).
+- ReviewWala does English + Hindi.
+- Aivonity ReviewBot does Hindi + Hinglish + English.
+- ReviewBee does Hindi + English.
+- ReviewOS's Hinglish + Gujlish support is unique for Gujarat-first launch.
+
+E. PRICING GAP
+- ₹0 (Free Forever) tier with real features is rare.
+- MapLift has free tier but limited (2 analyses/month).
+- ReviewPilot starts at ~₹1,300/mo ($16).
+- RankTada at ₹499/mo.
+- ReviewOS's free tier with 1000 AI calls/mo and full collection funnel
+  is uniquely generous.
+
+F. AI INSIGHTS & TRENDING
+- Famepilot and Simplify360 have advanced analytics but enterprise-priced.
+- RankTada has basic analytics.
+- ReviewOS's AI Review Insights (sentiment, trends, praises/complaints)
+  is competitive with mid-tier tools.
+
+G. WHAT REVIEWOS LACKS (compared to competitors)
+- Zomato/Swiggy integration (ReviewWala has it, Famepilot has it)
+- Justdial integration (ReviewBee, ReviewIndia have it)
+- Competitor tracking (RankTada, Famepilot, ReviewWala have it)
+- Social posting (RankTada has it — unique feature)
+- Listings management (Famepilot has it)
+- Play Store review management (ReviewPilot has it)
+- Mobile app (most competitors have mobile-optimized web or app)
+
+============================================================================
+5. STRATEGIC RECOMMENDATIONS
+============================================================================
+
+1. LEAD WITH COMPLIANCE — No competitor owns this message.
+   "We never hide negative reviews" is a powerful differentiator when
+   3 major Indian competitors DO gate reviews. Make this the #1 marketing
+   message.
+
+2. ADD ZOMATO & JUSTDIAL INTEGRATION — These are India-specific platforms
+   that global tools ignore. Justdial alone has 100M+ monthly users in
+   India. This would be a unique selling point vs. global competitors.
+
+3. ADD COMPETITOR TRACKING — RankTada and ReviewWala both offer it at
+   SMB pricing. It's a table-stakes feature for SMBs who want to know
+   how they stack up against nearby businesses.
+
+4. KEEP FREE TIER GENEROUS — It's a genuine moat. MapLift's free tier
+   is very limited. ReviewOS's free tier with full collection + 1000 AI
+   calls is unmatched.
+
+5. MOBILE APP — Most competitors work on mobile web. A dedicated app
+   with WhatsApp-style notifications would be a differentiator.
+
+6. LOCAL LANGUAGE AI IS A MOAT — Gujlish support for Vadodara launch
+   is unique. Expand to Marathi, Tamil, Telugu, Bengali as you grow
+   to other cities.
+
+7. CONSIDER PLAY STORE SUPPORT — ReviewPilot is the only Indian tool
+   doing this. If your target SMBs also have Android apps, this is a
+   wedge feature.
+
+============================================================================
+6. COMPETITOR LIST (SUMMARY)
+============================================================================
+| # | Name          | Type              | Price Range     | Key Strength              |
+|---|---------------|-------------------|-----------------|---------------------------|
+| 1 | Famepilot     | Full ORM Suite    | Quote (₹15K+)   | Multi-platform, enterprise|
+| 2 | ReviewPilot   | Review Management | $16-85/mo       | GBP + Play Store unified  |
+| 3 | ReviewWala    | WhatsApp Review   | Quote           | WhatsApp-first collection |
+| 4 | MapLift       | Review Quality    | ₹299-1,499/mo   | Review SEO, cheapest      |
+| 5 | RankTada      | Review Management | ₹499/mo+        | Social posting included   |
+| 6 | ReviewBee     | Review Management | Quote           | Justdial + sentiment AI   |
+| 7 | Simplify360   | CX Suite          | $50-90/user/mo  | Omnichannel enterprise    |
+| 8 | Aivonity      | AI Reply Tool     | ₹999 one-time   | One-time purchase, SEO    |
+| 9 | ReviewMonk    | Review Management | ₹2K-18K/mo      | Compliance-conscious      |
+|10 | RankReview    | AI Agent Platform | Quote           | AI agents for multi-loc   |
+|11 | Reviewflowz   | Review Monitoring | ~₹2,400/mo      | No bloat, monitoring      |
+|12 | ReviewIndia   | Review Collection | Free + paid     | RITS score, multi-platform|
+
+============================================================================
+END OF RESEARCH
+============================================================================

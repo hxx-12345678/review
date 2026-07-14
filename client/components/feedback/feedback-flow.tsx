@@ -15,9 +15,10 @@ import { BrandedLoading } from "@/components/feedback/branded-loading"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { api } from "@/lib/api"
+import { handleAiError } from "@/lib/ai-error-handler"
 import { getCategoriesForIndustry } from "@/lib/industry-categories"
 
-type Step = "loading" | "welcome" | "rate" | "describe" | "review" | "private" | "redirect" | "done"
+type Step = "loading" | "rate" | "language" | "mcq" | "review" | "done"
 
 export function FeedbackFlow({ business, slug, demo: isDemo = false }: { business: any; slug?: string; demo?: boolean }) {
   const [step, setStep] = useState<Step>("loading")
@@ -35,6 +36,8 @@ export function FeedbackFlow({ business, slug, demo: isDemo = false }: { busines
   const [feedbackId, setFeedbackId] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [customerReview, setCustomerReview] = useState("")
+  const [showRedirectPopup, setShowRedirectPopup] = useState(false)
+  const [redirectCountdown, setRedirectCountdown] = useState(3)
 
   const config = getReviewStepConfig(rating || 5)
 
@@ -51,11 +54,6 @@ export function FeedbackFlow({ business, slug, demo: isDemo = false }: { busines
     }
   }, [business])
 
-  function handleRate(value: number) {
-    setRating(value)
-    setStep("describe")
-  }
-
   function toggleTopic(topic: string) {
     setSelectedTopics((prev) =>
       prev.includes(topic) ? prev.filter((t) => t !== topic) : [...prev, topic],
@@ -68,23 +66,19 @@ export function FeedbackFlow({ business, slug, demo: isDemo = false }: { busines
     )
   }
 
-  async function handleDescribeContinue() {
-    const text = highlights.trim()
-
-    // Merge legacy selectedTopics with sub-option labels
+  async function handleMCQContinue() {
     const subLabels = getCategoriesForIndustry(business.industry)
       .flatMap((c) => c.subOptions)
       .filter((s) => selectedSubOptions.includes(s.id))
       .map((s) => s.label)
-    const allSelectedTopics = [...new Set([...selectedTopics, ...subLabels])]
-    const combined = text || (allSelectedTopics.length > 0 ? allSelectedTopics.join(", ") : "")
+    const combined = subLabels.length > 0 ? subLabels.join(", ") : ""
 
     setCombinedInput(combined)
-    setSelectedTopics(allSelectedTopics)
-    setAuthenticity(scoreAuthenticity(text || allSelectedTopics.join(" ")))
+    setSelectedTopics([...subLabels])
+    setAuthenticity(scoreAuthenticity(combined))
 
     if (!feedbackId) {
-      const id = await submitFeedback({ liked: text || undefined, selectedSubOptions: selectedSubOptions.length > 0 ? selectedSubOptions : undefined })
+      const id = await submitFeedback({ selectedSubOptions: selectedSubOptions.length > 0 ? selectedSubOptions : undefined })
       if (!id) return
     }
 
@@ -98,7 +92,7 @@ export function FeedbackFlow({ business, slug, demo: isDemo = false }: { busines
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             highlights: combined,
-            selectedTopics: allSelectedTopics,
+            selectedTopics: [...subLabels],
             businessName: business.name,
             rating,
             language,
@@ -108,7 +102,8 @@ export function FeedbackFlow({ business, slug, demo: isDemo = false }: { busines
         const data = await res.json()
         setTalkingPoints(Array.isArray(data.talkingPoints) ? data.talkingPoints : [])
         setLastFetchedInput(combined)
-      } catch {
+      } catch (err) {
+        handleAiError(err)
         setTalkingPoints([])
       } finally {
         setLoadingPoints(false)
@@ -123,7 +118,8 @@ export function FeedbackFlow({ business, slug, demo: isDemo = false }: { busines
       navigator.clipboard.writeText(content.trim())
     }
     setRedirectContent(content)
-    setStep("redirect")
+    setShowRedirectPopup(true)
+    setRedirectCountdown(3)
   }
 
   async function confirmGooglePost() {
@@ -152,6 +148,7 @@ export function FeedbackFlow({ business, slug, demo: isDemo = false }: { busines
       }
     }
 
+    setShowRedirectPopup(false)
     setStep("done")
 
     if (!isDemo && feedbackId) {
@@ -194,24 +191,35 @@ export function FeedbackFlow({ business, slug, demo: isDemo = false }: { busines
     }
   }
 
+  // Auto-redirect popup timer
+  useEffect(() => {
+    if (!showRedirectPopup) return
+    if (redirectCountdown <= 0) {
+      confirmGooglePost()
+      return
+    }
+    const timer = setTimeout(() => setRedirectCountdown((c) => c - 1), 1000)
+    return () => clearTimeout(timer)
+  }, [showRedirectPopup, redirectCountdown])
+
   // Brand colors are injected via useEffect above
   // Loading is handled by BrandedLoading component with onReady callback
 
-  const STEP_ORDER: Step[] = ["rate", "describe", "review", "private"]
+  const STEP_ORDER: Step[] = ["rate", "language", "mcq", "review"]
   const stepIndex = STEP_ORDER.indexOf(step)
   const showProgress = stepIndex >= 0
   const progressPct = showProgress ? ((stepIndex + 1) / STEP_ORDER.length) * 100 : 0
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-1 flex-col px-4 py-6 justify-center">
-      {step !== "welcome" && step !== "loading" && (
+      {step !== "loading" && (
         <header className="mb-4 flex flex-col items-center gap-3">
           <Logo />
           {showProgress && (
             <div className="w-full space-y-1">
               <div className="flex justify-between text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-0.5">
                 <span>Step {stepIndex + 1} of {STEP_ORDER.length}</span>
-                <span>{["Rate", "Describe", "Review", "Private"][stepIndex]}</span>
+                <span>{["Rate", "Language", "Details", "Review"][stepIndex]}</span>
               </div>
               <div className="h-1 w-full rounded-full bg-border overflow-hidden">
                 <div
@@ -227,7 +235,7 @@ export function FeedbackFlow({ business, slug, demo: isDemo = false }: { busines
         </header>
       )}
 
-      <Card className="flex flex-1 flex-col p-6 overflow-hidden min-h-[480px] justify-between shadow-xl border border-border bg-card">
+      <Card className="relative flex flex-1 flex-col p-6 overflow-hidden min-h-[480px] justify-between shadow-xl border border-border bg-card">
         {step === "loading" && (
           <BrandedLoading
             business={business}
@@ -235,22 +243,24 @@ export function FeedbackFlow({ business, slug, demo: isDemo = false }: { busines
             minDuration={1500}
           />
         )}
-        {step === "welcome" && <WelcomeStep business={business} onStart={() => setStep("rate")} />}
-        {step === "rate" && <RateStep business={business} onRate={handleRate} />}
-        {step === "describe" && (
-          <DescribeStep
+        {step === "rate" && <RateStep business={business} onRate={(v) => { setRating(v); setStep("language") }} />}
+        {step === "language" && (
+          <LanguageStep
             business={business}
-            rating={rating}
-            highlights={highlights}
-            setHighlights={setHighlights}
-            selectedTopics={selectedTopics}
-            toggleTopic={toggleTopic}
-            selectedSubOptions={selectedSubOptions}
-            toggleSubOption={toggleSubOption}
             language={language}
             setLanguage={setLanguage}
-            onContinue={handleDescribeContinue}
+            onContinue={() => setStep("mcq")}
             onBack={() => setStep("rate")}
+          />
+        )}
+        {step === "mcq" && (
+          <MCQStep
+            business={business}
+            rating={rating}
+            selectedSubOptions={selectedSubOptions}
+            toggleSubOption={toggleSubOption}
+            onContinue={handleMCQContinue}
+            onBack={() => setStep("language")}
             submitting={submitting}
           />
         )}
@@ -265,8 +275,7 @@ export function FeedbackFlow({ business, slug, demo: isDemo = false }: { busines
             authenticity={authenticity}
             submitting={submitting}
             onPostToGoogle={handlePostToGoogle}
-            onPrivate={() => setStep("private")}
-            onBack={() => { setStep("describe"); setCustomerReview("") }}
+            onBack={() => { setStep("mcq"); setCustomerReview("") }}
             businessName={business.name}
             language={language}
             rating={rating}
@@ -274,39 +283,21 @@ export function FeedbackFlow({ business, slug, demo: isDemo = false }: { busines
             onReviewChange={setCustomerReview}
           />
         )}
-        {step === "private" && (
-          <PrivateStep
-            business={business}
-            rating={rating}
-            combinedInput={combinedInput || highlights}
-            customerReview={customerReview}
-            selectedTopics={selectedTopics}
-            done={privateDone}
-            slug={slug}
-            onSubmit={async (data) => {
-              const id = await submitFeedback({ ...data, selectedSubOptions: selectedSubOptions.length > 0 ? selectedSubOptions : undefined })
-              if (id) {
-                setPrivateDone(true)
-                toast.success("Thank you — your feedback was sent to the owner.")
-              }
-            }}
-            onBackToReview={() => setStep("review")}
-          />
-        )}
-        {step === "redirect" && (
-          <RedirectStep
+        {step === "done" && <DoneStep business={business} demo={isDemo} />}
+
+        {showRedirectPopup && (
+          <RedirectPopup
             business={business}
             rating={rating}
             reviewContent={redirectContent}
+            countdown={redirectCountdown}
             onConfirm={confirmGooglePost}
-            onSkip={() => setStep("done")}
             demo={isDemo}
           />
         )}
-        {step === "done" && <DoneStep business={business} onPrivate={() => setStep("private")} demo={isDemo} />}
       </Card>
 
-      {step !== "welcome" && step !== "loading" && (
+      {step !== "loading" && (
         <footer className="mt-6 text-center text-xs text-muted-foreground">
           <p className="text-pretty">
             A helpful draft based on what you shared — <span className="font-semibold text-foreground/70">you&apos;re in control</span>. Edit
@@ -420,22 +411,72 @@ const MOOD_TAGS: Record<string, { icon: React.ReactNode; label: string; positive
   },
 }
 
-function DescribeStep({
-  business, rating, highlights, setHighlights, selectedTopics, toggleTopic, selectedSubOptions, toggleSubOption, language, setLanguage, onContinue, onBack, submitting,
+function LanguageStep({ business, language, setLanguage, onContinue, onBack }: { business: any; language: string; setLanguage: (v: string) => void; onContinue: () => void; onBack: () => void }) {
+  const options = [
+    { value: "english", label: "English", flag: "🇬🇧", sub: "Standard English" },
+    { value: "hinglish", label: "Hinglish", flag: "🇮🇳", sub: "Hindi + English" },
+    { value: "gujlish", label: "Gujlish", flag: "🇮🇳", sub: "Gujarati + English" },
+    { value: "hindi", label: "हिंदी", flag: "🇮🇳", sub: "Hindi" },
+    { value: "gujarati", label: "ગુજરાતી", flag: "🇮🇳", sub: "Gujarati" },
+  ]
+
+  return (
+    <div className="flex flex-1 flex-col animate-fade-in-up">
+      <div className="text-center mb-4">
+        <h2 className="text-xl font-semibold tracking-tight text-foreground">Choose your language</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Pick how you'd like your review to be written.</p>
+      </div>
+      <div className="flex flex-col gap-3 flex-1">
+        {options.map((opt) => (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => setLanguage(opt.value)}
+            className={cn(
+              "flex items-center gap-4 rounded-xl border-2 p-4 text-left transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]",
+              language === opt.value
+                ? "border-primary bg-primary/5 shadow-md"
+                : "border-border/60 bg-card hover:border-foreground/30"
+            )}
+          >
+            <span className="text-3xl">{opt.flag}</span>
+            <div>
+              <span className="text-base font-bold text-foreground">{opt.label}</span>
+              <p className="text-xs text-muted-foreground">{opt.sub}</p>
+            </div>
+            {language === opt.value && (
+              <div className="ml-auto flex size-6 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                <Check className="size-3.5" />
+              </div>
+            )}
+          </button>
+        ))}
+      </div>
+      <div className="mt-auto flex gap-3 pt-6">
+        <Button variant="outline" onClick={onBack} className="flex-1 rounded-xl py-6 font-semibold bg-card">
+          <ArrowLeft className="size-4 mr-2" />
+          Back
+        </Button>
+        <Button onClick={onContinue} className="flex-[2] rounded-xl py-6 font-semibold bg-gradient-to-r from-primary to-primary/95 hover:from-primary/95 hover:to-primary text-primary-foreground shadow-md hover:shadow-lg transition-all transform active:scale-95">
+          Continue <ArrowRight className="ml-2 size-4" />
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+function MCQStep({
+  business, rating, selectedSubOptions, toggleSubOption, onContinue, onBack, submitting,
 }: {
-  business: any; rating: number; highlights: string; setHighlights: (v: string) => void; selectedTopics: string[]; toggleTopic: (t: string) => void; selectedSubOptions: string[]; toggleSubOption: (id: string) => void; language: string; setLanguage: (v: string) => void; onContinue: () => void; onBack: () => void; submitting: boolean
+  business: any; rating: number; selectedSubOptions: string[]; toggleSubOption: (id: string) => void; onContinue: () => void; onBack: () => void; submitting: boolean
 }) {
-  const canContinue = highlights.trim().length >= 3 || selectedSubOptions.length > 0 || selectedTopics.length > 0
-  const charCount = highlights.length
   const moodKey = getMoodKey(rating)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const [showLanguage, setShowLanguage] = useState(false)
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
 
   const categories = getCategoriesForIndustry(business.industry)
 
-  // Build a flat set of unique labels from selected sub-options for backward compat
   const allSubLabels = categories.flatMap((c) => c.subOptions).filter((s) => selectedSubOptions.includes(s.id)).map((s) => s.label)
+  const canContinue = selectedSubOptions.length > 0
 
   function toggleCategory(id: string) {
     setExpandedCategories((prev) => {
@@ -446,7 +487,6 @@ function DescribeStep({
     })
   }
 
-  // Expand first category by default if none are expanded
   useEffect(() => {
     if (expandedCategories.size === 0 && categories.length > 0) {
       setExpandedCategories(new Set([categories[0].id]))
@@ -479,7 +519,6 @@ function DescribeStep({
         </div>
       </div>
 
-      {/* Selected sub-options summary chips */}
       {selectedSubOptions.length > 0 && (
         <div className="mb-3 flex flex-wrap gap-1.5">
           {allSubLabels.map((label) => (
@@ -491,7 +530,6 @@ function DescribeStep({
         </div>
       )}
 
-      {/* Hierarchical categories */}
       <div className="space-y-2">
         {categories.map((category) => {
           const isExpanded = expandedCategories.has(category.id)
@@ -546,61 +584,14 @@ function DescribeStep({
         })}
       </div>
 
-      {/* Free-text highlights */}
-      <div className="mt-4 space-y-1.5 relative">
-        <div className="flex justify-between items-center px-0.5">
-          <label htmlFor="describe-highlights" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-            <PenLine className="size-3" />
-            Or write in your own words
-          </label>
-          <span className={cn("text-[10px] font-bold tracking-tight", charCount > 450 ? "text-destructive" : charCount >= 3 ? "text-primary" : "text-muted-foreground")}>
-            {charCount}/500
-          </span>
-        </div>
-        <Textarea
-          ref={textareaRef}
-          id="describe-highlights"
-          value={highlights}
-          onChange={(e) => setHighlights(e.target.value)}
-          placeholder={moodKey === "positive" ? "e.g. The quality was great and they really cared about getting it right." : moodKey === "neutral" ? "e.g. The service was decent but there's room for improvement." : "e.g. I had to wait much longer than expected and it wasn't a great experience."}
-          className="min-h-20 resize-none rounded-xl border border-border bg-card/30 p-3 shadow-inner focus:bg-card focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all duration-200"
-          maxLength={500}
-        />
-      </div>
-
-      {/* Hint */}
       <div className="mt-3 flex items-start gap-2 text-xs text-muted-foreground/80 bg-muted/40 border border-border/40 rounded-xl p-3 shadow-sm">
         <Sparkles className="size-4 text-primary shrink-0 mt-0.5" />
         <span className="leading-relaxed">
-          {selectedSubOptions.length > 0 || highlights.length > 3
+          {selectedSubOptions.length > 0
             ? "Perfect! We'll turn this into a great review draft."
-            : "Pick a few categories above or write some details so our AI can craft a draft for you."}
+            : "Pick a few options above so our AI can craft a draft for you."}
         </span>
       </div>
-
-      {/* Language */}
-      <div className="mt-3 flex justify-end">
-        <button type="button" onClick={() => setShowLanguage(!showLanguage)} className="text-[10px] font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
-          {showLanguage ? "Hide" : "Show"} Language Options
-        </button>
-      </div>
-
-      {showLanguage && (
-        <div className="mt-2 space-y-1.5 animate-fade-in-up">
-          <select
-            id="language-select"
-            value={language}
-            onChange={(e) => setLanguage(e.target.value)}
-            className="w-full rounded-xl border border-border bg-card/60 px-3.5 py-2.5 text-xs text-foreground focus:border-primary focus:ring-1 focus:ring-primary focus:bg-card outline-none transition-all shadow-sm cursor-pointer"
-          >
-            <option value="english">Standard English</option>
-            <option value="hinglish">Hinglish (Hindi + English)</option>
-            <option value="gujlish">Gujlish (Gujarati + English)</option>
-            <option value="hindi">Hindi (हिंदी)</option>
-            <option value="gujarati">Gujarati (ગુજરાતી)</option>
-          </select>
-        </div>
-      )}
 
       <div className="mt-auto flex gap-3 pt-6">
         <Button variant="outline" onClick={onBack} disabled={submitting} className="flex-1 rounded-xl py-6 font-semibold bg-card">
@@ -620,7 +611,7 @@ function DescribeStep({
 }
 
 function ReviewStep({
-  config, talkingPoints, loadingPoints, combinedInput, rawHighlights, selectedTopics, authenticity, submitting, onPostToGoogle, onPrivate, onBack, businessName, language, rating, customerReview, onReviewChange,
+  config, talkingPoints, loadingPoints, combinedInput, rawHighlights, selectedTopics, authenticity, submitting, onPostToGoogle, onBack, businessName, language, rating, customerReview, onReviewChange,
 }: {
   config: ReturnType<typeof getReviewStepConfig>
   talkingPoints: string[]
@@ -631,7 +622,6 @@ function ReviewStep({
   authenticity: AuthenticityResult | null
   submitting: boolean
   onPostToGoogle: (content: string) => void
-  onPrivate: () => void
   onBack: () => void
   businessName: string
   language: string
@@ -669,8 +659,8 @@ function ReviewStep({
         onReviewChange(data.review)
         setReviewGenerated(true)
       }
-    } catch {
-      // Fallback already handled by the API route
+    } catch (err) {
+      handleAiError(err)
     } finally {
       setGeneratingReview(false)
     }
@@ -886,11 +876,6 @@ function ReviewStep({
           {submitting ? "Just a moment..." : "Post your review on Google"}
         </Button>
 
-        <Button onClick={onPrivate} variant="outline" size="lg" className="w-full">
-          <MessageSquareHeart className="size-4" />
-          {config.emphasizePrivateFeedback ? "Tell the owner privately" : "Send private feedback instead"}
-        </Button>
-
         <button
           type="button"
           onClick={onBack}
@@ -981,109 +966,39 @@ function PrivateStep({
   )
 }
 
-function RedirectStep({
-  business, rating, reviewContent, onConfirm, onSkip, demo,
+function RedirectPopup({
+  business, rating, reviewContent, countdown, onConfirm, demo,
 }: {
-  business: any; rating: number; reviewContent: string; onConfirm: () => void; onSkip: () => void; demo?: boolean
+  business: any; rating: number; reviewContent: string; countdown: number; onConfirm: () => void; demo?: boolean
 }) {
-  const [copiedAgain, setCopiedAgain] = useState(false)
-  const [opening, setOpening] = useState(false)
-
-  async function handleCopyAgain() {
+  useEffect(() => {
     if (reviewContent.trim()) {
-      await navigator.clipboard.writeText(reviewContent.trim())
-      setCopiedAgain(true)
-      toast.success("Review copied to clipboard!")
-      setTimeout(() => setCopiedAgain(false), 2000)
+      navigator.clipboard.writeText(reviewContent.trim())
     }
-  }
-
-  async function handleOpenGoogle() {
-    setOpening(true)
-    try {
-      await navigator.clipboard.writeText(reviewContent.trim())
-    } catch {}
-    await new Promise((r) => setTimeout(r, 600))
-    onConfirm()
-  }
+  }, [])
 
   return (
-    <div className="flex flex-1 flex-col animate-fade-in py-2">
-      <div className="flex flex-col items-center text-center mb-4">
-        <div className="flex size-14 items-center justify-center rounded-full bg-primary/10 text-primary animate-scale-in">
-          <Check className="size-7" strokeWidth={2.5} />
+    <div className="absolute inset-0 z-50 flex items-center justify-center rounded-xl bg-background/80 backdrop-blur-sm animate-fade-in">
+      <div className="flex flex-col items-center text-center p-8 max-w-sm">
+        <div className="flex size-16 items-center justify-center rounded-full bg-emerald-500 text-white animate-scale-in shadow-lg">
+          <Check className="size-8" strokeWidth={3} />
         </div>
-        <h2 className="mt-3 text-xl font-extrabold tracking-tight text-foreground">Review copied!</h2>
-        <p className="mt-1.5 text-sm text-muted-foreground text-pretty max-w-xs leading-relaxed">
-          Your review is now on your clipboard. Follow the 2 steps below to post it on Google.
+        <h2 className="mt-4 text-xl font-extrabold tracking-tight text-foreground">✓ Copied to clipboard!</h2>
+        <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+          Redirecting to Google in <span className="font-bold text-foreground">{countdown}</span>...
         </p>
-      </div>
-
-      <div className="space-y-3 mt-2">
-        <div className="flex items-start gap-3 rounded-xl border border-border/60 bg-card/50 p-3.5">
-          <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">1</div>
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-foreground">Open Google Maps</p>
-            <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-              Tap the button below to open <span className="font-medium text-foreground/80">{business.name}</span>&apos;s Google review page.
-            </p>
-          </div>
+        <div className="mt-4 h-1.5 w-full rounded-full bg-border overflow-hidden">
+          <div
+            className="h-full rounded-full bg-emerald-500 transition-all duration-1000 ease-linear"
+            style={{ width: `${((3 - countdown) / 3) * 100}%` }}
+          />
         </div>
-
-        <div className="flex items-start gap-3 rounded-xl border border-border/60 bg-card/50 p-3.5">
-          <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-amber-500/10 text-amber-600 text-xs font-bold">2</div>
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-foreground">Paste &amp; verify your rating</p>
-            <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-              Long-press the text box on Google and tap <span className="font-medium text-foreground/80">Paste</span>. Then set the rating to{' '}
-              <span className="inline-flex items-center gap-0.5 align-middle">
-                {rating} <Star className="size-3 fill-amber-400 text-amber-400" />
-              </span>{' '}
-              to match what you selected earlier.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {reviewContent.trim() && (
-        <div className="mt-4 rounded-xl border border-border/50 bg-muted/20 p-3">
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Your review</span>
-            <button
-              type="button"
-              onClick={handleCopyAgain}
-              className="inline-flex items-center gap-1 text-[10px] font-medium text-primary hover:underline"
-            >
-              {copiedAgain ? <Check className="size-3" /> : <PenLine className="size-3" />}
-              {copiedAgain ? "Copied" : "Copy again"}
-            </button>
-          </div>
-          <p className="text-xs text-foreground leading-relaxed line-clamp-3 select-all">{reviewContent}</p>
-        </div>
-      )}
-
-      <div className="mt-auto flex flex-col gap-3 pt-6">
-        <Button
-          onClick={handleOpenGoogle}
-          size="lg"
-          disabled={opening}
-          className="w-full bg-gradient-to-r from-primary to-primary/90 hover:from-primary/95 hover:to-primary shadow-lg hover:shadow-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
-        >
-          {opening ? (
-            <><Loader2 className="size-4 animate-spin mr-2" />Opening Google...</>
-          ) : (
-            <><ExternalLink className="size-4 mr-2" />Open Google Maps &amp; paste review</>
-          )}
-        </Button>
-        <Button onClick={onSkip} variant="outline" size="lg" className="w-full">
-          I&apos;ll do this later
-        </Button>
       </div>
     </div>
   )
 }
 
-function DoneStep({ business, onPrivate, demo }: { business: any; onPrivate: () => void; demo?: boolean }) {
+function DoneStep({ business, demo }: { business: any; demo?: boolean }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center text-center space-y-4 py-4 animate-fade-in">
       <div className="relative flex size-20 items-center justify-center">
@@ -1111,9 +1026,6 @@ function DoneStep({ business, onPrivate, demo }: { business: any; onPrivate: () 
               </svg>
             ))}
           </div>
-          <button type="button" onClick={onPrivate} className="mt-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors underline underline-offset-4 animate-fade-in-up" style={{ animationDelay: "350ms" }}>
-            Want to tell the owner something privately?
-          </button>
           <div className="mt-4 animate-fade-in-up" style={{ animationDelay: "450ms" }}>
             <p className="text-[10px] text-muted-foreground leading-relaxed max-w-xs mx-auto">
               If you've reviewed this place before — you can{' '}

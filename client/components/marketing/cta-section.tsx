@@ -18,14 +18,14 @@ export function CtaSection() {
           <span>Google & FTC compliant</span>
         </div>
         <h2 className="text-balance text-4xl font-bold tracking-[-0.025em] text-white sm:text-5xl lg:text-6xl">
-          Start collecting{" "}
-          <span className="text-gradient">authentic</span>{" "}
-          reviews this week
+          Turn reviews into{" "}
+          <span className="text-gradient">business</span>{" "}
+          insights
         </h2>
 
         <p className="mx-auto mt-5 max-w-xl text-pretty text-lg leading-relaxed text-white/70">
-          Set up your QR code in minutes. No fake reviews, no gating, no risk to your Google profile — just more of
-          the real reviews you&apos;ve earned.
+          Set up your QR code in minutes. Collect authentic reviews, get AI-powered sentiment analysis,
+          and receive weekly insights on WhatsApp — all while staying fully Google & FTC compliant.
         </p>
 
         <div className="mt-10 flex flex-col justify-center gap-4 sm:flex-row">

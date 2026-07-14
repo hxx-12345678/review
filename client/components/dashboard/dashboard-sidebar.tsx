@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, QrCode, Settings, ShieldCheck, ExternalLink, LogOut, CreditCard } from "lucide-react"
+import { LayoutDashboard, QrCode, Settings, ShieldCheck, ExternalLink, LogOut, CreditCard, BarChart3 } from "lucide-react"
 import { Logo } from "@/components/logo"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -13,6 +13,7 @@ import { api } from "@/lib/api"
 
 const NAV = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
+  { href: "/dashboard/insights", label: "AI Insights", icon: BarChart3 },
   // Review inbox hidden temporarily — feature changes in progress
   // { href: "/dashboard/inbox", label: "Review inbox", icon: Inbox },
   { href: "/dashboard/qr", label: "QR & links", icon: QrCode },

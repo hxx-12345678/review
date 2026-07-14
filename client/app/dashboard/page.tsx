@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { StatCards } from "@/components/dashboard/stat-cards";
 import { ReviewInsights } from "@/components/dashboard/review-insights";
+import { AiCreditsBar } from "@/components/dashboard/ai-credits-bar";
 import { TrendChart } from "@/components/dashboard/trend-chart";
 import { RatingBreakdown, RecentActivity, ComplianceCard } from "@/components/dashboard/overview-panels";
 import { api } from "@/lib/api";
@@ -99,6 +100,8 @@ export default function DashboardPage() {
           totalClicks={stats?.totalClicks || 0}
           conversionRate={stats?.conversionRate || 0}
         />
+
+        <AiCreditsBar />
 
         {business && <ReviewInsights businessId={business.id} />}
 
