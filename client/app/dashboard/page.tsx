@@ -7,7 +7,6 @@ import { QrCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { StatCards } from "@/components/dashboard/stat-cards";
-import { ReviewInsights } from "@/components/dashboard/review-insights";
 import { AiCreditsBar } from "@/components/dashboard/ai-credits-bar";
 import { TrendChart } from "@/components/dashboard/trend-chart";
 import { RatingBreakdown, RecentActivity, ComplianceCard } from "@/components/dashboard/overview-panels";
@@ -102,8 +101,6 @@ export default function DashboardPage() {
         />
 
         <AiCreditsBar />
-
-        {business && <ReviewInsights businessId={business.id} />}
 
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2">

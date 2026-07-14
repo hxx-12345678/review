@@ -2,14 +2,13 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, QrCode, Settings, CreditCard } from "lucide-react"
+import { LayoutDashboard, QrCode, Settings, CreditCard, BarChart3 } from "lucide-react"
 import { Logo } from "@/components/logo"
 import { cn } from "@/lib/utils"
 
 const NAV = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
-  // Review inbox hidden temporarily — feature changes in progress
-  // { href: "/dashboard/inbox", label: "Inbox", icon: Inbox },
+  { href: "/dashboard/insights", label: "Insights", icon: BarChart3 },
   { href: "/dashboard/qr", label: "QR", icon: QrCode },
   { href: "/dashboard/billing", label: "Plan", icon: CreditCard },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
