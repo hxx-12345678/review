@@ -13,3 +13,5 @@ build/
 *.tsbuildinfo
 server/uploads/*
 !server/uploads/.gitkeep
+keychain-credential-storage/
+keychain-credential-storage.zip
