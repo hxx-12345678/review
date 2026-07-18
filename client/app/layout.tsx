@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono, Plus_Jakarta_Sans } from 'next/font/google'
 import { Toaster } from '@/components/ui/sonner'
 import { Providers } from '@/lib/providers'
+import { PWARegister } from '@/components/pwa-register'
 import './globals.css'
 
 const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] })
@@ -19,6 +20,7 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
+  themeColor: '#1e293b',
 }
 
 export const metadata: Metadata = {
@@ -26,6 +28,15 @@ export const metadata: Metadata = {
   description:
     'BEYONDVYU helps local businesses collect more authentic Google reviews with QR codes and an AI assistant that jogs your customers\u2019 memory — fully compliant with Google and FTC policy.',
   generator: 'v0.app',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'BEYONDVYU',
+  },
+  formatDetection: {
+    telephone: false,
+  },
   icons: {
     icon: [
       {
@@ -55,6 +66,7 @@ export default function RootLayout({
       <body className="font-sans antialiased">
         <Providers>
           {children}
+          <PWARegister />
         </Providers>
         <Toaster />
       </body>

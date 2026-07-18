@@ -12,6 +12,7 @@ import { useSidebar } from "@/lib/sidebar-context"
 import { useEffect, useState } from "react"
 import { api } from "@/lib/api"
 import { isV2Visible } from "@/lib/feature-flags"
+import { InstallPWA } from "@/components/install-pwa"
 
 const NAV = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
@@ -115,6 +116,7 @@ export function DashboardSidebar() {
           <ExternalLink className="size-4" />
           View customer flow
         </Link>
+        <InstallPWA />
         <div className="mt-3 flex items-center gap-2 rounded-lg bg-primary/5 px-3 py-2 text-xs text-primary">
           <ShieldCheck className="size-4 shrink-0" />
           <span>Compliant mode active</span>
@@ -204,6 +206,21 @@ export function DashboardSidebar() {
             </>
           )}
         </nav>
+        <div className="shrink-0 p-3 border-t border-border">
+          <Link
+            href={businessSlug ? `/r/${businessSlug}?demo=true` : "/r/brightsmile?demo=true"}
+            target="_blank"
+            className="flex items-center gap-3 rounded-lg border border-border bg-card px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <ExternalLink className="size-4" />
+            View customer flow
+          </Link>
+          <InstallPWA />
+          <div className="mt-3 flex items-center gap-2 rounded-lg bg-primary/5 px-3 py-2 text-xs text-primary">
+            <ShieldCheck className="size-4 shrink-0" />
+            <span>Compliant mode active</span>
+          </div>
+        </div>
         <div className="shrink-0 border-t border-border p-3">
           <div className="flex items-center gap-3 rounded-lg px-2 py-1.5">
             <Avatar className="size-8">
