@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/lib/auth-context"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { InstallPWA } from "@/components/install-pwa"
 
 export function MarketingHeader() {
   const { user, loading, logout } = useAuth()
@@ -135,6 +136,7 @@ export function MarketingHeader() {
               >
                 <span className="relative z-10">Log in</span>
               </Button>
+              <InstallPWA variant="header" />
               <Button
                 render={<Link href="/signup" />}
                 nativeButton={false}

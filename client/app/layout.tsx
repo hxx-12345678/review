@@ -24,18 +24,51 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
-  title: 'BEYONDVYU — Turn happy customers into authentic Google reviews',
+  metadataBase: new URL("https://beyondvyu.com"),
+  title: {
+    default: "BEYONDVYU — Turn happy customers into authentic Google reviews",
+    template: "%s | BEYONDVYU",
+  },
   description:
-    'BEYONDVYU helps local businesses collect more authentic Google reviews with QR codes and an AI assistant that jogs your customers\u2019 memory — fully compliant with Google and FTC policy.',
-  generator: 'v0.app',
-  manifest: '/manifest.json',
+    "BEYONDVYU helps local businesses collect more authentic Google reviews with QR codes and an AI assistant that jogs your customers\u2019 memory — fully compliant with Google and FTC policy.",
+  keywords: [
+    "Google reviews",
+    "review management",
+    "QR code reviews",
+    "business reviews",
+    "FTC compliant reviews",
+    "review generation",
+    "customer feedback",
+    "Google review QR code",
+  ],
+  generator: "v0.app",
+  manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
-    statusBarStyle: 'default',
-    title: 'BEYONDVYU',
+    statusBarStyle: "default",
+    title: "BEYONDVYU",
   },
   formatDetection: {
     telephone: false,
+  },
+  openGraph: {
+    type: "website",
+    siteName: "BEYONDVYU",
+    title: "BEYONDVYU — Turn happy customers into authentic Google reviews",
+    description:
+      "BEYONDVYU helps local businesses collect more authentic Google reviews with QR codes and an AI assistant.",
+    url: "https://beyondvyu.com",
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "BEYONDVYU — Turn happy customers into authentic Google reviews",
+    description:
+      "BEYONDVYU helps local businesses collect more authentic Google reviews with QR codes and an AI assistant.",
+  },
+  robots: {
+    index: true,
+    follow: true,
   },
   icons: {
     icon: [

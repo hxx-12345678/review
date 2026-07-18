@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { InstallPWA } from "@/components/install-pwa"
 
 export function CtaSection() {
   return (
@@ -51,6 +52,7 @@ export function CtaSection() {
               View pricing
             </Button>
           </div>
+          <InstallPWA variant="cta" />
         </div>
 
         {/* Trust signal */}
