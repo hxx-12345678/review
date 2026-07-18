@@ -4,6 +4,8 @@ import { Toaster } from '@/components/ui/sonner'
 import { Providers } from '@/lib/providers'
 import { PWARegister } from '@/components/pwa-register'
 import { GlobalInstallCapture } from '@/components/install-capture'
+import { GlobalInstallModal } from '@/components/global-install-modal'
+import { InstallModalProvider } from '@/lib/install-modal-context'
 import './globals.css'
 
 const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] })
@@ -115,11 +117,14 @@ export default function RootLayout({
             `,
           }}
         />
-        <Providers>
-          {children}
-          <PWARegister />
-          <GlobalInstallCapture />
-        </Providers>
+        <InstallModalProvider>
+          <Providers>
+            {children}
+            <PWARegister />
+            <GlobalInstallCapture />
+            <GlobalInstallModal />
+          </Providers>
+        </InstallModalProvider>
         <Toaster />
       </body>
     </html>
