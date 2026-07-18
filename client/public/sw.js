@@ -11,9 +11,17 @@ const STATIC_ASSETS = [
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE).then((cache) => {
-      return cache.addAll(STATIC_ASSETS)
-    })
+    caches.open(CACHE).then(async (cache) => {
+      const results = await Promise.allSettled(
+        STATIC_ASSETS.map((url) =>
+          cache.add(url).catch(() => {
+            console.warn("SW: failed to cache", url)
+          }),
+        ),
+      )
+      const failed = results.filter((r) => r.status === "rejected").length
+      if (failed > 0) console.warn("SW: skipped", failed, "assets")
+    }),
   )
   self.skipWaiting()
 })

@@ -113,6 +113,11 @@ export default function RootLayout({
                 window.__deferredPrompt = null;
                 window.__installReady = true;
               });
+              if ('serviceWorker' in navigator && (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.protocol === 'https:')) {
+                window.addEventListener('load', function() {
+                  navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' }).catch(function(){});
+                });
+              }
             `,
           }}
         />

@@ -158,10 +158,25 @@ export function GlobalInstallModal() {
             </div>
           ) : !isSupported && checked ? (
             <div className="space-y-3">
-              <Step icon={AlertCircle} text={<>Automatic install not available on this browser.</>} />
-              <Step icon={Smartphone} text={<>Open Chrome or Edge on Android/Desktop.</>} />
-              <Step icon={Monitor} text={<>Open browser menu (three dots) and tap <strong>Install app</strong>.</>} />
-              <p className="text-xs text-muted-foreground text-center pt-1">Make sure you are connected to the internet and try again.</p>
+              <Step icon={AlertCircle} text={<>Chrome needs a moment to verify the app. Visit this page a couple of times, then check the browser menu.</>} />
+              <Step icon={Smartphone} text={<>Use <strong>Chrome</strong> or <strong>Edge</strong> on Android or desktop.</>} />
+              <Step icon={Monitor} text={<>Open browser menu (three dots) and tap <strong>Install app</strong> or <strong>Add to Home Screen</strong>.</>} />
+              <p className="text-xs text-muted-foreground text-center pt-1">Need help? Try refreshing the page or coming back later.</p>
+              <button
+                onClick={() => {
+                  if (window.__deferredPrompt) {
+                    setCanInstall(true)
+                    setChecked(true)
+                  } else {
+                    setChecked(false)
+                    setCanInstall(null)
+                  }
+                }}
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-muted py-2.5 text-sm font-medium text-foreground hover:bg-muted/80 transition-colors"
+              >
+                <span className="size-3.5" />
+                Check again
+              </button>
             </div>
           ) : (
             <div className="space-y-3">
