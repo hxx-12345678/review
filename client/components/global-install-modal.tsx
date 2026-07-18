@@ -4,10 +4,9 @@ import { useEffect, useState, useCallback, useRef } from "react"
 import { createPortal } from "react-dom"
 import { Download, X, Share2, Monitor, Smartphone, CheckCircle2, AlertCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { useInstallModal } from "@/lib/install-modal-context"
 
 export function GlobalInstallModal() {
-  const { open, closeModal } = useInstallModal()
+  const [open, setOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [isIOS, setIsIOS] = useState(false)
   const [canInstall, setCanInstall] = useState<boolean | null>(null)
@@ -17,6 +16,37 @@ export function GlobalInstallModal() {
   useEffect(() => {
     setMounted(true)
     setIsIOS(/iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream)
+
+    window.__openInstallModal = () => setOpen(true)
+
+    return () => {
+      window.__openInstallModal = undefined
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!mounted) return
+
+    const handler = () => setOpen(true)
+    window.addEventListener("beyondvyu:open-install", handler)
+    const interval = setInterval(() => {
+      if (window.__showInstallModal) {
+        setOpen(true)
+        window.__showInstallModal = false
+      }
+    }, 200)
+
+    return () => {
+      window.removeEventListener("beyondvyu:open-install", handler)
+      clearInterval(interval)
+    }
+  }, [mounted])
+
+  const closeModal = useCallback(() => {
+    setOpen(false)
+    setCanInstall(null)
+    setChecked(false)
+    setInstalling(false)
   }, [])
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -76,7 +106,7 @@ export function GlobalInstallModal() {
         window.__deferredPrompt = null
         setCanInstall(false)
       } catch {
-        // fall through to instruction modal stay open
+        // fall through
       } finally {
         setInstalling(false)
       }
@@ -101,12 +131,9 @@ export function GlobalInstallModal() {
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Drag handle */}
         <div className="flex justify-center pt-2 pb-1 sm:hidden">
           <div className="h-1.5 w-10 rounded-full bg-muted-foreground/30" />
         </div>
-
-        {/* Header */}
         <div className="flex items-center justify-between border-b border-border px-5 py-4 shrink-0">
           <div className="flex items-center gap-3">
             <div className="flex size-9 items-center justify-center rounded-xl bg-primary/10">
@@ -121,8 +148,6 @@ export function GlobalInstallModal() {
             <X className="size-5" />
           </button>
         </div>
-
-        {/* Scrollable content */}
         <div className="overflow-y-auto px-5 py-4">
           {isIOS ? (
             <div className="space-y-3">

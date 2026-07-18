@@ -5,7 +5,6 @@ import { Providers } from '@/lib/providers'
 import { PWARegister } from '@/components/pwa-register'
 import { GlobalInstallCapture } from '@/components/install-capture'
 import { GlobalInstallModal } from '@/components/global-install-modal'
-import { InstallModalProvider } from '@/lib/install-modal-context'
 import './globals.css'
 
 const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] })
@@ -117,14 +116,12 @@ export default function RootLayout({
             `,
           }}
         />
-        <InstallModalProvider>
-          <Providers>
-            {children}
-            <PWARegister />
-            <GlobalInstallCapture />
-            <GlobalInstallModal />
-          </Providers>
-        </InstallModalProvider>
+        <Providers>
+          {children}
+          <PWARegister />
+          <GlobalInstallCapture />
+          <GlobalInstallModal />
+        </Providers>
         <Toaster />
       </body>
     </html>

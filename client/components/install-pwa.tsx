@@ -3,13 +3,20 @@
 import { useEffect, useState, useCallback, useRef } from "react"
 import { Download, MonitorSmartphone } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { useInstallModal } from "@/lib/install-modal-context"
 
 declare global {
   interface Window {
     __deferredPrompt?: any
     __installReady?: boolean | null
+    __showInstallModal?: boolean
+    __openInstallModal?: () => void
   }
+}
+
+function showInstallModal() {
+  window.__showInstallModal = true
+  window.dispatchEvent(new CustomEvent("beyondvyu:open-install"))
+  window.__openInstallModal?.()
 }
 
 interface InstallPWAProps {
@@ -19,7 +26,6 @@ interface InstallPWAProps {
 }
 
 export function InstallPWA({ variant = "default", onInstall, onOpenChange }: InstallPWAProps) {
-  const { openModal } = useInstallModal()
   const [installed, setInstalled] = useState(false)
   const [installing, setInstalling] = useState(false)
   const [canInstall, setCanInstall] = useState<boolean | null>(null)
@@ -79,16 +85,16 @@ export function InstallPWA({ variant = "default", onInstall, onOpenChange }: Ins
         window.__deferredPrompt = null
         setCanInstall(false)
       } catch {
-        openModal()
+        showInstallModal()
         onOpenChange?.(true)
       } finally {
         setInstalling(false)
       }
     } else {
-      openModal()
+      showInstallModal()
       onOpenChange?.(true)
     }
-  }, [onInstall, onOpenChange, openModal])
+  }, [onInstall, onOpenChange])
 
   if (installed) return null
 
