@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, QrCode, Settings, ShieldCheck, ExternalLink, LogOut, CreditCard, BarChart3, MessageSquare, Inbox, ListChecks, AtSign, Globe, X } from "lucide-react"
+import { LayoutDashboard, QrCode, Settings, ShieldCheck, ExternalLink, LogOut, CreditCard, BarChart3, X } from "lucide-react"
 import { Logo } from "@/components/logo"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -18,16 +18,6 @@ const NAV = [
   { href: "/dashboard/qr", label: "QR & links", icon: QrCode },
   { href: "/dashboard/billing", label: "Plan", icon: CreditCard },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
-]
-
-const V2_NAV = [
-  { href: "/v2", label: "v2 Overview", icon: LayoutDashboard },
-  { href: "/v2/whatsapp", label: "WhatsApp Flows", icon: MessageSquare },
-  { href: "/v2/multi-platform", label: "Multi-Platform", icon: Inbox },
-  { href: "/v2/inbox", label: "Unified Inbox", icon: Inbox },
-  { href: "/v2/tasks", label: "Tasks", icon: ListChecks },
-  { href: "/v2/instagram", label: "Instagram", icon: AtSign },
-  { href: "/v2/gbp", label: "GBP Manager", icon: Globe },
 ]
 
 export function DashboardSidebar() {
@@ -61,27 +51,6 @@ export function DashboardSidebar() {
       <nav className="flex-1 space-y-1 overflow-y-auto p-3" aria-label="Dashboard">
         {NAV.map((item) => {
           const active = pathname === item.href
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                active
-                  ? "bg-sidebar-primary/10 text-sidebar-primary"
-                  : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-              )}
-              aria-current={active ? "page" : undefined}
-            >
-              <item.icon className="size-4" />
-              {item.label}
-            </Link>
-          )
-        })}
-        <div className="my-2 border-t border-border" />
-        <p className="px-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">v2 Features</p>
-        {V2_NAV.map((item) => {
-          const active = pathname.startsWith(item.href) && (item.href === "/v2" ? pathname === "/v2" : true)
           return (
             <Link
               key={item.href}
@@ -158,26 +127,6 @@ export function DashboardSidebar() {
         <nav className="flex-1 space-y-1 overflow-y-auto p-3" aria-label="Dashboard">
           {NAV.map((item) => {
             const active = pathname === item.href
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                  active
-                    ? "bg-sidebar-primary/10 text-sidebar-primary"
-                    : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                )}
-              >
-                <item.icon className="size-4" />
-                {item.label}
-              </Link>
-            )
-          })}
-          <div className="my-2 border-t border-border" />
-          <p className="px-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">v2 Features</p>
-          {V2_NAV.map((item) => {
-            const active = pathname.startsWith(item.href) && (item.href === "/v2" ? pathname === "/v2" : true)
             return (
               <Link
                 key={item.href}

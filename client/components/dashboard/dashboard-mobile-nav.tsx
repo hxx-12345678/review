@@ -2,18 +2,18 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { MessageSquare, Inbox, ListChecks, AtSign, Globe, Menu } from "lucide-react"
+import { LayoutDashboard, BarChart3, QrCode, CreditCard, Settings, Menu } from "lucide-react"
 import { Logo } from "@/components/logo"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { useSidebar } from "@/lib/sidebar-context"
 
 const NAV = [
-  { href: "/v2/whatsapp", label: "WhatsApp", icon: MessageSquare },
-  { href: "/v2/inbox", label: "Inbox", icon: Inbox },
-  { href: "/v2/tasks", label: "Tasks", icon: ListChecks },
-  { href: "/v2/instagram", label: "Instagram", icon: AtSign },
-  { href: "/v2/gbp", label: "GBP", icon: Globe },
+  { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
+  { href: "/dashboard/insights", label: "Insights", icon: BarChart3 },
+  { href: "/dashboard/qr", label: "QR", icon: QrCode },
+  { href: "/dashboard/billing", label: "Plan", icon: CreditCard },
+  { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ]
 
 export function DashboardMobileNav() {
