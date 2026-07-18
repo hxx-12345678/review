@@ -89,51 +89,52 @@ export function SubscribeConfirmDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v && !loading) onClose(); }}>
-      <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden">
+      <DialogContent className="!max-w-[calc(100%-1rem)] sm:!max-w-lg p-0 gap-0 flex flex-col max-h-[90dvh]">
         {/* Header with brand gradient */}
-        <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent px-6 pt-5 pb-4">
+        <div className="shrink-0 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent px-4 sm:px-6 pt-4 sm:pt-5 pb-3 sm:pb-4">
           <DialogHeader className="p-0">
-            <DialogTitle className="flex items-center gap-2 text-lg">
-              <IndianRupee className="size-5 text-primary" />
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <IndianRupee className="size-4 sm:size-5 text-primary" />
               Complete your subscription
             </DialogTitle>
-            <DialogDescription className="text-sm">
+            <DialogDescription className="text-xs sm:text-sm">
               Choose the billing that works best for your business
             </DialogDescription>
           </DialogHeader>
         </div>
 
-        <div className="px-6 py-4 space-y-4">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-3 sm:py-4 space-y-3 sm:space-y-4 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border">
           {/* Billing toggle — yearly is DEFAULT */}
           {hasYearly && (
-            <div className="flex items-center rounded-xl bg-muted/60 p-1 border border-border/50">
+            <div className="flex items-center rounded-xl bg-muted/60 p-0.5 sm:p-1 border border-border/50">
               <button
                 onClick={() => setBilling("yearly")}
                 className={cn(
-                  "flex-1 flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200",
+                  "flex-1 flex items-center justify-center gap-1 rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium transition-all duration-200",
                   billing === "yearly"
                     ? "bg-primary text-primary-foreground shadow-sm scale-[1.02]"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                <Calendar className="size-4" />
-                Annual
+                <Calendar className="size-3.5 sm:size-4" />
+                <span className="hidden xs:inline">Annual</span>
+                <span className="xs:hidden">Annual</span>
                 {billing === "yearly" && (
-                  <Badge variant="secondary" className="ml-1 bg-primary-foreground/20 text-primary-foreground text-[10px] px-1.5 py-0">
-                    Best value
+                  <Badge variant="secondary" className="ml-0.5 sm:ml-1 bg-primary-foreground/20 text-primary-foreground text-[9px] sm:text-[10px] px-1 sm:px-1.5 py-0 leading-[14px]">
+                    Best
                   </Badge>
                 )}
               </button>
               <button
                 onClick={() => setBilling("monthly")}
                 className={cn(
-                  "flex-1 flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200",
+                  "flex-1 flex items-center justify-center gap-1 rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium transition-all duration-200",
                   billing === "monthly"
                     ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                <Zap className="size-4" />
+                <Zap className="size-3.5 sm:size-4" />
                 Monthly
               </button>
             </div>
@@ -268,46 +269,49 @@ export function SubscribeConfirmDialog({
               </ul>
             </div>
           </div>
-
-          {/* Trust bar */}
-          <div className="flex items-center justify-center gap-4 text-[11px] text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <ShieldCheck className="size-3" />
-              Cancel anytime
-            </span>
-            <span className="flex items-center gap-1">
-              <IndianRupee className="size-3" />
-              GST invoice
-            </span>
-            <span className="flex items-center gap-1">
-              <svg className="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-              </svg>
-              Razorpay secure
-            </span>
-          </div>
         </div>
 
-        <DialogFooter className="px-6 py-4 border-t bg-muted/30">
-          <div className="flex flex-col sm:flex-row gap-2 w-full">
+        {/* Trust bar — always visible */}
+        <div className="shrink-0 flex items-center justify-center gap-3 sm:gap-4 px-4 sm:px-6 py-2 sm:py-3 text-[10px] sm:text-[11px] text-muted-foreground border-t border-border/50">
+          <span className="flex items-center gap-1">
+            <ShieldCheck className="size-2.5 sm:size-3" />
+            Cancel anytime
+          </span>
+          <span className="flex items-center gap-1">
+            <IndianRupee className="size-2.5 sm:size-3" />
+            GST invoice
+          </span>
+          <span className="flex items-center gap-1">
+            <svg className="size-2.5 sm:size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+            Secure
+          </span>
+        </div>
+
+        {/* Footer — always visible, never in scroll */}
+        <DialogFooter className="shrink-0 px-4 sm:px-6 py-3 sm:py-4 border-t bg-muted/30">
+          <div className="flex flex-col-reverse sm:flex-row gap-2 w-full">
             <Button
               variant="outline"
               onClick={onClose}
               disabled={loading}
-              className="flex-1"
+              className="flex-1 text-xs sm:text-sm"
+              size="sm"
             >
               Cancel
             </Button>
             <Button
               onClick={() => onConfirm(activePlan.id)}
               disabled={loading}
-              className="flex-1 gap-2"
+              className="flex-1 gap-1.5 text-xs sm:text-sm"
+              size="sm"
             >
               {loading ? (
-                <Loader2 className="size-4 animate-spin" />
+                <Loader2 className="size-3.5 sm:size-4 animate-spin" />
               ) : (
-                <IndianRupee className="size-4" />
+                <IndianRupee className="size-3.5 sm:size-4" />
               )}
               {loading ? "Processing..." : `Pay ${formatPriceShort(activePaise)}`}
             </Button>
