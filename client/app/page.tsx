@@ -21,8 +21,6 @@ export default function Page() {
     }
   }, [user, loading, router])
 
-  if (loading) return null
-  if (user) return null
   useEffect(() => {
     const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches
     if (prefersReduced) {
@@ -191,6 +189,18 @@ export default function Page() {
       })
     }
   }, [])
+
+  if (loading) return null
+
+  if (user) {
+    return (
+      <div className="flex min-h-screen min-w-0 flex-col">
+        <MarketingHeader />
+        <main className="flex-1" />
+        <MarketingFooter />
+      </div>
+    )
+  }
 
   return (
     <div className="flex min-h-screen min-w-0 flex-col">

@@ -1,8 +1,8 @@
 "use client";
 
-import { Suspense, useEffect, useState, useMemo } from "react";
+import { Suspense, useEffect, useState, useMemo, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Check, Receipt, Loader2, AlertCircle } from "lucide-react";
+import { Check, Receipt, Loader2, AlertCircle, IndianRupee } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +37,36 @@ type Subscription = {
   invoices: any[];
 };
 
+type RazorpayResponse = {
+  razorpay_payment_id: string;
+  razorpay_subscription_id: string;
+  razorpay_signature: string;
+};
+
+interface RazorpayInstance {
+  open: () => void;
+  on: (event: string, handler: (response: any) => void) => void;
+}
+
+interface RazorpayConstructor {
+  new (options: {
+    key: string;
+    subscription_id: string;
+    name: string;
+    description: string;
+    handler: (response: RazorpayResponse) => void;
+    prefill: { name?: string; email?: string; contact?: string };
+    theme: { color: string };
+    modal?: { ondismiss?: () => void };
+  }): RazorpayInstance;
+}
+
+declare global {
+  interface Window {
+    Razorpay: RazorpayConstructor;
+  }
+}
+
 export default function BillingPageWrapper() {
   return (
     <Suspense fallback={<BillingSkeleton />}>
@@ -68,7 +98,7 @@ function BillingPage() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
-  const [subscribing, setSubscribing] = useState<string | null>(null);
+  const [subscribing, setSubscribing] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -113,7 +143,7 @@ function BillingPage() {
       }
     }
     for (const plan of plans) {
-      if (plan.interval === "month" || plan.interval === "month") {
+      if (plan.interval === "month") {
         const baseSlug = plan.slug;
         if (!pairs[baseSlug]) pairs[baseSlug] = { monthly: plan, yearly: null };
         else pairs[baseSlug].monthly = plan;
@@ -126,6 +156,64 @@ function BillingPage() {
     return plans.filter((p) => p.price > 0 && p.interval === "month");
   }, [plans]);
 
+  const openRazorpayCheckout = useCallback((
+    razorpaySubscriptionId: string,
+    keyId: string,
+    planName: string,
+  ) => {
+    return new Promise<void>((resolve, reject) => {
+      if (!window.Razorpay) {
+        reject(new Error("Razorpay SDK not loaded"));
+        return;
+      }
+
+      const options = {
+        key: keyId,
+        subscription_id: razorpaySubscriptionId,
+        name: "BEYONDVYU",
+        description: `${planName} Plan`,
+        handler: function (response: RazorpayResponse) {
+          window.location.href =
+            `/api/payments/subscription-callback` +
+            `?razorpay_payment_id=${response.razorpay_payment_id}` +
+            `&razorpay_subscription_id=${response.razorpay_subscription_id}` +
+            `&razorpay_signature=${response.razorpay_signature}`;
+        },
+        prefill: {
+          email: user?.email || "",
+          contact: "",
+        },
+        theme: { color: "#0f172a" },
+        modal: {
+          ondismiss: function () {
+            resolve();
+          },
+        },
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.on("payment.failed", function (response: any) {
+        reject(new Error(response.error?.description || "Payment failed"));
+      });
+      rzp.open();
+    });
+  }, [user?.email]);
+
+  const loadRazorpayScript = useCallback(() => {
+    return new Promise<void>((resolve, reject) => {
+      if (window.Razorpay) {
+        resolve();
+        return;
+      }
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.async = true;
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error("Failed to load Razorpay SDK"));
+      document.body.appendChild(script);
+    });
+  }, []);
+
   function handleSubscribeClick(planId: string) {
     const monthly = plans.find((p) => p.id === planId && p.interval === "month");
     if (monthly) {
@@ -135,20 +223,31 @@ function BillingPage() {
   }
 
   async function handleConfirmSubscribe(planId: string) {
-    setSubscribing(planId);
+    setSubscribing(true);
     setError("");
     try {
       const res = await api.payments.createSubscription(planId);
       setConfirmOpen(false);
-      if (res.shortUrl) {
-        window.location.href = res.shortUrl;
-      } else {
+
+      if (res.subscription.status === "active") {
         await loadData();
+        return;
       }
+
+      if (!res.razorpaySubscriptionId || !res.keyId) {
+        throw new Error("Payment gateway not properly configured");
+      }
+
+      const planName = res.subscription?.plan?.name || "Selected";
+
+      await loadRazorpayScript();
+      await openRazorpayCheckout(res.razorpaySubscriptionId, res.keyId, planName);
+
+      await loadData();
     } catch (err: any) {
-      setError(err.message || "Failed to create subscription");
+      setError(err.message || "Failed to start subscription");
     } finally {
-      setSubscribing(null);
+      setSubscribing(false);
     }
   }
 
@@ -333,10 +432,10 @@ function BillingPage() {
                     <Button
                       className="w-full"
                       variant={isCurrentPlan ? "outline" : "default"}
-                      disabled={isCurrentPlan || subscribing === plan.id}
+                      disabled={isCurrentPlan || subscribing}
                       onClick={() => handleSubscribeClick(plan.id)}
                     >
-                      {subscribing === plan.id ? (
+                      {subscribing ? (
                         <Loader2 className="size-4 animate-spin" />
                       ) : isCurrentPlan ? (
                         "Current plan"
@@ -377,7 +476,7 @@ function BillingPage() {
           </Card>
         )}
 
-        {/* RBI E-Mandate Framework 2026 Disclosure — required by RBI/2026-27/396 */}
+        {/* RBI E-Mandate Framework 2026 Disclosure */}
         <Card className="border-amber-200 bg-amber-50/50">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-sm font-medium text-amber-800">
@@ -421,14 +520,13 @@ function BillingPage() {
         </Card>
       </div>
 
-      {/* Subscribe confirmation dialog */}
       <SubscribeConfirmDialog
         open={confirmOpen}
         onClose={() => setConfirmOpen(false)}
         onConfirm={handleConfirmSubscribe}
         monthlyPlan={selectedMonthlyPlan}
         yearlyPlan={pair?.yearly ?? null}
-        loading={!!subscribing}
+        loading={subscribing}
       />
     </>
   );

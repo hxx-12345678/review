@@ -242,13 +242,135 @@ export const api = {
     search: (query: string) =>
       request<{ results: { placeId: string; name: string; address: string; rating: number | null; totalRatings: number | null }[] }>(`/google-places/search?query=${encodeURIComponent(query)}`),
   },
+  v2: {
+    // WhatsApp Flows
+    whatsappFlows: {
+      sendFlow: (data: { businessId: string; phoneNumber: string; customerName?: string }) =>
+        request<{ success: boolean; flow: any; messageId?: string }>("/v2/whatsapp-flows/send-flow", {
+          method: "POST",
+          body: JSON.stringify(data),
+        }),
+      sendDirectFlow: (data: { businessId: string; phoneNumber: string; flowToken: string; customerName?: string }) =>
+        request<{ success: boolean; flow: any; messageId?: string }>("/v2/whatsapp-flows/send-direct-flow", {
+          method: "POST",
+          body: JSON.stringify(data),
+        }),
+      list: (businessId: string) =>
+        request<{ flows: any[] }>(`/v2/whatsapp-flows/flows/${businessId}`),
+      stats: (businessId: string) =>
+        request<{ totalFlows: number; completedFlows: number; completionRate: number; averageRating: number | null }>(`/v2/whatsapp-flows/stats/${businessId}`),
+    },
+    // Multi-Platform Review Automation
+    multiPlatform: {
+      send: (data: { businessId: string; channels: string[]; phoneNumber?: string; email?: string; customerName?: string; customMessage?: string }) =>
+        request<{ success: boolean; results: any; channelsSent: number }>("/v2/multi-platform/send", {
+          method: "POST",
+          body: JSON.stringify(data),
+        }),
+      sendSequential: (data: { businessId: string; phoneNumber?: string; email?: string; customerName?: string; delayMinutes?: number }) =>
+        request<{ success: boolean; schedule: any[]; message: string }>("/v2/multi-platform/send-sequential", {
+          method: "POST",
+          body: JSON.stringify(data),
+        }),
+      logs: (businessId: string) =>
+        request<{ logs: any[] }>(`/v2/multi-platform/logs/${businessId}`),
+    },
+    // Cross-Platform Unified Inbox
+    inbox: {
+      messages: (businessId: string, params?: { platform?: string; status?: string }) => {
+        const qs = new URLSearchParams();
+        if (params?.platform) qs.set("platform", params.platform);
+        if (params?.status) qs.set("status", params.status);
+        const query = qs.toString();
+        return request<{ messages: any[] }>(`/v2/inbox/messages/${businessId}${query ? `?${query}` : ""}`);
+      },
+      conversations: (businessId: string) =>
+        request<{ conversations: any[] }>(`/v2/inbox/conversations/${businessId}`),
+      reply: (data: { messageId: string; replyText: string }) =>
+        request<{ success: boolean; message: any }>("/v2/inbox/reply", {
+          method: "POST",
+          body: JSON.stringify(data),
+        }),
+      markRead: (messageId: string) =>
+        request<{ success: boolean }>(`/v2/inbox/messages/${messageId}/read`, { method: "PATCH" }),
+      stats: (businessId: string) =>
+        request<{ total: number; unread: number; byPlatform: { platform: string; count: number }[] }>(`/v2/inbox/stats/${businessId}`),
+    },
+    // Review Tasks
+    tasks: {
+      list: (businessId: string, params?: { status?: string; taskType?: string }) => {
+        const qs = new URLSearchParams();
+        if (params?.status) qs.set("status", params.status);
+        if (params?.taskType) qs.set("taskType", params.taskType);
+        const query = qs.toString();
+        return request<{ tasks: any[] }>(`/v2/tasks/tasks/${businessId}${query ? `?${query}` : ""}`);
+      },
+      create: (data: { businessId: string; title: string; description?: string; taskType?: string; priority?: string; source?: string; referenceId?: string; dueAt?: string; assignedTo?: string }) =>
+        request<{ success: boolean; task: any }>("/v2/tasks/tasks", {
+          method: "POST",
+          body: JSON.stringify(data),
+        }),
+      update: (taskId: string, data: { title?: string; description?: string; priority?: string; status?: string; assignedTo?: string; dueAt?: string }) =>
+        request<{ success: boolean; task: any }>(`/v2/tasks/tasks/${taskId}`, {
+          method: "PATCH",
+          body: JSON.stringify(data),
+        }),
+      delete: (taskId: string) =>
+        request<{ success: boolean }>(`/v2/tasks/tasks/${taskId}`, { method: "DELETE" }),
+      autoGenerate: (businessId: string) =>
+        request<{ success: boolean; created: number; tasks: any[] }>(`/v2/tasks/auto-generate/${businessId}`, { method: "POST" }),
+      stats: (businessId: string) =>
+        request<{ total: number; pending: number; overdue: number; done: number; highPriority: number }>(`/v2/tasks/stats/${businessId}`),
+    },
+    // Instagram @Mentions
+    instagram: {
+      sync: (businessId: string) =>
+        request<{ success: boolean; synced: number; mentions: any[] }>(`/v2/instagram/sync/${businessId}`, { method: "POST" }),
+      mentions: (businessId: string, replied?: string) =>
+        request<{ mentions: any[] }>(`/v2/instagram/mentions/${businessId}${replied ? `?replied=${replied}` : ""}`),
+      reply: (data: { mentionId: string; replyText: string }) =>
+        request<{ success: boolean; mention: any }>("/v2/instagram/reply", {
+          method: "POST",
+          body: JSON.stringify(data),
+        }),
+      stats: (businessId: string) =>
+        request<{ total: number; unreplied: number; positive: number; negative: number }>(`/v2/instagram/stats/${businessId}`),
+    },
+    // Google GBP
+    gbp: {
+      reviews: (businessId: string, params?: { status?: string; minRating?: number; sort?: string }) => {
+        const qs = new URLSearchParams();
+        if (params?.status) qs.set("status", params.status);
+        if (params?.minRating) qs.set("minRating", params.minRating.toString());
+        if (params?.sort) qs.set("sort", params.sort);
+        const query = qs.toString();
+        return request<{ reviews: any[]; total: number }>(`/v2/gbp/reviews/${businessId}${query ? `?${query}` : ""}`);
+      },
+      reply: (data: { reviewId: string; replyText: string }) =>
+        request<{ success: boolean; review: any; postedToGoogle: boolean }>("/v2/gbp/reviews/reply", {
+          method: "POST",
+          body: JSON.stringify(data),
+        }),
+      bulkReply: (data: { reviewIds: string[]; replyText: string }) =>
+        request<{ success: boolean; updatedCount: number }>("/v2/gbp/reviews/bulk-reply", {
+          method: "POST",
+          body: JSON.stringify(data),
+        }),
+      deleteReview: (reviewId: string) =>
+        request<{ success: boolean }>(`/v2/gbp/reviews/${reviewId}`, { method: "DELETE" }),
+      sync: (businessId: string) =>
+        request<{ success: boolean; synced: number }>(`/v2/gbp/sync/${businessId}`, { method: "POST" }),
+      stats: (businessId: string) =>
+        request<{ total: number; needsReply: number; replied: number; averageRating: number | null; ratingDistribution: { rating: number; count: number }[] }>(`/v2/gbp/stats/${businessId}`),
+    },
+  },
   payments: {
     plans: () =>
       request<{ plans: any[] }>("/payments/plans"),
     subscription: () =>
       request<{ subscription: any | null }>("/payments/subscription"),
     createSubscription: (planId: string) =>
-      request<{ subscription: any; shortUrl: string | null }>("/payments/create-subscription", {
+      request<{ subscription: any; shortUrl: string | null; keyId?: string; razorpaySubscriptionId?: string }>("/payments/create-subscription", {
         method: "POST",
         body: JSON.stringify({ planId }),
       }),

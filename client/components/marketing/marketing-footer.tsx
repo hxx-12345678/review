@@ -31,15 +31,16 @@ export function MarketingFooter() {
           <FooterCol
             title="Trust & Compliance"
             links={[
-              { label: "Compliance", href: "/#compliance" },
-              { label: "Google policy", href: "/#compliance" },
-              { label: "FTC rule", href: "/#compliance" },
               { label: "Privacy policy", href: "/privacy" },
+              { label: "Terms of service", href: "/terms" },
+              { label: "Refund policy", href: "/refund" },
+              { label: "Compliance", href: "/#compliance" },
             ]}
           />
           <FooterCol
             title="Company"
             links={[
+              { label: "Contact us", href: "/contact" },
               { label: "Get started", href: "/signup" },
               { label: "Log in", href: "/login" },
             ]}
@@ -58,6 +59,12 @@ export function MarketingFooter() {
               </Link>
               <Link href="/terms" className="text-xs text-muted-foreground transition-colors hover:text-foreground">
                 Terms
+              </Link>
+              <Link href="/refund" className="text-xs text-muted-foreground transition-colors hover:text-foreground">
+                Refunds
+              </Link>
+              <Link href="/contact" className="text-xs text-muted-foreground transition-colors hover:text-foreground">
+                Contact
               </Link>
             </div>
           </div>

@@ -2,23 +2,29 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, QrCode, Settings, CreditCard, BarChart3 } from "lucide-react"
+import { MessageSquare, Inbox, ListChecks, AtSign, Globe, Menu } from "lucide-react"
 import { Logo } from "@/components/logo"
 import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import { useSidebar } from "@/lib/sidebar-context"
 
 const NAV = [
-  { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
-  { href: "/dashboard/insights", label: "Insights", icon: BarChart3 },
-  { href: "/dashboard/qr", label: "QR", icon: QrCode },
-  { href: "/dashboard/billing", label: "Plan", icon: CreditCard },
-  { href: "/dashboard/settings", label: "Settings", icon: Settings },
+  { href: "/v2/whatsapp", label: "WhatsApp", icon: MessageSquare },
+  { href: "/v2/inbox", label: "Inbox", icon: Inbox },
+  { href: "/v2/tasks", label: "Tasks", icon: ListChecks },
+  { href: "/v2/instagram", label: "Instagram", icon: AtSign },
+  { href: "/v2/gbp", label: "GBP", icon: Globe },
 ]
 
 export function DashboardMobileNav() {
   const pathname = usePathname()
+  const { setMobileOpen } = useSidebar()
   return (
     <>
-      <header className="flex h-14 items-center justify-between border-b border-border bg-background px-4 md:hidden">
+      <header className="flex h-14 items-center gap-2 border-b border-border bg-background px-4 md:hidden">
+        <Button variant="ghost" size="icon" onClick={() => setMobileOpen(true)} aria-label="Open menu">
+          <Menu className="size-5" />
+        </Button>
         <Link href="/" aria-label="BEYONDVYU home">
           <Logo />
         </Link>
@@ -28,7 +34,7 @@ export function DashboardMobileNav() {
         aria-label="Dashboard"
       >
         {NAV.map((item) => {
-          const active = pathname === item.href
+          const active = pathname.startsWith(item.href)
           return (
             <Link
               key={item.href}

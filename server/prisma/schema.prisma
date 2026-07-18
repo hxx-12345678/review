@@ -96,6 +96,12 @@ model Business {
   activityLogs    ActivityLog[]
   googleAccount   GoogleAccount?
   googleReviews   GoogleReview[]
+  whatsAppTemplates WhatsAppTemplate[]
+  whatsAppFlows    WhatsAppFlow[]
+  whatsAppFlowResponses WhatsAppFlowResponse[]
+  reviewTasks      ReviewTask[]
+  instagramMentions InstagramMention[]
+  crossPlatformMessages CrossPlatformMessage[]
 }
 
 model QrCode {
@@ -168,15 +174,16 @@ model GeneratedReply {
 }
 
 model GoogleAccount {
-  id              String   @id @default(cuid())
-  businessId      String   @unique
-  googleAccountId String
-  accessToken     String   @default("")  // Legacy plaintext — use tokenEncrypted for new connections
-  refreshToken    String?                // Legacy plaintext — use tokenEncrypted
-  tokenEncrypted  Json?                  // { accessToken: { encrypted, iv, tag }, refreshToken?: { encrypted, iv, tag } }
-  tokenExpiresAt  DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id               String    @id @default(cuid())
+  businessId       String    @unique
+  googleAccountId  String
+  googleLocationId String?   // Google location ID for GBP API URL construction
+  accessToken      String    @default("")  // Legacy plaintext — use tokenEncrypted for new connections
+  refreshToken     String?                // Legacy plaintext — use tokenEncrypted
+  tokenEncrypted   Json?                  // { accessToken: { encrypted, iv, tag }, refreshToken?: { encrypted, iv, tag } }
+  tokenExpiresAt   DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   business        Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
   googleReviews   GoogleReview[]
@@ -267,5 +274,131 @@ model ActivityLog {
   createdAt  DateTime @default(now())
 
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------------------------
+// v2 Feature Models (isolated additions — do not modify existing models above)
+// ---------------------------------------------------------------------------
+
+enum FlowStatus {
+  SENT
+  OPENED
+  COMPLETED
+  EXPIRED
+}
+
+model WhatsAppTemplate {
+  id         String   @id @default(cuid())
+  businessId String
+  name       String
+  language   String   @default("en")
+  category   String   @default("MARKETING")
+  status     String   @default("APPROVED") // PENDING | APPROVED | REJECTED
+  flowId     String?  // WhatsApp Flow ID (for interactive flows)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  flows    WhatsAppFlow[]
+}
+
+model WhatsAppFlow {
+  id             String     @id @default(cuid())
+  businessId     String
+  templateId     String?
+  customerPhone  String
+  customerName   String?
+  status         FlowStatus @default(SENT)
+  flowSessionId  String?    @unique // WhatsApp Flow session ID
+  expiresAt      DateTime?
+  sentAt         DateTime   @default(now())
+  completedAt    DateTime?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  business Business             @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  template WhatsAppTemplate?   @relation(fields: [templateId], references: [id])
+  response WhatsAppFlowResponse?
+}
+
+model WhatsAppFlowResponse {
+  id              String   @id @default(cuid())
+  flowId          String   @unique
+  businessId      String
+  rating          Int
+  liked           String?
+  improvement     String?
+  customerName    String?
+  customerEmail   String?
+  privateNote     String?
+  rawResponse     Json?
+  createdAt       DateTime @default(now())
+
+  flow     WhatsAppFlow @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  business Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
+}
+
+model ReviewTask {
+  id             String   @id @default(cuid())
+  businessId     String
+  title          String
+  description    String?
+  taskType       String   @default("follow_up") // follow_up | reply | review_request
+  priority       String   @default("normal")    // low | normal | high
+  status         String   @default("pending")   // pending | done | overdue
+  source         String?  // "negative_review" | "overdue_reply" | "manual"
+  referenceId    String?  // ID of the review/feedback that triggered this
+  dueAt          DateTime?
+  assignedTo     String?  // agent name or user id
+  completedAt    DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+}
+
+model InstagramMention {
+  id              String   @id @default(cuid())
+  businessId      String
+  igMediaId       String   @unique
+  igCommentId     String?  @unique
+  mentionerName   String
+  mentionerIgId   String
+  commentText     String
+  mediaType       String   @default("image") // image | video | carousel
+  mediaUrl        String?
+  permalink       String?
+  isReply         Boolean  @default(false)
+  parentCommentId String?
+  sentiment       String?  // auto-detected: positive | neutral | negative
+  replied         Boolean  @default(false)
+  replyText       String?
+  repliedAt       DateTime?
+  syncedAt        DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+}
+
+model CrossPlatformMessage {
+  id              String   @id @default(cuid())
+  businessId      String
+  platform        String   // "google" | "instagram" | "whatsapp" | "sms" | "email"
+  externalId      String?  // ID on the platform
+  direction       String   @default("inbound") // inbound | outbound
+  authorName      String?
+  authorPlatformId String?
+  content         String
+  contentType     String   @default("text")
+  status          String   @default("unread") // unread | read | replied
+  replyText       String?
+  repliedAt       DateTime?
+  conversationId  String?  // Group messages into conversations
+  syncedAt        DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 }

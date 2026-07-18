@@ -139,7 +139,13 @@ router.post("/create-subscription", authRequired, async (req: AuthRequest, res: 
       },
     });
 
-    res.json({ subscription, shortUrl: rpSub.short_url });
+    const env = getEnv();
+    res.json({
+      subscription,
+      shortUrl: rpSub.short_url,
+      keyId: env.RAZORPAY_KEY_ID,
+      razorpaySubscriptionId: rpSub.id,
+    });
   } catch (err) {
     if (err instanceof z.ZodError) {
       return res.status(400).json({ error: "Invalid input", details: err.errors });

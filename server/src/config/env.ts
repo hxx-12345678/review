@@ -25,6 +25,19 @@ const envSchema = z.object({
   TOKEN_ENCRYPTION_KEY: z.string().optional().default(""),
   GOOGLE_PLACES_API_KEY: z.string().optional().default(""),
 
+  // WhatsApp Business Cloud API
+  WHATSAPP_API_TOKEN: z.string().optional().default(""),
+  WHATSAPP_PHONE_NUMBER_ID: z.string().optional().default(""),
+  WHATSAPP_BUSINESS_ACCOUNT_ID: z.string().optional().default(""),
+  WHATSAPP_API_VERSION: z.string().default("v25.0"),
+  WHATSAPP_WEBHOOK_VERIFY_TOKEN: z.string().optional().default(""),
+
+  // Instagram Graph API
+  INSTAGRAM_APP_ID: z.string().optional().default(""),
+  INSTAGRAM_APP_SECRET: z.string().optional().default(""),
+  INSTAGRAM_WEBHOOK_TOKEN: z.string().optional().default(""),
+  INSTAGRAM_BUSINESS_ACCOUNT_ID: z.string().optional().default(""),
+
   // Razorpay
   RAZORPAY_KEY_ID: z.string().optional().default(""),
   RAZORPAY_KEY_SECRET: z.string().optional().default(""),
