@@ -199,6 +199,9 @@ export function MarketingHeader() {
               </>
             )}
           </nav>
+          <div className="mt-2 border-t border-white/10 pt-2">
+            <InstallPWA />
+          </div>
         </div>
       )}
     </header>

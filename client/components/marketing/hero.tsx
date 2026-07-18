@@ -1,7 +1,6 @@
 import Link from "next/link"
 import { ArrowRight, ShieldCheck, Star } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { InstallPWA } from "@/components/install-pwa"
 
 export function Hero() {
   return (
@@ -54,7 +53,6 @@ export function Hero() {
                   <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
                 </Button>
               </div>
-              <InstallPWA variant="hero" />
             </div>
           </div>
 
