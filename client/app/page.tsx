@@ -1,26 +1,18 @@
-import dynamic from "next/dynamic"
 import { MarketingHeader } from "@/components/marketing/marketing-header"
+import { MarketingFooter } from "@/components/marketing/marketing-footer"
+import { Hero } from "@/components/marketing/hero"
 import { MarketingFooter } from "@/components/marketing/marketing-footer"
 import { Hero } from "@/components/marketing/hero"
 import { SocialProof } from "@/components/marketing/social-proof"
 import { HowItWorks } from "@/components/marketing/how-it-works"
 import { ComplianceSection } from "@/components/marketing/compliance-section"
 import { CtaSection } from "@/components/marketing/cta-section"
-
-const AuthRedirect = dynamic(
-  () => import("@/components/marketing/auth-redirect").then((m) => ({ default: m.AuthRedirect })),
-  { ssr: false },
-)
-
-const LandingAnimations = dynamic(
-  () => import("@/components/marketing/landing-animations").then((m) => ({ default: m.LandingAnimations })),
-  { ssr: false },
-)
+import { ClientEffects } from "@/components/marketing/client-effects"
 
 export default function Page() {
   return (
     <div className="flex min-h-screen min-w-0 flex-col">
-      <AuthRedirect />
+      <ClientEffects />
       <MarketingHeader />
       <main className="flex-1 min-w-0 pt-16">
         <Hero />
@@ -30,8 +22,7 @@ export default function Page() {
         <CtaSection />
       </main>
       <MarketingFooter />
-      <LandingAnimations />
-
+    
       {/* JSON-LD Structured Data */}
       <script
         type="application/ld+json"

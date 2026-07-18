@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
-import { Download, MonitorSmartphone, X, Share2, Browser } from "lucide-react"
+import { Download, MonitorSmartphone, X, Share2, Monitor, Globe } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface BeforeInstallPromptEvent extends Event {
@@ -113,12 +113,12 @@ export function InstallPWA({ variant = "default", onInstall }: InstallPWAProps) 
             {isIOS ? (
               <div className="space-y-4">
                 <Step icon={Share2} text={<>Tap the <strong>Share</strong> button in your browser toolbar.</>} />
-                <Step icon={Browser} text={<>Scroll down and tap <strong>Add to Home Screen</strong>.</>} />
+                <Step icon={Monitor} text={<>Scroll down and tap <strong>Add to Home Screen</strong>.</>} />
                 <Step icon={Download} text={<>Tap <strong>Add</strong> in the top right to install.</>} />
               </div>
             ) : (
               <div className="space-y-4">
-                <Step icon={Browser} text={<>Open your browser menu (three dots in the top-right corner).</>} />
+                <Step icon={Monitor} text={<>Open your browser menu (three dots in the top-right corner).</>} />
                 <Step icon={Download} text={<>Tap <strong>Install app</strong> or <strong>Add to Home Screen</strong>.</>} />
                 <p className="text-center text-xs text-muted-foreground">
                   For the best experience, use Chrome or Edge on Android/desktop.

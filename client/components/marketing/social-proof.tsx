@@ -25,7 +25,7 @@ function BusinessCard({ name }: { name: string }) {
 
 export function SocialProof() {
   return (
-    <section className="relative overflow-hidden border-y border-border/40 bg-gradient-to-b from-background via-muted/30 to-background py-10">
+    <section className="relative overflow-hidden border-y border-border/40 bg-gradient-to-b from-background via-muted/30 to-background py-8">
       {/* Heading */}
       <div className="text-center reveal px-4">
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
@@ -34,8 +34,8 @@ export function SocialProof() {
       </div>
 
       {/* Marquee */}
-      <div className="mt-10 overflow-hidden [mask-image:linear-gradient(to_right,transparent_0%,black_8%,black_92%,transparent_100%)]">
-        <div className="marquee-track gap-4">
+      <div className="mt-6 overflow-hidden [mask-image:linear-gradient(to_right,transparent_0%,black_4%,black_96%,transparent_100%)]">
+        <div className="marquee-track flex gap-4">
           {[...BUSINESSES, ...BUSINESSES, ...BUSINESSES].map((name, i) => (
             <BusinessCard key={`${name}-${i}`} name={name} />
           ))}
