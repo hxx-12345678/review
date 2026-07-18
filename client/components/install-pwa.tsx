@@ -47,11 +47,6 @@ export function InstallPWA({ variant = "default", onInstall, onOpenChange }: Ins
         if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
         return true
       }
-      if (window.__installReady === false) {
-        setCanInstall(false)
-        if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
-        return true
-      }
       return false
     }
 

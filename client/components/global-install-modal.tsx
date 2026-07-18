@@ -67,12 +67,6 @@ export function GlobalInstallModal() {
         if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
         return true
       }
-      if (window.__installReady === false) {
-        setCanInstall(false)
-        setChecked(true)
-        if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
-        return true
-      }
       return false
     }
 
@@ -130,7 +124,7 @@ export function GlobalInstallModal() {
 
   if (!mounted || !open) return null
 
-  const isSupported = canInstall === true
+  const isSupported = canInstall === true || !!(navigator as any).install
 
   return createPortal(
     <div
