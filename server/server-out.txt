@@ -1,0 +1,5 @@
+Connected to PostgreSQL
+Default subscription plans seeded
+BEYONDVYU API server running on port 4000
+Environment: development
+Allowed origins: http://localhost:3000, https://review-nine-inky.vercel.app, http://localhost:3000, http://localhost:3001, https://review-nine-inky.vercel.app, https://review-ewye.onrender.com
