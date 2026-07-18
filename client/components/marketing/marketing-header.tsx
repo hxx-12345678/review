@@ -1,15 +1,30 @@
 "use client"
 
 import Link from "next/link"
-import { useState, useEffect } from "react"
-import { Menu, X } from "lucide-react"
+import { useState, useEffect, useRef } from "react"
+import { Menu, X, LayoutDashboard, LogOut, User } from "lucide-react"
 import { Logo } from "@/components/logo"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { useAuth } from "@/lib/auth-context"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 
 export function MarketingHeader() {
+  const { user, loading, logout } = useAuth()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const userMenuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
 
   useEffect(() => {
     let ticking = false
@@ -62,29 +77,74 @@ export function MarketingHeader() {
         </nav>
 
         <div className="flex items-center gap-2 relative z-10">
-          <Button
-            render={<Link href="/login" />}
-            nativeButton={false}
-            variant="ghost"
-            size="sm"
-              className={cn(
-                "hidden relative overflow-hidden rounded-lg px-5 py-2 text-sm font-medium sm:inline-flex",
-                "before:absolute before:inset-0 before:rounded-lg before:transition-transform before:duration-500 before:-translate-x-full hover:before:translate-x-0",
-                scrolled
-                  ? "border border-zinc-300 text-zinc-700 before:bg-gradient-to-r before:from-zinc-200 before:to-zinc-100"
-                  : "border border-zinc-700 text-zinc-300 before:bg-gradient-to-r before:from-white/15 before:to-white/5"
+          {user ? (
+            <div className="relative" ref={userMenuRef}>
+              <button
+                onClick={() => setUserMenuOpen(!userMenuOpen)}
+                className={cn(
+                  "flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition-all",
+                  scrolled
+                    ? "text-zinc-700 hover:bg-zinc-100"
+                    : "text-zinc-300 hover:bg-white/10 hover:text-white"
+                )}
+              >
+                <Avatar className="h-7 w-7">
+                  <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                    {(user.name || user.email).charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="hidden sm:inline">{user.name || user.email}</span>
+              </button>
+              {userMenuOpen && (
+                <div className={cn(
+                  "absolute right-0 top-full mt-2 w-48 rounded-xl border p-1.5 shadow-lg backdrop-blur-xl",
+                  scrolled ? "border-zinc-200 bg-white" : "border-zinc-700 bg-black/90"
+                )}>
+                  <Link
+                    href="/dashboard"
+                    className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-primary/10"
+                    onClick={() => setUserMenuOpen(false)}
+                  >
+                    <LayoutDashboard className="h-4 w-4" />
+                    Dashboard
+                  </Link>
+                  <button
+                    onClick={() => { setUserMenuOpen(false); logout(); }}
+                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-red-500 transition-colors hover:bg-red-50"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Log out
+                  </button>
+                </div>
               )}
-          >
-            <span className="relative z-10">Log in</span>
-          </Button>
-          <Button
-            render={<Link href="/signup" />}
-            nativeButton={false}
-            size="sm"
-            className="relative overflow-hidden rounded-lg bg-primary px-5 py-2 text-sm font-bold text-primary-foreground shadow-md hover:shadow-lg squishy before:absolute before:inset-0 before:rounded-lg before:bg-gradient-to-r before:from-white/25 before:to-transparent before:transition-transform before:duration-500 before:-translate-x-full hover:before:translate-x-0"
-          >
-            <span className="relative z-10">Get started</span>
-          </Button>
+            </div>
+          ) : (
+            <>
+              <Button
+                render={<Link href="/login" />}
+                nativeButton={false}
+                variant="ghost"
+                size="sm"
+                className={cn(
+                  "hidden relative overflow-hidden rounded-lg px-5 py-2 text-sm font-medium sm:inline-flex",
+                  "before:absolute before:inset-0 before:rounded-lg before:transition-transform before:duration-500 before:-translate-x-full hover:before:translate-x-0",
+                  scrolled
+                    ? "border border-zinc-300 text-zinc-700 before:bg-gradient-to-r before:from-zinc-200 before:to-zinc-100"
+                    : "border border-zinc-700 text-zinc-300 before:bg-gradient-to-r before:from-white/15 before:to-white/5"
+                )}
+              >
+                <span className="relative z-10">Log in</span>
+              </Button>
+              <Button
+                render={<Link href="/signup" />}
+                nativeButton={false}
+                size="sm"
+                className="relative overflow-hidden rounded-lg bg-primary px-5 py-2 text-sm font-bold text-primary-foreground shadow-md hover:shadow-lg squishy before:absolute before:inset-0 before:rounded-lg before:bg-gradient-to-r before:from-white/25 before:to-transparent before:transition-transform before:duration-500 before:-translate-x-full hover:before:translate-x-0"
+              >
+                <span className="relative z-10">Get started</span>
+              </Button>
+            </>
+          )}
           <button
               className={cn(
                 "flex size-9 items-center justify-center rounded-lg transition-colors md:hidden",
@@ -108,7 +168,7 @@ export function MarketingHeader() {
               { href: "/#how", label: "How it works" },
               { href: "/#compliance", label: "Compliance" },
               { href: "/pricing", label: "Pricing" },
-              { href: "/login", label: "Log in" },
+              ...(user ? [] : [{ href: "/login", label: "Log in" as const }]),
             ].map((link) => (
               <Link
                 key={link.href}
@@ -119,6 +179,23 @@ export function MarketingHeader() {
                 {link.label}
               </Link>
             ))}
+            {user && (
+              <>
+                <Link
+                  href="/dashboard"
+                  className="rounded-xl px-4 py-2.5 text-sm font-medium text-white/80 transition-all duration-200 hover:bg-white/10 hover:text-white"
+                  onClick={() => setMobileOpen(false)}
+                >
+                  Dashboard
+                </Link>
+                <button
+                  onClick={() => { setMobileOpen(false); logout(); }}
+                  className="rounded-xl px-4 py-2.5 text-left text-sm font-medium text-red-400 transition-all duration-200 hover:bg-white/10 hover:text-red-300"
+                >
+                  Log out
+                </button>
+              </>
+            )}
           </nav>
         </div>
       )}

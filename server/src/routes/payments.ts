@@ -1,5 +1,6 @@
-import { Router, Response } from "express";
+import { Router, Response, Request } from "express";
 import { z } from "zod";
+import crypto from "crypto";
 import Razorpay from "razorpay";
 import { prisma } from "../config/database";
 import { getEnv } from "../config/env";
@@ -54,7 +55,7 @@ router.get("/plans", async (_req, res: Response) => {
 router.get("/subscription", authRequired, async (req: AuthRequest, res: Response) => {
   try {
     const sub = await prisma.subscription.findFirst({
-      where: { userId: req.userId, status: { in: ["created", "active", "paused"] } },
+      where: { userId: req.userId, status: { in: ["created", "authenticated", "active", "paused", "past_due"] } },
       include: {
         plan: true,
         invoices: { orderBy: { createdAt: "desc" }, take: 10 },
@@ -82,11 +83,15 @@ router.post("/create-subscription", authRequired, async (req: AuthRequest, res: 
     }
 
     const existing = await prisma.subscription.findFirst({
-      where: { userId: req.userId, status: { in: ["created", "active", "paused"] } },
+      where: { userId: req.userId, status: { in: ["created", "authenticated", "active", "paused", "past_due"] } },
     });
     if (existing) {
       if (existing.razorpaySubscriptionId) {
-        try { await razorpay.subscriptions.cancel(existing.razorpaySubscriptionId); } catch { }
+        try {
+          await razorpay.subscriptions.cancel(existing.razorpaySubscriptionId);
+        } catch (cancelErr: any) {
+          console.warn("Failed to cancel existing Razorpay subscription:", cancelErr.error?.description || cancelErr.message || cancelErr);
+        }
       }
       await prisma.subscription.update({
         where: { id: existing.id },
@@ -115,6 +120,7 @@ router.post("/create-subscription", authRequired, async (req: AuthRequest, res: 
       plan_id: razorpayPlanId,
       total_count: 999,
       customer_notify: true,
+      callback_url: `${req.protocol}://${req.get("host")}/api/payments/subscription-callback`,
       notes: { userId: req.userId!, planId: plan.id },
     } as any);
 
@@ -144,6 +150,65 @@ router.post("/create-subscription", authRequired, async (req: AuthRequest, res: 
   }
 });
 
+// Razorpay redirects here after customer completes payment on subscription-hosted page
+// Verifies HMAC signature (payment_id|subscription_id signed with KEY_SECRET) before redirecting to frontend
+router.get("/subscription-callback", async (req: Request, res: Response) => {
+  try {
+    const env = getEnv();
+    const frontendUrl = env.FRONTEND_URL.split(",")[0].trim() || "http://localhost:3000";
+    const { razorpay_payment_id, razorpay_subscription_id, razorpay_signature } = req.query;
+
+    if (!razorpay_payment_id || !razorpay_subscription_id || !razorpay_signature) {
+      return res.redirect(`${frontendUrl}/dashboard/billing?success=false&error=missing_params`);
+    }
+
+    if (!env.RAZORPAY_KEY_SECRET) {
+      return res.redirect(`${frontendUrl}/dashboard/billing?success=false&error=gateway_not_configured`);
+    }
+
+    const expected = crypto
+      .createHmac("sha256", env.RAZORPAY_KEY_SECRET)
+      .update(`${razorpay_payment_id}|${razorpay_subscription_id}`)
+      .digest("hex");
+
+    if (expected !== razorpay_signature) {
+      console.error("Subscription callback signature mismatch");
+      return res.redirect(`${frontendUrl}/dashboard/billing?success=false&error=invalid_signature`);
+    }
+
+    const dbSub = await prisma.subscription.findFirst({
+      where: { razorpaySubscriptionId: razorpay_subscription_id as string },
+    });
+
+    if (dbSub && dbSub.status === "created") {
+      try {
+        const razorpay = getRazorpay();
+        if (razorpay) {
+          const payment = await razorpay.payments.fetch(razorpay_payment_id as string);
+          if (payment.status === "captured") {
+            await prisma.subscription.update({
+              where: { id: dbSub.id },
+              data: {
+                status: "authenticated",
+                razorpayCustomerId: (payment as any).customer_id || dbSub.razorpayCustomerId,
+              },
+            });
+          }
+        }
+      } catch (fetchErr: any) {
+        console.warn("Could not verify payment status on callback:", fetchErr.message || fetchErr);
+      }
+    }
+
+    return res.redirect(`${frontendUrl}/dashboard/billing?success=true&payment_id=${razorpay_payment_id}`);
+  } catch (err) {
+    console.error("Subscription callback error:", err);
+    const env = getEnv();
+    const frontendUrl = env.FRONTEND_URL.split(",")[0].trim() || "http://localhost:3000";
+    return res.redirect(`${frontendUrl}/dashboard/billing?success=false&error=server_error`);
+  }
+});
+
 router.post("/cancel", authRequired, async (req: AuthRequest, res: Response) => {
   try {
     const sub = await prisma.subscription.findFirst({
@@ -153,7 +218,11 @@ router.post("/cancel", authRequired, async (req: AuthRequest, res: Response) => 
 
     const razorpay = getRazorpay();
     if (razorpay && sub.razorpaySubscriptionId) {
-      try { await razorpay.subscriptions.cancel(sub.razorpaySubscriptionId); } catch { }
+      try {
+        await razorpay.subscriptions.cancel(sub.razorpaySubscriptionId);
+      } catch (cancelErr: any) {
+        console.warn("Failed to cancel Razorpay subscription:", cancelErr.error?.description || cancelErr.message || cancelErr);
+      }
     }
 
     await prisma.subscription.update({

@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { MarketingHeader } from "@/components/marketing/marketing-header"
 import { MarketingFooter } from "@/components/marketing/marketing-footer"
 import { Hero } from "@/components/marketing/hero"
@@ -8,8 +9,20 @@ import { SocialProof } from "@/components/marketing/social-proof"
 import { HowItWorks } from "@/components/marketing/how-it-works"
 import { ComplianceSection } from "@/components/marketing/compliance-section"
 import { CtaSection } from "@/components/marketing/cta-section"
+import { useAuth } from "@/lib/auth-context"
 
 export default function Page() {
+  const { user, loading } = useAuth()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (!loading && user) {
+      router.replace("/dashboard")
+    }
+  }, [user, loading, router])
+
+  if (loading) return null
+  if (user) return null
   useEffect(() => {
     const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches
     if (prefersReduced) {

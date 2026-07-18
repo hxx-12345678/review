@@ -72,11 +72,18 @@ function BillingPage() {
   const [error, setError] = useState("");
 
   const success = searchParams.get("success");
+  const paymentId = searchParams.get("payment_id");
+  const errorType = searchParams.get("error");
 
   useEffect(() => {
     if (!user || authLoading) return;
     loadData();
-  }, [user, authLoading]);
+    if (paymentId) {
+      // Refresh data after callback verification to show updated status
+      const timer = setTimeout(() => loadData(), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [user, authLoading, paymentId]);
 
   async function loadData() {
     setLoading(true);
@@ -161,17 +168,29 @@ function BillingPage() {
       />
 
       <div className="space-y-8 p-4 sm:p-6 lg:p-8">
-        {success && (
+        {success === "true" && (
           <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">
             <p className="flex items-center gap-2 font-medium">
               <Check className="size-4" />
               Payment successful! Your subscription is being activated.
             </p>
-            <p className="mt-1 text-green-600">It may take a few minutes for the subscription to reflect.</p>
+            <p className="mt-1 text-green-600">It may take a few minutes for the subscription to reflect. Refreshing...</p>
           </div>
         )}
 
-        {error && (
+        {success === "false" && (
+          <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+            <p className="flex items-center gap-2 font-medium">
+              <AlertCircle className="size-4" />
+              {errorType === "invalid_signature" ? "Payment verification failed. Please contact support." :
+               errorType === "gateway_not_configured" ? "Payment gateway is not configured properly." :
+               errorType === "missing_params" ? "Invalid payment response from gateway." :
+               "Payment could not be completed. Please try again."}
+            </p>
+          </div>
+        )}
+
+        {error && !success && (
           <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
             <p className="flex items-center gap-2 font-medium">
               <AlertCircle className="size-4" />
@@ -311,6 +330,49 @@ function BillingPage() {
             </CardContent>
           </Card>
         )}
+
+        {/* RBI E-Mandate Framework 2026 Disclosure — required by RBI/2026-27/396 */}
+        <Card className="border-amber-200 bg-amber-50/50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-sm font-medium text-amber-800">
+              <Receipt className="size-4" />
+              Subscription & Recurring Payment Information
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-xs text-amber-700">
+            <p>
+              <strong>E-Mandate Registration:</strong> By subscribing, you authorize BEYONDVYU to collect
+              recurring payments via Razorpay. The first payment requires your authentication via OTP (AFA)
+              as per RBI guidelines. Subsequent recurring charges under ₹15,000 are processed without
+              additional AFA.
+            </p>
+            <p>
+              <strong>Pre-debit Notification:</strong> Your card issuer will send a notification at least
+              24 hours before each recurring debit with merchant name, amount, date, and e-mandate reference.
+            </p>
+            <p>
+              <strong>Opt-out Facility:</strong> You may cancel or modify this mandate at any time via your
+              billing dashboard. Cancellation prior to a debit date will stop that charge. Razorpay or your
+              bank may require additional authentication (AFA) to process opt-out or mandate modifications.
+            </p>
+            <p>
+              <strong>Mandate Validity:</strong> This e-mandate is valid for the duration of your
+              subscription. The validity period is specified in your Razorpay mandate confirmation.
+            </p>
+            <p>
+              <strong>No Additional Charges:</strong> No charges are levied by BEYONDVYU for the e-mandate
+              facility. Standard bank/internet charges may apply per your card issuer&apos;s terms.
+            </p>
+            <p>
+              <strong>Grievance Redressal:</strong> For disputes or questions, contact us at
+              support@beyondvyu.app or visit our{" "}
+              <a href="/contact" className="underline hover:text-amber-900">Contact page</a>.
+              See our{" "}
+              <a href="/refund" className="underline hover:text-amber-900">Refund Policy</a> for
+              cancellation and chargeback terms.
+            </p>
+          </CardContent>
+        </Card>
       </div>
     </>
   );
