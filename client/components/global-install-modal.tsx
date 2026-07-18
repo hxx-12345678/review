@@ -93,6 +93,21 @@ export function GlobalInstallModal() {
   }, [open])
 
   const handleInstall = useCallback(async () => {
+    // Priority 1: Web Install API (Chrome/Edge 148+, origin trial)
+    if ((navigator as any).install) {
+      setInstalling(true)
+      try {
+        await (navigator as any).install()
+        closeModal()
+        return
+      } catch {
+        // rejected — fall through to BIP
+      } finally {
+        setInstalling(false)
+      }
+    }
+
+    // Priority 2: beforeinstallprompt (older Chrome)
     const prompt = window.__deferredPrompt
     if (prompt) {
       setInstalling(true)

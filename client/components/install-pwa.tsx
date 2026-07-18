@@ -11,6 +11,9 @@ declare global {
     __showInstallModal?: boolean
     __openInstallModal?: () => void
   }
+  interface Navigator {
+    install?: (url?: string) => Promise<void>
+  }
 }
 
 function showInstallModal() {
@@ -72,6 +75,22 @@ export function InstallPWA({ variant = "default", onInstall, onOpenChange }: Ins
   }, [])
 
   const handleInstall = useCallback(async () => {
+    // Priority 1: Web Install API (Chrome/Edge 148+, origin trial)
+    if (navigator.install) {
+      setInstalling(true)
+      try {
+        await navigator.install()
+        setInstalled(true)
+        onInstall?.()
+        return
+      } catch {
+        // navigator.install() rejected — fall through to BIP
+      } finally {
+        setInstalling(false)
+      }
+    }
+
+    // Priority 2: beforeinstallprompt (older Chrome/Edge)
     const prompt = window.__deferredPrompt
     if (prompt) {
       setInstalling(true)
@@ -90,15 +109,17 @@ export function InstallPWA({ variant = "default", onInstall, onOpenChange }: Ins
       } finally {
         setInstalling(false)
       }
-    } else {
-      showInstallModal()
-      onOpenChange?.(true)
+      return
     }
+
+    // Priority 3: Show install instructions modal
+    showInstallModal()
+    onOpenChange?.(true)
   }, [onInstall, onOpenChange])
 
   if (installed) return null
 
-  const isSupported = canInstall === true
+  const isSupported = canInstall === true || !!navigator.install
 
   const btnContent = (
     <>
