@@ -120,7 +120,6 @@ router.post("/create-subscription", authRequired, async (req: AuthRequest, res: 
       plan_id: razorpayPlanId,
       total_count: 999,
       customer_notify: true,
-      callback_url: `${req.protocol}://${req.get("host")}/api/payments/subscription-callback`,
       notes: { userId: req.userId!, planId: plan.id },
     } as any);
 

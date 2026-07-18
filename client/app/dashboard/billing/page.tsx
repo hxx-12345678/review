@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useState, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Check, Receipt, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
+import { SubscribeConfirmDialog } from "@/components/billing/subscribe-confirm-dialog";
 
 type Plan = {
   id: string;
@@ -70,6 +71,8 @@ function BillingPage() {
   const [subscribing, setSubscribing] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState("");
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [selectedMonthlyPlan, setSelectedMonthlyPlan] = useState<Plan | null>(null);
 
   const success = searchParams.get("success");
   const paymentId = searchParams.get("payment_id");
@@ -79,7 +82,6 @@ function BillingPage() {
     if (!user || authLoading) return;
     loadData();
     if (paymentId) {
-      // Refresh data after callback verification to show updated status
       const timer = setTimeout(() => loadData(), 3000);
       return () => clearTimeout(timer);
     }
@@ -101,11 +103,43 @@ function BillingPage() {
     }
   }
 
-  async function handleSubscribe(planId: string) {
+  const yearlyPlanPairs = useMemo(() => {
+    const pairs: Record<string, { monthly: Plan; yearly: Plan | null }> = {};
+    for (const plan of plans) {
+      if (plan.interval === "year") {
+        const baseSlug = plan.slug.replace("-yearly", "");
+        if (!pairs[baseSlug]) pairs[baseSlug] = { monthly: null as any, yearly: null };
+        pairs[baseSlug].yearly = plan;
+      }
+    }
+    for (const plan of plans) {
+      if (plan.interval === "month" || plan.interval === "month") {
+        const baseSlug = plan.slug;
+        if (!pairs[baseSlug]) pairs[baseSlug] = { monthly: plan, yearly: null };
+        else pairs[baseSlug].monthly = plan;
+      }
+    }
+    return pairs;
+  }, [plans]);
+
+  const displayPlans = useMemo(() => {
+    return plans.filter((p) => p.price > 0 && p.interval === "month");
+  }, [plans]);
+
+  function handleSubscribeClick(planId: string) {
+    const monthly = plans.find((p) => p.id === planId && p.interval === "month");
+    if (monthly) {
+      setSelectedMonthlyPlan(monthly);
+      setConfirmOpen(true);
+    }
+  }
+
+  async function handleConfirmSubscribe(planId: string) {
     setSubscribing(planId);
     setError("");
     try {
       const res = await api.payments.createSubscription(planId);
+      setConfirmOpen(false);
       if (res.shortUrl) {
         window.location.href = res.shortUrl;
       } else {
@@ -159,6 +193,10 @@ function BillingPage() {
     router.replace("/login");
     return null;
   }
+
+  const pair = selectedMonthlyPlan
+    ? yearlyPlanPairs[selectedMonthlyPlan.slug]
+    : null;
 
   return (
     <>
@@ -255,9 +293,12 @@ function BillingPage() {
         <div>
           <h2 className="mb-4 text-lg font-medium">Available Plans</h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {plans.filter((p) => p.price > 0).map((plan) => {
+            {displayPlans.map((plan) => {
               const isCurrentPlan = subscription?.planId === plan.id;
               const isDowngrade = subscription && plan.price < subscription.plan.price;
+              const planPair = yearlyPlanPairs[plan.slug];
+              const hasYearly = !!planPair?.yearly;
+
               return (
                 <Card key={plan.id} className={cn(isCurrentPlan && "border-primary ring-1 ring-primary")}>
                   <CardHeader>
@@ -271,6 +312,11 @@ function BillingPage() {
                       <span className="text-3xl font-semibold tracking-tight">{formatPrice(plan.price)}</span>
                       <span className="text-sm text-muted-foreground">/{plan.interval}</span>
                     </div>
+                    {hasYearly && (
+                      <p className="text-xs text-green-600 font-medium">
+                        or {formatPrice(planPair.yearly!.price)}/yr — save 2 months
+                      </p>
+                    )}
                     <CardDescription>{plan.description}</CardDescription>
                   </CardHeader>
                   <CardContent>
@@ -288,7 +334,7 @@ function BillingPage() {
                       className="w-full"
                       variant={isCurrentPlan ? "outline" : "default"}
                       disabled={isCurrentPlan || subscribing === plan.id}
-                      onClick={() => handleSubscribe(plan.id)}
+                      onClick={() => handleSubscribeClick(plan.id)}
                     >
                       {subscribing === plan.id ? (
                         <Loader2 className="size-4 animate-spin" />
@@ -374,6 +420,16 @@ function BillingPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Subscribe confirmation dialog */}
+      <SubscribeConfirmDialog
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        onConfirm={handleConfirmSubscribe}
+        monthlyPlan={selectedMonthlyPlan}
+        yearlyPlan={pair?.yearly ?? null}
+        loading={!!subscribing}
+      />
     </>
   );
 }

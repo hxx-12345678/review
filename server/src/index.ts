@@ -353,9 +353,11 @@ app.use(errorHandler);
 
 async function seedDefaultPlans() {
   const plans = [
-    { name: "Free", slug: "free", price: 0, sortOrder: 0, aiCallsLimit: 1000, businessLimit: 1, features: ["1 business", "1000 AI calls/mo", "Unlimited QR codes", "Review inbox", "Basic analytics"], description: "For businesses just getting started." },
-    { name: "Starter", slug: "starter", price: 49900, sortOrder: 1, aiCallsLimit: 500, businessLimit: 1, features: ["1 business", "500 AI calls/mo", "AI reply drafting", "Review insights", "SMS & email requests", "Priority support"], description: "For single-location businesses ready to grow." },
-    { name: "Pro", slug: "pro", price: 199900, sortOrder: 2, aiCallsLimit: 5000, businessLimit: 5, features: ["Up to 5 businesses", "5000 AI calls/mo", "Everything in Starter", "Google Business Profile sync", "Team roles", "Dedicated support"], description: "For growing businesses with multiple locations." },
+    { name: "Free", slug: "free", price: 0, interval: "month", sortOrder: 0, aiCallsLimit: 1000, businessLimit: 1, features: ["1 business", "1000 AI calls/mo", "Unlimited QR codes", "Review inbox", "Basic analytics"], description: "For businesses just getting started." },
+    { name: "Starter", slug: "starter", price: 49900, interval: "month", sortOrder: 1, aiCallsLimit: 500, businessLimit: 1, features: ["1 business", "500 AI calls/mo", "AI reply drafting", "Review insights", "SMS & email requests", "Priority support"], description: "For single-location businesses ready to grow." },
+    { name: "Pro", slug: "pro", price: 199900, interval: "month", sortOrder: 2, aiCallsLimit: 5000, businessLimit: 5, features: ["Up to 5 businesses", "5000 AI calls/mo", "Everything in Starter", "Google Business Profile sync", "Team roles", "Dedicated support"], description: "For growing businesses with multiple locations." },
+    { name: "Starter Yearly", slug: "starter-yearly", price: 499000, interval: "year", sortOrder: 3, aiCallsLimit: 500, businessLimit: 1, features: ["1 business", "500 AI calls/mo", "AI reply drafting", "Review insights", "SMS & email requests", "Priority support", "Save 2 months free"], description: "Billed annually. Save ₹998 vs monthly." },
+    { name: "Pro Yearly", slug: "pro-yearly", price: 1999000, interval: "year", sortOrder: 4, aiCallsLimit: 5000, businessLimit: 5, features: ["Up to 5 businesses", "5000 AI calls/mo", "Everything in Starter", "Google Business Profile sync", "Team roles", "Dedicated support", "Save 2 months free"], description: "Billed annually. Save ₹3,998 vs monthly." },
   ];
   for (const p of plans) {
     await prisma.subscriptionPlan.upsert({
