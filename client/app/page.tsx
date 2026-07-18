@@ -1,8 +1,6 @@
 import { MarketingHeader } from "@/components/marketing/marketing-header"
 import { MarketingFooter } from "@/components/marketing/marketing-footer"
 import { Hero } from "@/components/marketing/hero"
-import { MarketingFooter } from "@/components/marketing/marketing-footer"
-import { Hero } from "@/components/marketing/hero"
 import { SocialProof } from "@/components/marketing/social-proof"
 import { HowItWorks } from "@/components/marketing/how-it-works"
 import { ComplianceSection } from "@/components/marketing/compliance-section"

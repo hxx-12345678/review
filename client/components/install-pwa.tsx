@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
-import { Download, MonitorSmartphone, X, Share2, Monitor, Globe } from "lucide-react"
+import { Download, MonitorSmartphone, X, Share2, Monitor } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface BeforeInstallPromptEvent extends Event {
@@ -19,7 +19,6 @@ export function InstallPWA({ variant = "default", onInstall }: InstallPWAProps) 
   const [installed, setInstalled] = useState(false)
   const [showInstructions, setShowInstructions] = useState(false)
   const [isIOS, setIsIOS] = useState(false)
-  const [show, setShow] = useState(false)
 
   useEffect(() => {
     setIsIOS(/iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream)
@@ -32,7 +31,6 @@ export function InstallPWA({ variant = "default", onInstall }: InstallPWAProps) 
     const handler = (e: Event) => {
       e.preventDefault()
       setDeferredPrompt(e as BeforeInstallPromptEvent)
-      setShow(true)
     }
 
     window.addEventListener("beforeinstallprompt", handler)
@@ -41,8 +39,6 @@ export function InstallPWA({ variant = "default", onInstall }: InstallPWAProps) 
       setInstalled(true)
       setDeferredPrompt(null)
     })
-
-    setTimeout(() => setShow(true), 3000)
 
     return () => {
       window.removeEventListener("beforeinstallprompt", handler)
@@ -63,7 +59,7 @@ export function InstallPWA({ variant = "default", onInstall }: InstallPWAProps) 
     }
   }, [deferredPrompt, onInstall])
 
-  if (installed || !show) return null
+  if (installed) return null
 
   const btn = (
     <button
