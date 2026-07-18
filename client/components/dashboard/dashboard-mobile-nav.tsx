@@ -21,7 +21,7 @@ export function DashboardMobileNav() {
   const { setMobileOpen } = useSidebar()
   return (
     <>
-      <header className="flex h-14 items-center gap-2 border-b border-border bg-background px-4 md:hidden">
+      <header className="flex h-11 items-center gap-2 border-b border-border bg-background px-4 md:hidden">
         <Button variant="ghost" size="icon" onClick={() => setMobileOpen(true)} aria-label="Open menu">
           <Menu className="size-5" />
         </Button>

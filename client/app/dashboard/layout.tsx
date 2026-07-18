@@ -6,7 +6,7 @@ import { SidebarProvider } from "@/lib/sidebar-context"
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
     <SidebarProvider>
-      <div className="flex min-h-screen min-w-0 bg-background pt-14 md:pt-0">
+      <div className="flex min-h-screen min-w-0 bg-background pt-11 md:pt-0">
         <DashboardSidebar />
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <DashboardMobileNav />
