@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, Plus_Jakarta_Sans } from 'next/font/google'
 import { Toaster } from '@/components/ui/sonner'
 import { Providers } from '@/lib/providers'
 import { PWARegister } from '@/components/pwa-register'
+import { GlobalInstallCapture } from '@/components/install-capture'
 import './globals.css'
 
 const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] })
@@ -97,9 +98,27 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} ${headingFont.variable} bg-background`}>
       <body className="font-sans antialiased">
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.__deferredPrompt = null;
+              window.__installReady = false;
+              window.addEventListener('beforeinstallprompt', function(e) {
+                e.preventDefault();
+                window.__deferredPrompt = e;
+                window.__installReady = true;
+              });
+              window.addEventListener('appinstalled', function() {
+                window.__deferredPrompt = null;
+                window.__installReady = true;
+              });
+            `,
+          }}
+        />
         <Providers>
           {children}
           <PWARegister />
+          <GlobalInstallCapture />
         </Providers>
         <Toaster />
       </body>

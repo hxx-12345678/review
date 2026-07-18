@@ -199,8 +199,11 @@ export function MarketingHeader() {
               </>
             )}
           </nav>
-          <div className="mt-2 border-t border-white/10 pt-2">
-            <InstallPWA />
+          <div className="mt-3 border-t border-white/10 pt-3 space-y-2">
+            <p className="px-1 text-[11px] font-semibold uppercase tracking-wider text-white/40">
+              Get the app
+            </p>
+            <InstallPWA variant="mobile-menu" onOpenChange={(open) => { if (open) setMobileOpen(false) }} />
           </div>
         </div>
       )}
