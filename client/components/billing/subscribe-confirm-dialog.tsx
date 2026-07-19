@@ -91,7 +91,7 @@ export function SubscribeConfirmDialog({
     <Dialog open={open} onOpenChange={(v) => { if (!v && !loading) onClose(); }}>
       <DialogContent className="!max-w-[calc(100%-1rem)] sm:!max-w-lg p-0 gap-0 flex flex-col max-h-[90dvh]">
         {/* Header with brand gradient */}
-        <div className="shrink-0 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent px-4 sm:px-6 pt-4 sm:pt-5 pb-3 sm:pb-4">
+        <div className="shrink-0 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent px-4 sm:px-6 pt-3 sm:pt-4 pb-2 sm:pb-3">
           <DialogHeader className="p-0">
             <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
               <IndianRupee className="size-4 sm:size-5 text-primary" />
@@ -103,7 +103,7 @@ export function SubscribeConfirmDialog({
           </DialogHeader>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-3 sm:py-4 space-y-3 sm:space-y-4 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-2 sm:py-3 space-y-3 sm:space-y-4 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border">
           {/* Billing toggle — yearly is DEFAULT */}
           {hasYearly && (
             <div className="flex items-center rounded-xl bg-muted/60 p-0.5 sm:p-1 border border-border/50">
@@ -272,7 +272,7 @@ export function SubscribeConfirmDialog({
         </div>
 
         {/* Trust bar — always visible */}
-        <div className="shrink-0 flex items-center justify-center gap-3 sm:gap-4 px-4 sm:px-6 py-2 sm:py-3 text-[10px] sm:text-[11px] text-muted-foreground border-t border-border/50">
+        <div className="shrink-0 flex items-center justify-center gap-3 sm:gap-4 px-4 sm:px-6 py-1.5 sm:py-2 text-[10px] sm:text-[11px] text-muted-foreground border-t border-border/50">
           <span className="flex items-center gap-1">
             <ShieldCheck className="size-2.5 sm:size-3" />
             Cancel anytime
@@ -291,25 +291,25 @@ export function SubscribeConfirmDialog({
         </div>
 
         {/* Footer — always visible, never in scroll */}
-        <DialogFooter className="shrink-0 px-4 sm:px-6 py-3 sm:py-4 border-t bg-muted/30">
-          <div className="flex flex-col-reverse sm:flex-row gap-2 w-full">
+        <DialogFooter className="shrink-0 px-4 sm:px-6 py-4 border-t bg-muted/30">
+          <div className="flex flex-col-reverse sm:flex-row gap-3 w-full">
             <Button
               variant="outline"
               onClick={onClose}
               disabled={loading}
-              className="flex-1 text-xs sm:text-sm py-2.5"
+              className="flex-1 text-sm sm:text-base py-3"
             >
               Cancel
             </Button>
             <Button
               onClick={() => onConfirm(activePlan.id)}
               disabled={loading}
-              className="flex-1 gap-1.5 text-xs sm:text-sm py-2.5"
+              className="flex-1 gap-2 text-sm sm:text-base py-3 font-semibold"
             >
               {loading ? (
-                <Loader2 className="size-3.5 sm:size-4 animate-spin" />
+                <Loader2 className="size-4 animate-spin" />
               ) : (
-                <IndianRupee className="size-3.5 sm:size-4" />
+                <IndianRupee className="size-4" />
               )}
               {loading ? "Processing..." : `Pay ${formatPriceShort(activePaise)}`}
             </Button>
