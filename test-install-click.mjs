@@ -3,7 +3,7 @@ import { chromium } from "playwright";
 const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
 
-await page.goto("http://localhost:3000", { waitUntil: "networkidle" });
+await page.goto("https://review-nine-inky.vercel.app", { waitUntil: "networkidle" });
 await page.waitForTimeout(3000);
 
 // Find install button in the laptop/desktop navbar (header)
