@@ -70,6 +70,8 @@ const allowedOrigins: string[] = [
   "http://localhost:3001",
   "https://review-nine-inky.vercel.app",
   "https://review-ewye.onrender.com",
+  "https://beyondvyu.com",
+  "https://www.beyondvyu.com",
 ];
 
 app.use(cors({
