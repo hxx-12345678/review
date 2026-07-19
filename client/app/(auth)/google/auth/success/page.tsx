@@ -15,7 +15,7 @@ function GoogleAuthSuccessHandler() {
     if (token) {
       localStorage.setItem("beyondvyu_token", token);
       window.dispatchEvent(new Event("storage"));
-      router.replace("/dashboard");
+      router.replace("/onboarding");
     } else {
       setError("Authentication failed — no token received");
     }

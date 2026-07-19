@@ -31,6 +31,10 @@ export default function DashboardPage() {
         const bizRes = await api.businesses.list();
         const biz = bizRes.businesses[0];
         if (cancelled) return;
+        if (!biz) {
+          router.replace("/onboarding");
+          return;
+        }
         setBusiness(biz);
 
         if (biz) {
