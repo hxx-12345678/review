@@ -22,6 +22,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
+    const meta = document.createElement("meta")
+    meta.name = "robots"
+    meta.content = "noindex,nofollow"
+    document.head.appendChild(meta)
+    return () => meta.remove()
+  }, [])
+
+  useEffect(() => {
     setMounted(true)
     const token = localStorage.getItem("beyondvyu_admin_token")
     if (!token) {

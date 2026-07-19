@@ -1,5 +1,11 @@
+import type { Metadata } from "next";
 import { MarketingHeader } from "@/components/marketing/marketing-header";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
+
+export const metadata: Metadata = {
+  title: "Privacy Policy",
+  robots: { index: false, follow: false },
+};
 
 export default function PrivacyPage() {
   return (

@@ -1,0 +1,47 @@
+# BEYONDVYU — Turn happy customers into authentic Google reviews
+
+> BEYONDVYU helps local businesses collect more authentic Google reviews with QR codes and an AI assistant that jogs your customers' memory — fully compliant with Google and FTC policy.
+
+## Pricing
+
+### Free Plan
+- Price: Free
+- Includes: QR code generation, basic analytics, up to 50 feedback submissions/month
+
+### Starter Plan
+- Price: ₹4,999/month
+- All Free features, unlimited feedback, AI sentiment analysis, WhatsApp reports, custom branding
+
+### Growth Plan (Most Popular)
+- Price: ₹9,999/month
+- All Starter features, multi-location support, priority support, advanced AI insights
+
+## Product Description
+BEYONDVYU is a SaaS platform for local businesses to collect authentic Google reviews. Key features:
+- QR code-based review collection
+- AI-powered sentiment analysis
+- WhatsApp/email review request templates
+- Weekly automated insights delivery
+- FTC and Google policy compliant
+- No review gating — all customers see same Google review link
+
+## Compliance
+- No incentivized reviews
+- No writing reviews on behalf of customers
+- No review gating
+- Full FTC endorsement guidelines compliance
+- Google review policy compliance
+- RBI e-Mandate compliant for Indian subscriptions
+
+## Contact
+- Email: support@beyondvyu.app
+- Sales: sales@beyondvyu.app
+- Legal: legal@beyondvyu.app
+
+## Public URLs
+- Website: https://beyondvyu.com
+- Pricing: https://beyondvyu.com/pricing
+- Contact: https://beyondvyu.com/contact
+- Terms: https://beyondvyu.com/terms
+- Privacy: https://beyondvyu.com/privacy
+- Refund Policy: https://beyondvyu.com/refund

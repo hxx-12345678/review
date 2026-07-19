@@ -1,8 +1,13 @@
 import type { ReactNode } from "react"
+import type { Metadata } from "next"
 import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar"
 import { DashboardMobileNav } from "@/components/dashboard/dashboard-mobile-nav"
 import { SidebarProvider } from "@/lib/sidebar-context"
 import { TunnelOverlay } from "@/components/dashboard/tunnel-overlay"
+
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+}
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (

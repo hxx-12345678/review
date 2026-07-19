@@ -1,3 +1,4 @@
+import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { FeedbackFlow } from "@/components/feedback/feedback-flow"
 
@@ -12,6 +13,32 @@ async function getBusinessBySlug(slug: string) {
     return data.business
   } catch {
     return null
+  }
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>
+}): Promise<Metadata> {
+  const { slug } = await params
+  const business = await getBusinessBySlug(slug)
+
+  if (!business) {
+    return {
+      title: "Review not found",
+      robots: { index: false, follow: false },
+    }
+  }
+
+  return {
+    title: `Leave a review for ${business.name}`,
+    description: `Share your experience with ${business.name}. Leave an authentic Google review through BEYONDVYU's secure feedback platform.`,
+    robots: { index: false, follow: true },
+    openGraph: {
+      title: `Leave a review for ${business.name}`,
+      description: `Share your experience with ${business.name}.`,
+    },
   }
 }
 

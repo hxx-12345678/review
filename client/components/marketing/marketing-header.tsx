@@ -199,11 +199,25 @@ export function MarketingHeader() {
               </>
             )}
           </nav>
-          <div className="mt-3 border-t border-white/10 pt-3 space-y-2">
-            <p className="px-1 text-[11px] font-semibold uppercase tracking-wider text-white/40">
-              Get the app
-            </p>
-            <InstallPWA variant="mobile-menu" onOpenChange={(open) => { if (open) setMobileOpen(false) }} />
+          <div className="mt-3 border-t border-white/10 pt-3">
+            {user ? (
+              <Link
+                href="/dashboard"
+                className="flex items-center justify-center gap-2 rounded-xl bg-primary/20 px-4 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:bg-primary/30"
+                onClick={() => setMobileOpen(false)}
+              >
+                <LayoutDashboard className="size-4" />
+                Dashboard
+              </Link>
+            ) : (
+              <Link
+                href="/login"
+                className="flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:bg-primary/90"
+                onClick={() => setMobileOpen(false)}
+              >
+                Log in
+              </Link>
+            )}
           </div>
         </div>
       )}

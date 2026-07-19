@@ -1,35 +1,43 @@
-import type { MetadataRoute } from "next"
+import { MetadataRoute } from "next"
 
 export default function sitemap(): MetadataRoute.Sitemap {
+  const baseUrl = "https://beyondvyu.com"
+
   return [
     {
-      url: "https://beyondvyu.com",
+      url: baseUrl,
       lastModified: new Date(),
       changeFrequency: "weekly",
       priority: 1,
     },
     {
-      url: "https://beyondvyu.com/pricing",
+      url: `${baseUrl}/pricing`,
       lastModified: new Date(),
       changeFrequency: "monthly",
       priority: 0.8,
     },
     {
-      url: "https://beyondvyu.com/contact",
+      url: `${baseUrl}/contact`,
       lastModified: new Date(),
       changeFrequency: "monthly",
-      priority: 0.5,
+      priority: 0.6,
     },
     {
-      url: "https://beyondvyu.com/refund",
+      url: `${baseUrl}/terms`,
       lastModified: new Date(),
-      changeFrequency: "monthly",
+      changeFrequency: "yearly",
       priority: 0.3,
     },
     {
-      url: "https://beyondvyu.com/terms",
+      url: `${baseUrl}/privacy`,
       lastModified: new Date(),
-      changeFrequency: "monthly",
+      changeFrequency: "yearly",
+      priority: 0.3,
+    },
+    {
+      url: `${baseUrl}/refund`,
+      lastModified: new Date(),
+      changeFrequency: "yearly",
       priority: 0.3,
     },
   ]
