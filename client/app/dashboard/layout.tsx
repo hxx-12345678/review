@@ -12,8 +12,8 @@ export const metadata: Metadata = {
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
     <SidebarProvider>
-      <DashboardSidebar />
-      <div className="flex min-h-screen min-w-0 bg-background overflow-x-hidden md:ml-64">
+      <div className="flex min-h-screen min-w-0 bg-background overflow-x-hidden">
+        <DashboardSidebar />
         <div className="flex min-w-0 flex-1 flex-col">
           <DashboardMobileNav />
           <main className="flex-1 min-w-0 pb-20 md:pb-0 pt-14 md:pt-0 relative">
