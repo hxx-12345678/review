@@ -215,13 +215,23 @@ export function GlobalInstallModal() {
           ) : (
             // Other / Chrome not ready yet
             <>
-              <p className="text-sm text-muted-foreground">To install BEYONDVYU, use one of these methods:</p>
-              <Step icon={Monitor} step={1} text={<>Open this page in <strong>Chrome</strong> or <strong>Edge</strong>.</>} />
-              <Step icon={MoreVertical} step={2} text={<>Tap the browser menu <span className="font-mono text-xs bg-muted rounded px-1.5 py-0.5">⋮</span> in the top-right corner.</>} />
-              <Step icon={Download} step={3} text={<>Select <strong>Install app</strong> or <strong>Add to Home Screen</strong>.</>} />
-              <p className="text-xs text-muted-foreground text-center pt-1">
-                Supports Chrome, Edge, Samsung Internet &amp; Opera.
-              </p>
+              <p className="text-sm text-muted-foreground">To install BEYONDVYU, follow these steps:</p>
+              {browser === "chrome" || browser === "edge" || browser === "samsung" ? (
+                <>
+                  <Step icon={MoreVertical} step={1} text={<>Tap the browser menu <span className="font-mono text-xs bg-muted rounded px-1.5 py-0.5">{browser === "samsung" ? "☰" : "⋮"}</span> in the corner.</>} />
+                  <Step icon={Download} step={2} text={<>Select <strong>Install app</strong> or <strong>Add to Home Screen</strong>.</>} />
+                </>
+              ) : (
+                <>
+                  <Step icon={Monitor} step={1} text={<>Open this page in <strong>Chrome</strong> or <strong>Edge</strong>.</>} />
+                  <Step icon={MoreVertical} step={2} text={<>Tap the browser menu <span className="font-mono text-xs bg-muted rounded px-1.5 py-0.5">⋮</span> in the top-right corner.</>} />
+                  <Step icon={Download} step={3} text={<>Select <strong>Install app</strong> or <strong>Add to Home Screen</strong>.</>} />
+                </>
+              )}
+              
+              <div className="mt-3 rounded-lg bg-amber-500/10 p-3 text-[11px] leading-normal text-amber-600 dark:text-amber-400">
+                <strong>Icon not appearing?</strong> Custom launchers (like Xiaomi/MIUI, Oppo, Vivo, Samsung) require enabling <strong>&quot;Home screen shortcuts&quot;</strong> in Chrome/Edge system settings to allow icons to appear on the desktop.
+              </div>
             </>
           )}
         </div>
