@@ -6,6 +6,9 @@ import { Mail, Phone, MapPin, Clock } from "lucide-react";
 export const metadata: Metadata = {
   title: "Contact",
   description: "Get in touch with BEYONDVYU. Email us at support@beyondvyu.app or reach out through our contact form.",
+  alternates: {
+    canonical: "https://beyondvyu.com/contact",
+  },
   openGraph: {
     title: "Contact — BEYONDVYU",
     description: "Get in touch with the BEYONDVYU team.",

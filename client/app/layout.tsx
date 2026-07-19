@@ -71,12 +71,21 @@ export const metadata: Metadata = {
       "BEYONDVYU helps local businesses collect more authentic Google reviews with QR codes and an AI assistant.",
     url: "https://beyondvyu.com",
     locale: "en_US",
+    images: [
+      {
+        url: "/icon.svg",
+        width: 512,
+        height: 512,
+        alt: "BEYONDVYU",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "BEYONDVYU — Turn happy customers into authentic Google reviews",
     description:
       "BEYONDVYU helps local businesses collect more authentic Google reviews with QR codes and an AI assistant.",
+    images: ["/icon.svg"],
   },
   robots: {
     index: true,

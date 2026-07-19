@@ -5,6 +5,9 @@ export const metadata: Metadata = {
   title: "Pricing",
   description:
     "Simple, transparent pricing for BEYONDVYU. Start free and upgrade as you grow. Every plan is fully compliant with Google and FTC policy.",
+  alternates: {
+    canonical: "https://beyondvyu.com/pricing",
+  },
   openGraph: {
     title: "Pricing — BEYONDVYU",
     description:
