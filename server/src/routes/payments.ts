@@ -17,6 +17,16 @@ function getRazorpay(): Razorpay | null {
   });
 }
 
+const RAZORPAY_UPI_MAX_END = 4765046400;
+
+function getSafeTotalCount(interval: string): number {
+  const now = Math.floor(Date.now() / 1000);
+  const maxDuration = RAZORPAY_UPI_MAX_END - now;
+  const periodSeconds: Record<string, number> = { day: 86400, week: 604800, month: 2592000, quarter: 7776000, year: 31536000 };
+  const secs = periodSeconds[interval] || 2592000;
+  return Math.max(1, Math.min(100, Math.floor(maxDuration / secs)));
+}
+
 async function getOrCreateRazorpayPlan(razorpay: Razorpay, plan: { id: string; name: string; price: number; interval: string }): Promise<string> {
   if (plan.price === 0) return plan.id;
   const periodMap: Record<string, string> = { month: "monthly", year: "yearly", day: "daily", week: "weekly", quarter: "quarterly" };
@@ -124,7 +134,7 @@ router.post("/create-subscription", authRequired, async (req: AuthRequest, res: 
     try {
       rpSub = await razorpay.subscriptions.create({
         plan_id: razorpayPlanId,
-        total_count: 100,
+        total_count: getSafeTotalCount(plan.interval),
         customer_notify: true,
         notes: { userId: req.userId!, planId: plan.id },
       } as any);
@@ -137,7 +147,7 @@ router.post("/create-subscription", authRequired, async (req: AuthRequest, res: 
       razorpayPlanId = await getOrCreateRazorpayPlan(razorpay, plan);
       rpSub = await razorpay.subscriptions.create({
         plan_id: razorpayPlanId,
-        total_count: 100,
+        total_count: getSafeTotalCount(plan.interval),
         customer_notify: true,
         notes: { userId: req.userId!, planId: plan.id },
       } as any);
