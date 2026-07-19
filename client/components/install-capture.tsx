@@ -9,28 +9,31 @@ export function GlobalInstallCapture() {
       return
     }
 
+    // If already captured by inline script, dispatch ready event
+    if (window.__deferredPrompt) {
+      window.dispatchEvent(new CustomEvent("beyondvyu:install-ready"))
+    }
+
     const handler = (e: Event) => {
       e.preventDefault()
       window.__deferredPrompt = e as any
       window.__installReady = true
+      window.dispatchEvent(new CustomEvent("beyondvyu:install-ready"))
     }
 
     window.addEventListener("beforeinstallprompt", handler)
 
-    window.addEventListener("appinstalled", () => {
+    const onAppInstalled = () => {
       window.__deferredPrompt = null
       window.__installReady = true
-    })
+      window.dispatchEvent(new CustomEvent("beyondvyu:app-installed"))
+    }
 
-    const timeout = setTimeout(() => {
-      if (window.__installReady === undefined) {
-        window.__installReady = false
-      }
-    }, 5000)
+    window.addEventListener("appinstalled", onAppInstalled)
 
     return () => {
       window.removeEventListener("beforeinstallprompt", handler)
-      clearTimeout(timeout)
+      window.removeEventListener("appinstalled", onAppInstalled)
     }
   }, [])
 

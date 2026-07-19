@@ -32,8 +32,7 @@ export function InstallPWA({ variant = "default", onInstall, onOpenChange }: Ins
   const [installed, setInstalled] = useState(false)
   const [installing, setInstalling] = useState(false)
   const [canInstall, setCanInstall] = useState<boolean | null>(null)
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
-
+  
   useEffect(() => {
     const standalone = window.matchMedia("(display-mode: standalone)").matches
     if (standalone || (window.navigator as any).standalone === true) {
@@ -41,31 +40,29 @@ export function InstallPWA({ variant = "default", onInstall, onOpenChange }: Ins
       return
     }
 
-    const check = () => {
-      if (window.__deferredPrompt) {
-        setCanInstall(true)
-        if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
-        return true
-      }
-      return false
+    if (window.__deferredPrompt) {
+      setCanInstall(true)
     }
 
-    if (check()) return
+    const onInstallReady = () => {
+      setCanInstall(true)
+    }
 
-    pollRef.current = setInterval(check, 300)
+    const onAppInstalled = () => {
+      setInstalled(true)
+      setCanInstall(false)
+    }
 
-    const timeout = setTimeout(() => {
-      setCanInstall(!!window.__deferredPrompt)
-      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
-    }, 8000)
-
-    const onAppInstalled = () => { setInstalled(true); setCanInstall(false) }
+    window.addEventListener("beforeinstallprompt", onInstallReady)
+    window.addEventListener("beyondvyu:install-ready", onInstallReady)
     window.addEventListener("appinstalled", onAppInstalled)
+    window.addEventListener("beyondvyu:app-installed", onAppInstalled)
 
     return () => {
-      if (pollRef.current) clearInterval(pollRef.current)
-      clearTimeout(timeout)
+      window.removeEventListener("beforeinstallprompt", onInstallReady)
+      window.removeEventListener("beyondvyu:install-ready", onInstallReady)
       window.removeEventListener("appinstalled", onAppInstalled)
+      window.removeEventListener("beyondvyu:app-installed", onAppInstalled)
     }
   }, [])
 

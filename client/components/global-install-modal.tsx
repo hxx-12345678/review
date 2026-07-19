@@ -49,8 +49,6 @@ export function GlobalInstallModal() {
     setInstalling(false)
   }, [])
 
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
-
   useEffect(() => {
     if (!open) return
 
@@ -60,31 +58,35 @@ export function GlobalInstallModal() {
       return
     }
 
-    const check = () => {
-      if (window.__deferredPrompt) {
-        setCanInstall(true)
-        setChecked(true)
-        if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
-        return true
-      }
-      return false
+    const onInstallReady = () => {
+      setCanInstall(true)
+      setChecked(true)
     }
 
-    if (check()) return
+    const onAppInstalled = () => {
+      setCanInstall(false)
+      setChecked(true)
+      closeModal()
+    }
 
-    pollRef.current = setInterval(check, 300)
+    window.addEventListener("beforeinstallprompt", onInstallReady)
+    window.addEventListener("beyondvyu:install-ready", onInstallReady)
+    window.addEventListener("appinstalled", onAppInstalled)
+    window.addEventListener("beyondvyu:app-installed", onAppInstalled)
 
     const timeout = setTimeout(() => {
       setChecked(true)
       setCanInstall(!!window.__deferredPrompt)
-      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
-    }, 8000)
+    }, 3000)
 
     return () => {
-      if (pollRef.current) clearInterval(pollRef.current)
+      window.removeEventListener("beforeinstallprompt", onInstallReady)
+      window.removeEventListener("beyondvyu:install-ready", onInstallReady)
+      window.removeEventListener("appinstalled", onAppInstalled)
+      window.removeEventListener("beyondvyu:app-installed", onAppInstalled)
       clearTimeout(timeout)
     }
-  }, [open])
+  }, [open, closeModal])
 
   const handleInstall = useCallback(async () => {
     // Priority 1: Web Install API (Chrome/Edge 148+, origin trial)
