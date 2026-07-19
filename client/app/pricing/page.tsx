@@ -6,6 +6,7 @@ import { Check, Loader2 } from "lucide-react"
 import { MarketingHeader } from "@/components/marketing/marketing-header"
 import { MarketingFooter } from "@/components/marketing/marketing-footer"
 import { Button } from "@/components/ui/button"
+import { JsonLd } from "@/components/json-ld"
 
 type Plan = {
   id: string
@@ -101,6 +102,57 @@ export default function PricingPage() {
         </section>
       </main>
       <MarketingFooter />
+
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            { "@type": "ListItem", position: 1, name: "Home", item: "https://beyondvyu.com" },
+            { "@type": "ListItem", position: 2, name: "Pricing", item: "https://beyondvyu.com/pricing" },
+          ],
+        }}
+      />
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: [
+            {
+              "@type": "Question",
+              name: "Is there a free plan?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: "Yes. BEYONDVYU offers a free plan with QR code generation, basic analytics, and up to 50 feedback submissions per month. No credit card required.",
+              },
+            },
+            {
+              "@type": "Question",
+              name: "Can I switch plans later?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: "Yes. You can upgrade or downgrade your plan at any time from your dashboard. Changes take effect at the start of the next billing cycle.",
+              },
+            },
+            {
+              "@type": "Question",
+              name: "Are all plans FTC and Google compliant?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: "Yes. Every BEYONDVYU plan is designed to be fully compliant with Google review policies, FTC endorsement guidelines, and RBI e-mandate regulations for Indian subscriptions.",
+              },
+            },
+            {
+              "@type": "Question",
+              name: "What payment methods do you accept?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: "We accept all major credit and debit cards via Razorpay. Subscriptions are billed monthly or annually with RBI-compliant e-mandate support.",
+              },
+            },
+          ],
+        }}
+      />
     </div>
   )
 }

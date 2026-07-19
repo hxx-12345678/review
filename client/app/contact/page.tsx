@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { MarketingHeader } from "@/components/marketing/marketing-header";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { Mail, Phone, MapPin, Clock } from "lucide-react";
+import { JsonLd } from "@/components/json-ld";
 
 export const metadata: Metadata = {
   title: "Contact",
@@ -12,6 +13,21 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Contact — BEYONDVYU",
     description: "Get in touch with the BEYONDVYU team.",
+    url: "https://beyondvyu.com/contact",
+    images: [
+      {
+        url: "/icon-512x512.png",
+        width: 512,
+        height: 512,
+        alt: "Contact BEYONDVYU",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Contact — BEYONDVYU",
+    description: "Get in touch with the BEYONDVYU team.",
+    images: ["/icon-512x512.png"],
   },
 };
 
@@ -116,6 +132,50 @@ export default function ContactPage() {
         </div>
       </main>
       <MarketingFooter />
+
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            { "@type": "ListItem", position: 1, name: "Home", item: "https://beyondvyu.com" },
+            { "@type": "ListItem", position: 2, name: "Contact", item: "https://beyondvyu.com/contact" },
+          ],
+        }}
+      />
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "ContactPage",
+          name: "Contact BEYONDVYU",
+          description: "Get in touch with the BEYONDVYU team for support, sales, or legal inquiries.",
+          url: "https://beyondvyu.com/contact",
+          mainEntity: {
+            "@type": "Organization",
+            name: "BEYONDVYU",
+            contactPoint: [
+              {
+                "@type": "ContactPoint",
+                contactType: "customer support",
+                email: "support@beyondvyu.app",
+                availableLanguage: ["English"],
+              },
+              {
+                "@type": "ContactPoint",
+                contactType: "sales",
+                email: "sales@beyondvyu.app",
+                availableLanguage: ["English"],
+              },
+              {
+                "@type": "ContactPoint",
+                contactType: "legal",
+                email: "legal@beyondvyu.app",
+                availableLanguage: ["English"],
+              },
+            ],
+          },
+        }}
+      />
     </div>
   );
 }

@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
 import { MarketingHeader } from "@/components/marketing/marketing-header";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
+import { JsonLd } from "@/components/json-ld";
 
 export const metadata: Metadata = {
   title: "Refund, Return & Cancellation Policy",
+  description: "Refund, return, and cancellation policy for BEYONDVYU subscriptions. Learn about our billing terms and how to request a refund.",
+  alternates: { canonical: "https://beyondvyu.com/refund" },
   robots: { index: false, follow: false },
 };
 
@@ -96,6 +99,17 @@ export default function RefundPage() {
         </section>
       </main>
       <MarketingFooter />
+
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            { "@type": "ListItem", position: 1, name: "Home", item: "https://beyondvyu.com" },
+            { "@type": "ListItem", position: 2, name: "Refund Policy", item: "https://beyondvyu.com/refund" },
+          ],
+        }}
+      />
     </div>
   );
 }

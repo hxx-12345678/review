@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
 import { MarketingHeader } from "@/components/marketing/marketing-header";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
+import { JsonLd } from "@/components/json-ld";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
+  description: "Privacy Policy for BEYONDVYU. Learn how we collect, use, and protect your personal information and customer data.",
+  alternates: { canonical: "https://beyondvyu.com/privacy" },
   robots: { index: false, follow: false },
 };
 
@@ -97,6 +100,17 @@ export default function PrivacyPage() {
         </section>
       </main>
       <MarketingFooter />
+
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            { "@type": "ListItem", position: 1, name: "Home", item: "https://beyondvyu.com" },
+            { "@type": "ListItem", position: 2, name: "Privacy Policy", item: "https://beyondvyu.com/privacy" },
+          ],
+        }}
+      />
     </div>
   );
 }

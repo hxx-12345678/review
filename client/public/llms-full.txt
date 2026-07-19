@@ -2,6 +2,19 @@
 
 > BEYONDVYU helps local businesses collect more authentic Google reviews with QR codes and an AI assistant that jogs your customers' memory — fully compliant with Google and FTC policy.
 
+## Product
+
+BEYONDVYU is a SaaS platform for local businesses to collect authentic Google reviews. Key features:
+- QR code-based review collection
+- AI-powered sentiment analysis
+- WhatsApp/email review request templates
+- Weekly automated insights delivery
+- Multi-location support
+- FTC and Google policy compliant
+- No review gating — all customers see same Google review link
+- No incentivized reviews
+- No writing reviews on behalf of customers
+
 ## Pricing
 
 ### Free Plan
@@ -16,16 +29,22 @@
 - Price: ₹9,999/month
 - All Starter features, multi-location support, priority support, advanced AI insights
 
-## Product Description
-BEYONDVYU is a SaaS platform for local businesses to collect authentic Google reviews. Key features:
-- QR code-based review collection
-- AI-powered sentiment analysis
-- WhatsApp/email review request templates
-- Weekly automated insights delivery
-- FTC and Google policy compliant
-- No review gating — all customers see same Google review link
+## How it works
+
+1. **Scan the QR code** — Place the QR code at the front desk, on receipts, or send via text. One tap opens a fast, mobile-first feedback flow.
+
+2. **Rate their experience** — Every customer sees the same path. No gating — everyone can share their honest experience and rate the business.
+
+3. **Share details in their language** — Customers choose their preferred language and answer specific questions based on their rating. AI generates talking points to help them write authentic Google reviews.
+
+4. **AI generates the review draft** — Based on customer feedback, AI creates a natural review draft. Customers review, edit, and own every word before posting to Google.
+
+5. **Get AI-powered business insights** — Every review feeds into the dashboard. AI analyzes sentiment, tracks trends, finds top praises and complaints — delivered as weekly reports to WhatsApp.
+
+6. **Stay fully compliant** — No gating, no templated reviews, no staff name prompts. Every review is authentic and policy-safe with Google and FTC.
 
 ## Compliance
+
 - No incentivized reviews
 - No writing reviews on behalf of customers
 - No review gating
@@ -34,11 +53,13 @@ BEYONDVYU is a SaaS platform for local businesses to collect authentic Google re
 - RBI e-Mandate compliant for Indian subscriptions
 
 ## Contact
+
 - Email: support@beyondvyu.app
 - Sales: sales@beyondvyu.app
 - Legal: legal@beyondvyu.app
 
 ## Public URLs
+
 - Website: https://beyondvyu.com
 - Pricing: https://beyondvyu.com/pricing
 - Contact: https://beyondvyu.com/contact

@@ -4,6 +4,15 @@ https://beyondvyu.com
 ## About
 BEYONDVYU helps local businesses collect more authentic Google reviews with QR codes and an AI assistant that jogs your customers' memory — fully compliant with Google and FTC policy.
 
+## Key features
+- QR code-based review collection
+- AI-powered sentiment analysis and talking points
+- WhatsApp and email review request templates
+- Weekly automated insights delivery
+- Multi-location support
+- No review gating — all customers see same Google review link
+- FTC and Google policy compliant
+
 ## Public pages
 - Home: https://beyondvyu.com
 - Pricing: https://beyondvyu.com/pricing
@@ -11,3 +20,8 @@ BEYONDVYU helps local businesses collect more authentic Google reviews with QR c
 - Terms of Service: https://beyondvyu.com/terms
 - Privacy Policy: https://beyondvyu.com/privacy
 - Refund Policy: https://beyondvyu.com/refund
+
+## Contact
+- Email: support@beyondvyu.app
+- Sales: sales@beyondvyu.app
+- Legal: legal@beyondvyu.app

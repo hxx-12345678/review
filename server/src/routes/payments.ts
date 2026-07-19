@@ -114,17 +114,36 @@ router.post("/create-subscription", authRequired, async (req: AuthRequest, res: 
       return res.json({ subscription: sub, shortUrl: null });
     }
 
-    const razorpayPlanId = plan.razorpayPlanId || await getOrCreateRazorpayPlan(razorpay, plan);
+    let razorpayPlanId = plan.razorpayPlanId || await getOrCreateRazorpayPlan(razorpay, plan);
 
     const farFuture = Math.floor(Date.now() / 1000) + 100 * 365 * 24 * 60 * 60;
-    const razorpaySub = await razorpay.subscriptions.create({
-      plan_id: razorpayPlanId,
-      end_at: farFuture,
-      customer_notify: true,
-      notes: { userId: req.userId!, planId: plan.id },
-    } as any);
-
-    const rpSub = razorpaySub as any;
+    let rpSub: any;
+    try {
+      rpSub = await razorpay.subscriptions.create({
+        plan_id: razorpayPlanId,
+        end_at: farFuture,
+        customer_notify: true,
+        notes: { userId: req.userId!, planId: plan.id },
+      } as any);
+    } catch (planErr: any) {
+      const desc = planErr?.error?.description || "";
+      if (desc.includes("invalid") || desc.includes("could not be found")) {
+        await prisma.subscriptionPlan.update({
+          where: { id: plan.id },
+          data: { razorpayPlanId: null },
+        });
+        razorpayPlanId = await getOrCreateRazorpayPlan(razorpay, plan);
+        rpSub = await razorpay.subscriptions.create({
+          plan_id: razorpayPlanId,
+          end_at: farFuture,
+          customer_notify: true,
+          notes: { userId: req.userId!, planId: plan.id },
+        } as any);
+      } else {
+        throw planErr;
+      }
+    }
+    rpSub = rpSub as any;
 
     const subscription = await prisma.subscription.create({
       data: {

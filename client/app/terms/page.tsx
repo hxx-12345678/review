@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
 import { MarketingHeader } from "@/components/marketing/marketing-header";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
+import { JsonLd } from "@/components/json-ld";
 
 export const metadata: Metadata = {
   title: "Terms of Service",
+  description: "Terms of Service for BEYONDVYU review management platform. Learn about your rights, obligations, and compliance requirements when using our service.",
+  alternates: { canonical: "https://beyondvyu.com/terms" },
   robots: { index: false, follow: false },
 };
 
@@ -292,6 +295,17 @@ export default function TermsPage() {
         </section>
       </main>
       <MarketingFooter />
+
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            { "@type": "ListItem", position: 1, name: "Home", item: "https://beyondvyu.com" },
+            { "@type": "ListItem", position: 2, name: "Terms of Service", item: "https://beyondvyu.com/terms" },
+          ],
+        }}
+      />
     </div>
   );
 }

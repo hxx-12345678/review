@@ -50,10 +50,28 @@ export const metadata: Metadata = {
     "AEO",
     "GEO",
     "generative engine optimization",
+    "answer engine optimization",
+    "Google review QR code generator",
+    "AI sentiment analysis",
+    "WhatsApp review alerts",
+    "Google review link",
+    "collect Google reviews",
+    "review compliance",
+    "Google review policy",
+    "reputation management SaaS",
+    "small business review tool",
+    "multi-location review management",
+    "Google Places API reviews",
+    "customer feedback platform",
+    "automated review requests",
   ],
   verification: {
     google: "YOUR_GOOGLE_SEARCH_CONSOLE_VERIFICATION_CODE",
   },
+  other: {
+    "google-site-verification": "YOUR_GOOGLE_SEARCH_CONSOLE_VERIFICATION_CODE",
+  },
+  category: "business",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -73,10 +91,10 @@ export const metadata: Metadata = {
     locale: "en_US",
     images: [
       {
-        url: "/icon.svg",
+        url: "/icon-512x512.png",
         width: 512,
         height: 512,
-        alt: "BEYONDVYU",
+        alt: "BEYONDVYU — Google review management platform",
       },
     ],
   },
@@ -85,7 +103,7 @@ export const metadata: Metadata = {
     title: "BEYONDVYU — Turn happy customers into authentic Google reviews",
     description:
       "BEYONDVYU helps local businesses collect more authentic Google reviews with QR codes and an AI assistant.",
-    images: ["/icon.svg"],
+    images: ["/icon-512x512.png"],
   },
   robots: {
     index: true,
