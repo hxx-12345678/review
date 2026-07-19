@@ -153,7 +153,8 @@ function BillingPage() {
   }, [plans]);
 
   const displayPlans = useMemo(() => {
-    return plans.filter((p) => p.price > 0 && p.interval === "month");
+    const monthlyIds = new Set(plans.filter((p) => p.price > 0 && p.interval === "month").map((p) => p.slug));
+    return plans.filter((p) => p.price > 0 && (p.interval === "month" || monthlyIds.has(p.slug.replace("-yearly", ""))));
   }, [plans]);
 
   const openRazorpayCheckout = useCallback((
@@ -390,13 +391,34 @@ function BillingPage() {
                 )}
               </div>
             </CardContent>
-            <CardFooter className="gap-3">
-              {subscription.plan.slug !== "free" && (
-                <Button variant="destructive" onClick={handleCancel} disabled={cancelling}>
-                  {cancelling ? <Loader2 className="size-4 animate-spin" /> : null}
-                  Cancel subscription
-                </Button>
+            <CardFooter className="flex-col gap-3 items-stretch">
+              {subscription.currentPeriodEnd && (
+                <div className="flex items-center justify-between text-xs text-muted-foreground px-1 pb-1 border-b">
+                  <span>Next billing date</span>
+                  <span className="font-medium text-foreground">
+                    {new Date(subscription.currentPeriodEnd).toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" })}
+                  </span>
+                </div>
               )}
+              <div className="flex gap-3">
+                {subscription.plan.slug !== "free" && subscription.invoices.length > 0 && subscription.invoices[0]?.razorpayPaymentId && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => window.open(`/api/payments/receipt/${subscription.invoices[0].razorpayPaymentId}`, "_blank")}
+                  >
+                    <Download className="mr-1.5 size-3.5" />
+                    Receipt
+                  </Button>
+                )}
+                {subscription.plan.slug !== "free" && (
+                  <Button variant="destructive" onClick={handleCancel} disabled={cancelling} className="flex-1">
+                    {cancelling ? <Loader2 className="size-4 animate-spin" /> : null}
+                    Cancel
+                  </Button>
+                )}
+              </div>
             </CardFooter>
           </Card>
         )}
@@ -485,10 +507,11 @@ function BillingPage() {
                       {inv.razorpayPaymentId && (
                         <button
                           onClick={() => window.open(`/api/payments/receipt/${inv.razorpayPaymentId}`, "_blank")}
-                          className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-primary hover:bg-primary/10"
                           title="Download Receipt"
                         >
-                          <Download className="size-3.5" />
+                          <Download className="size-3" />
+                          PDF
                         </button>
                       )}
                     </div>

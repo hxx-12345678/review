@@ -13,9 +13,15 @@ const nextConfig = {
     unoptimized: true,
   },
   turbopack: {
-    // Explicitly set workspace root to the client directory to eliminate the
-    // "multiple lockfiles" warning (pnpm-lock.yaml vs root package-lock.json).
     root: __dirname,
+  },
+  async rewrites() {
+    return [
+      {
+        source: "/api/:path*",
+        destination: `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api"}/:path*`,
+      },
+    ]
   },
 }
 

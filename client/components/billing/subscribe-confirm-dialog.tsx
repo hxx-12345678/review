@@ -297,16 +297,14 @@ export function SubscribeConfirmDialog({
               variant="outline"
               onClick={onClose}
               disabled={loading}
-              className="flex-1 text-xs sm:text-sm"
-              size="sm"
+              className="flex-1 text-xs sm:text-sm py-2.5"
             >
               Cancel
             </Button>
             <Button
               onClick={() => onConfirm(activePlan.id)}
               disabled={loading}
-              className="flex-1 gap-1.5 text-xs sm:text-sm"
-              size="sm"
+              className="flex-1 gap-1.5 text-xs sm:text-sm py-2.5"
             >
               {loading ? (
                 <Loader2 className="size-3.5 sm:size-4 animate-spin" />
