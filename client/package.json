@@ -6,12 +6,16 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "build:cf": "npx @opennextjs/cloudflare build",
+    "deploy": "pnpm build && pnpm build:cf && npx wrangler deploy",
+    "preview": "pnpm build && pnpm build:cf && npx wrangler dev",
     "lint": "eslint ."
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.82",
     "@ai-sdk/react": "^3.0.201",
     "@base-ui/react": "^1.5.0",
+    "@opennextjs/cloudflare": "^1.20.1",
     "ai": "^6.0.199",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -36,6 +40,7 @@
     "@types/react-dom": "^19",
     "postcss": "^8.5",
     "tailwindcss": "^4.2.0",
-    "typescript": "5.7.3"
+    "typescript": "5.7.3",
+    "wrangler": "^4.112.0"
   }
 }

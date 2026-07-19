@@ -1,12 +1,13 @@
 import type { NextRequest } from "next/server"
 import { NextResponse } from "next/server"
 
-export function proxy(request: NextRequest) {
+export function middleware(request: NextRequest) {
   const response = NextResponse.next()
 
   response.headers.set("X-Frame-Options", "DENY")
   response.headers.set("X-Content-Type-Options", "nosniff")
   response.headers.set("X-XSS-Protection", "1; mode=block")
+
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api"
   const apiOrigin = new URL(apiUrl).origin
   response.headers.set(
@@ -21,7 +22,7 @@ export function proxy(request: NextRequest) {
     "http://localhost:3000",
     "http://localhost:3001",
     process.env.NEXT_PUBLIC_APP_URL,
-  ].filter(Boolean)
+  ].filter(Boolean) as string[]
 
   if (origin && allowedOrigins.includes(origin)) {
     response.headers.set("Access-Control-Allow-Origin", origin)
@@ -41,4 +42,5 @@ export const config = {
   matcher: [
     "/((?!_next/static|_next/image|favicon.ico).*)",
   ],
+  runtime: "experimental-edge",
 }
