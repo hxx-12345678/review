@@ -12,9 +12,9 @@ export const metadata: Metadata = {
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
     <SidebarProvider>
-      <div className="flex min-h-screen min-w-0 bg-background overflow-x-hidden">
+      <div className="flex min-h-screen min-w-0 bg-background overflow-x-hidden items-start">
         <DashboardSidebar />
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex min-w-0 flex-1 flex-col self-stretch">
           <DashboardMobileNav />
           <main className="flex-1 min-w-0 pb-20 md:pb-0 pt-14 md:pt-0 relative">
             <TunnelOverlay />

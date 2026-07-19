@@ -59,7 +59,7 @@ export function DashboardSidebar() {
         </Link>
       </div>
 
-      <nav className="flex-1 space-y-1 overflow-y-auto p-3" aria-label="Dashboard">
+      <nav className="flex-1 min-h-0 space-y-1 overflow-y-auto p-3" aria-label="Dashboard">
         {NAV.map((item) => {
           const active = pathname === item.href
           return (
@@ -161,7 +161,7 @@ export function DashboardSidebar() {
             <X className="size-5" />
           </Button>
         </div>
-        <nav className="flex-1 space-y-1 overflow-y-auto p-3" aria-label="Dashboard">
+      <nav className="flex-1 space-y-1 p-3" aria-label="Dashboard">
           {NAV.map((item) => {
             const active = pathname === item.href
             return (
@@ -239,7 +239,7 @@ export function DashboardSidebar() {
       </aside>
 
       {/* Desktop sidebar */}
-      <aside className="hidden w-64 shrink-0 flex-col border-r border-border bg-sidebar md:sticky md:top-0 md:h-screen md:self-start md:overflow-y-auto md:flex">
+      <aside className="hidden w-64 shrink-0 flex-col border-r border-border bg-sidebar md:sticky md:top-0 md:h-screen md:self-start md:flex">
         {sidebarContent}
       </aside>
     </>
