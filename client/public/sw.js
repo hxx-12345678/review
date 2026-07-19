@@ -41,6 +41,8 @@ self.addEventListener("fetch", (event) => {
 
   if (request.method !== "GET") return
 
+  if (url.hostname.includes("razorpay.com")) return
+
   if (request.headers.get("Accept")?.includes("text/html")) {
     event.respondWith(networkFirstWithFallback(request, "/offline"))
     return
