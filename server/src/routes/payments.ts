@@ -116,11 +116,13 @@ router.post("/create-subscription", authRequired, async (req: AuthRequest, res: 
 
     let razorpayPlanId = plan.razorpayPlanId || await getOrCreateRazorpayPlan(razorpay, plan);
 
-    const farFuture = Math.floor(Date.now() / 1000) + 100 * 365 * 24 * 60 * 60;
+    const now = Math.floor(Date.now() / 1000);
+    const farFuture = now + 100 * 365 * 24 * 60 * 60;
     let rpSub: any;
     try {
       rpSub = await razorpay.subscriptions.create({
         plan_id: razorpayPlanId,
+        start_at: now,
         end_at: farFuture,
         customer_notify: true,
         notes: { userId: req.userId!, planId: plan.id },
@@ -135,6 +137,7 @@ router.post("/create-subscription", authRequired, async (req: AuthRequest, res: 
         razorpayPlanId = await getOrCreateRazorpayPlan(razorpay, plan);
         rpSub = await razorpay.subscriptions.create({
           plan_id: razorpayPlanId,
+          start_at: now,
           end_at: farFuture,
           customer_notify: true,
           notes: { userId: req.userId!, planId: plan.id },
