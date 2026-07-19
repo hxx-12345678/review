@@ -55,7 +55,7 @@ router.get("/plans", async (_req, res: Response) => {
 router.get("/subscription", authRequired, async (req: AuthRequest, res: Response) => {
   try {
     const sub = await prisma.subscription.findFirst({
-      where: { userId: req.userId, status: { in: ["created", "authenticated", "active", "paused", "past_due"] } },
+      where: { userId: req.userId, status: { in: ["authenticated", "active", "paused", "past_due"] } },
       include: {
         plan: true,
         invoices: { orderBy: { createdAt: "desc" }, take: 10 },
@@ -116,14 +116,11 @@ router.post("/create-subscription", authRequired, async (req: AuthRequest, res: 
 
     let razorpayPlanId = plan.razorpayPlanId || await getOrCreateRazorpayPlan(razorpay, plan);
 
-    const now = Math.floor(Date.now() / 1000) + 60;
-    const farFuture = now + 100 * 365 * 24 * 60 * 60;
     let rpSub: any;
     try {
       rpSub = await razorpay.subscriptions.create({
         plan_id: razorpayPlanId,
-        start_at: now,
-        end_at: farFuture,
+        total_count: 999999,
         customer_notify: true,
         notes: { userId: req.userId!, planId: plan.id },
       } as any);
@@ -137,8 +134,7 @@ router.post("/create-subscription", authRequired, async (req: AuthRequest, res: 
         razorpayPlanId = await getOrCreateRazorpayPlan(razorpay, plan);
         rpSub = await razorpay.subscriptions.create({
           plan_id: razorpayPlanId,
-          start_at: now,
-          end_at: farFuture,
+          total_count: 999999,
           customer_notify: true,
           notes: { userId: req.userId!, planId: plan.id },
         } as any);
@@ -235,6 +231,34 @@ router.get("/subscription-callback", async (req: Request, res: Response) => {
     const env = getEnv();
     const frontendUrl = env.FRONTEND_URL.split(",")[0].trim() || "http://localhost:3000";
     return res.redirect(`${frontendUrl}/dashboard/billing?success=false&error=server_error`);
+  }
+});
+
+router.post("/cancel-pending", authRequired, async (req: AuthRequest, res: Response) => {
+  try {
+    const sub = await prisma.subscription.findFirst({
+      where: { userId: req.userId, status: "created" },
+    });
+    if (!sub) return res.json({ success: true });
+
+    const razorpay = getRazorpay();
+    if (razorpay && sub.razorpaySubscriptionId) {
+      try {
+        await razorpay.subscriptions.cancel(sub.razorpaySubscriptionId);
+      } catch (cancelErr: any) {
+        console.warn("Failed to cancel pending Razorpay subscription:", cancelErr.error?.description || cancelErr.message || cancelErr);
+      }
+    }
+
+    await prisma.subscription.update({
+      where: { id: sub.id },
+      data: { status: "cancelled", cancelledAt: new Date() },
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Cancel pending error:", err);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 

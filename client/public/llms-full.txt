@@ -22,12 +22,12 @@ BEYONDVYU is a SaaS platform for local businesses to collect authentic Google re
 - Includes: QR code generation, basic analytics, up to 50 feedback submissions/month
 
 ### Starter Plan
-- Price: ₹4,999/month
-- All Free features, unlimited feedback, AI sentiment analysis, WhatsApp reports, custom branding
+- Price: ₹499/month or ₹4,990/year
+- 1 business, 500 AI calls/mo, AI reply drafting, Review insights, SMS & email requests, Priority support
 
 ### Growth Plan (Most Popular)
-- Price: ₹9,999/month
-- All Starter features, multi-location support, priority support, advanced AI insights
+- Price: ₹799/month or ₹7,990/year
+- 1 business, 2000 AI calls/mo, Everything in Starter, Google Business Profile sync, Team roles, Dedicated support
 
 ## How it works
 

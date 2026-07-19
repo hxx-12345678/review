@@ -374,6 +374,10 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ planId }),
       }),
+    cancelPending: () =>
+      request<{ success: boolean }>("/payments/cancel-pending", {
+        method: "POST",
+      }),
     cancel: () =>
       request<{ success: boolean }>("/payments/cancel", {
         method: "POST",

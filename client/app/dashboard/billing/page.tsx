@@ -186,6 +186,7 @@ function BillingPage() {
         theme: { color: "#0f172a" },
         modal: {
           ondismiss: function () {
+            api.payments.cancelPending().catch(() => {});
             resolve();
           },
         },
@@ -396,7 +397,7 @@ function BillingPage() {
           <h2 className="mb-4 text-lg font-medium">Available Plans</h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {displayPlans.map((plan) => {
-              const isCurrentPlan = subscription?.planId === plan.id;
+              const isCurrentPlan = subscription?.planId === plan.id && subscription?.status !== "created";
               const isDowngrade = subscription && plan.price < subscription.plan.price;
               const planPair = yearlyPlanPairs[plan.slug];
               const hasYearly = !!planPair?.yearly;
