@@ -74,7 +74,7 @@ router.post("/create-subscription", authRequired, async (req: AuthRequest, res: 
     const { planId } = z.object({ planId: z.string() }).parse(req.body);
     const razorpay = getRazorpay();
     if (!razorpay) {
-      return res.status(500).json({ error: "Payment gateway not configured" });
+      return res.status(503).json({ error: "Payments are not available right now. Please try again later or contact support." });
     }
 
     const plan = await prisma.subscriptionPlan.findUnique({ where: { id: planId } });

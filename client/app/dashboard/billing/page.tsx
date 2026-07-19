@@ -245,7 +245,10 @@ function BillingPage() {
 
       await loadData();
     } catch (err: any) {
-      setError(err.message || "Failed to start subscription");
+      const message = err.status === 503
+        ? "Subscription payments are temporarily unavailable. Please ensure Razorpay keys are configured in your server environment."
+        : err.message || "Failed to start subscription";
+      setError(message);
     } finally {
       setSubscribing(false);
     }
