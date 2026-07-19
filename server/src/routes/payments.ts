@@ -18,10 +18,13 @@ function getRazorpay(): Razorpay | null {
 }
 
 const RAZORPAY_UPI_MAX_END = 4765046400;
+const RAZORPAY_UPI_MAX_YEARS = 30;
 
 function getSafeTotalCount(interval: string): number {
   const now = Math.floor(Date.now() / 1000);
-  const maxDuration = RAZORPAY_UPI_MAX_END - now;
+  const maxByEndTime = RAZORPAY_UPI_MAX_END - now;
+  const maxBy30yr = RAZORPAY_UPI_MAX_YEARS * 365 * 86400;
+  const maxDuration = Math.min(maxByEndTime, maxBy30yr);
   const periodSeconds: Record<string, number> = { day: 86400, week: 604800, month: 2592000, quarter: 7776000, year: 31536000 };
   const secs = periodSeconds[interval] || 2592000;
   return Math.max(1, Math.min(100, Math.floor(maxDuration / secs)));
