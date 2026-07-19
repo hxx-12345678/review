@@ -88,9 +88,13 @@ router.post("/create-subscription", authRequired, async (req: AuthRequest, res: 
     if (existing) {
       if (existing.razorpaySubscriptionId) {
         try {
-          await razorpay.subscriptions.cancel(existing.razorpaySubscriptionId);
+          const rpSubInfo = await razorpay.subscriptions.fetch(existing.razorpaySubscriptionId);
+          const cancellableStatuses = ["active", "paused", "pending", "created"];
+          if (rpSubInfo && cancellableStatuses.includes(rpSubInfo.status)) {
+            await razorpay.subscriptions.cancel(existing.razorpaySubscriptionId);
+          }
         } catch (cancelErr: any) {
-          console.warn("Failed to cancel existing Razorpay subscription:", cancelErr.error?.description || cancelErr.message || cancelErr);
+          console.warn("Failed to cancel existing Razorpay subscription:", cancelErr?.error?.description || cancelErr?.message || String(cancelErr));
         }
       }
       await prisma.subscription.update({
@@ -125,22 +129,18 @@ router.post("/create-subscription", authRequired, async (req: AuthRequest, res: 
         notes: { userId: req.userId!, planId: plan.id },
       } as any);
     } catch (planErr: any) {
-      const desc = planErr?.error?.description || "";
-      if (desc.includes("invalid") || desc.includes("could not be found")) {
-        await prisma.subscriptionPlan.update({
-          where: { id: plan.id },
-          data: { razorpayPlanId: null },
-        });
-        razorpayPlanId = await getOrCreateRazorpayPlan(razorpay, plan);
-        rpSub = await razorpay.subscriptions.create({
-          plan_id: razorpayPlanId,
-          total_count: 100,
-          customer_notify: true,
-          notes: { userId: req.userId!, planId: plan.id },
-        } as any);
-      } else {
-        throw planErr;
-      }
+      console.warn("Subscription create failed, re-creating plan and retrying:", planErr?.error?.description || planErr?.message || String(planErr));
+      await prisma.subscriptionPlan.update({
+        where: { id: plan.id },
+        data: { razorpayPlanId: null },
+      });
+      razorpayPlanId = await getOrCreateRazorpayPlan(razorpay, plan);
+      rpSub = await razorpay.subscriptions.create({
+        plan_id: razorpayPlanId,
+        total_count: 100,
+        customer_notify: true,
+        notes: { userId: req.userId!, planId: plan.id },
+      } as any);
     }
     rpSub = rpSub as any;
 
@@ -169,8 +169,9 @@ router.post("/create-subscription", authRequired, async (req: AuthRequest, res: 
     if (err instanceof z.ZodError) {
       return res.status(400).json({ error: "Invalid input", details: err.errors });
     }
-    const razorpayErr = (err as any)?.error || err;
-    console.error("Create subscription error:", JSON.stringify(razorpayErr, null, 2));
+    console.error("Create subscription error:", err);
+    const serialized = Object.keys(err as object).length ? JSON.stringify(err, Object.getOwnPropertyNames(err), 2) : String(err);
+    console.error("Create subscription error details:", serialized);
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -244,9 +245,13 @@ router.post("/cancel-pending", authRequired, async (req: AuthRequest, res: Respo
     const razorpay = getRazorpay();
     if (razorpay && sub.razorpaySubscriptionId) {
       try {
-        await razorpay.subscriptions.cancel(sub.razorpaySubscriptionId);
+        const rpSubInfo = await razorpay.subscriptions.fetch(sub.razorpaySubscriptionId);
+        const cancellableStatuses = ["active", "paused", "pending", "created"];
+        if (rpSubInfo && cancellableStatuses.includes(rpSubInfo.status)) {
+          await razorpay.subscriptions.cancel(sub.razorpaySubscriptionId);
+        }
       } catch (cancelErr: any) {
-        console.warn("Failed to cancel pending Razorpay subscription:", cancelErr.error?.description || cancelErr.message || cancelErr);
+        console.warn("Failed to cancel pending Razorpay subscription:", cancelErr?.error?.description || cancelErr?.message || String(cancelErr));
       }
     }
 
@@ -272,9 +277,13 @@ router.post("/cancel", authRequired, async (req: AuthRequest, res: Response) => 
     const razorpay = getRazorpay();
     if (razorpay && sub.razorpaySubscriptionId) {
       try {
-        await razorpay.subscriptions.cancel(sub.razorpaySubscriptionId);
+        const rpSubInfo = await razorpay.subscriptions.fetch(sub.razorpaySubscriptionId);
+        const cancellableStatuses = ["active", "paused", "pending", "created"];
+        if (rpSubInfo && cancellableStatuses.includes(rpSubInfo.status)) {
+          await razorpay.subscriptions.cancel(sub.razorpaySubscriptionId);
+        }
       } catch (cancelErr: any) {
-        console.warn("Failed to cancel Razorpay subscription:", cancelErr.error?.description || cancelErr.message || cancelErr);
+        console.warn("Failed to cancel Razorpay subscription:", cancelErr?.error?.description || cancelErr?.message || String(cancelErr));
       }
     }
 
