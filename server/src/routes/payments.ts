@@ -116,9 +116,10 @@ router.post("/create-subscription", authRequired, async (req: AuthRequest, res: 
 
     const razorpayPlanId = plan.razorpayPlanId || await getOrCreateRazorpayPlan(razorpay, plan);
 
+    const farFuture = Math.floor(Date.now() / 1000) + 100 * 365 * 24 * 60 * 60;
     const razorpaySub = await razorpay.subscriptions.create({
       plan_id: razorpayPlanId,
-      total_count: 0,
+      end_at: farFuture,
       customer_notify: true,
       notes: { userId: req.userId!, planId: plan.id },
     } as any);
@@ -150,7 +151,8 @@ router.post("/create-subscription", authRequired, async (req: AuthRequest, res: 
     if (err instanceof z.ZodError) {
       return res.status(400).json({ error: "Invalid input", details: err.errors });
     }
-    console.error("Create subscription error:", err);
+    const razorpayErr = (err as any)?.error || err;
+    console.error("Create subscription error:", JSON.stringify(razorpayErr, null, 2));
     res.status(500).json({ error: "Internal server error" });
   }
 });
