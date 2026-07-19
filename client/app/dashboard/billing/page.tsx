@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState, useMemo, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Check, Receipt, Loader2, AlertCircle, IndianRupee } from "lucide-react";
+import { Check, Receipt, Loader2, AlertCircle, IndianRupee, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -309,13 +309,21 @@ function BillingPage() {
       />
 
       <div className="space-y-8 p-4 sm:p-6 lg:p-8">
-        {success === "true" && (
+        {success === "true" && paymentId && (
           <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">
             <p className="flex items-center gap-2 font-medium">
               <Check className="size-4" />
               Payment successful! Your subscription is being activated.
             </p>
             <p className="mt-1 text-green-600">It may take a few minutes for the subscription to reflect. Refreshing...</p>
+            <a
+              href={`/api/payments/receipt/${paymentId}`}
+              target="_blank"
+              className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-green-700 underline hover:text-green-800"
+            >
+              <Download className="size-3.5" />
+              Download Receipt
+            </a>
           </div>
         )}
 
@@ -470,9 +478,20 @@ function BillingPage() {
                       <p className="font-medium">₹{(inv.amount / 100).toLocaleString("en-IN")}</p>
                       <p className="text-muted-foreground">{new Date(inv.createdAt).toLocaleDateString()}</p>
                     </div>
-                    <Badge variant={inv.status === "captured" ? "default" : "secondary"}>
-                      {inv.status}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={inv.status === "captured" ? "default" : "secondary"}>
+                        {inv.status}
+                      </Badge>
+                      {inv.razorpayPaymentId && (
+                        <button
+                          onClick={() => window.open(`/api/payments/receipt/${inv.razorpayPaymentId}`, "_blank")}
+                          className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                          title="Download Receipt"
+                        >
+                          <Download className="size-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>

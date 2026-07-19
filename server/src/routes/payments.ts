@@ -219,6 +219,7 @@ router.get("/subscription-callback", async (req: Request, res: Response) => {
       where: { razorpaySubscriptionId: razorpay_subscription_id as string },
     });
 
+    let capturedPlan: { name: string; interval: string; price: number } | null = null;
     if (dbSub && dbSub.status === "created") {
       try {
         const razorpay = getRazorpay();
@@ -232,6 +233,20 @@ router.get("/subscription-callback", async (req: Request, res: Response) => {
                 razorpayCustomerId: (payment as any).customer_id || dbSub.razorpayCustomerId,
               },
             });
+            const plan = await prisma.subscriptionPlan.findUnique({ where: { id: dbSub.planId } });
+            if (plan) capturedPlan = { name: plan.name, interval: plan.interval, price: plan.price };
+            await prisma.invoice.upsert({
+              where: { razorpayPaymentId: razorpay_payment_id as string },
+              create: {
+                subscriptionId: dbSub.id,
+                razorpayPaymentId: razorpay_payment_id as string,
+                amount: Number(payment.amount) || plan?.price || 0,
+                currency: "INR",
+                status: "captured",
+                description: `Initial payment for ${plan?.name || "subscription"}`,
+              },
+              update: {},
+            }).catch(() => {});
           }
         }
       } catch (fetchErr: any) {
@@ -239,12 +254,115 @@ router.get("/subscription-callback", async (req: Request, res: Response) => {
       }
     }
 
-    return res.redirect(`${frontendUrl}/dashboard/billing?success=true&payment_id=${razorpay_payment_id}`);
+    let redirectUrl = `${frontendUrl}/payment/success?payment_id=${razorpay_payment_id}&subscription_id=${razorpay_subscription_id}`;
+    if (capturedPlan) {
+      redirectUrl += `&plan=${encodeURIComponent(capturedPlan.name)}&amount=${capturedPlan.price}&interval=${capturedPlan.interval}`;
+    }
+    return res.redirect(redirectUrl);
   } catch (err) {
     console.error("Subscription callback error:", err);
     const env = getEnv();
     const frontendUrl = env.FRONTEND_URL.split(",")[0].trim() || "http://localhost:3000";
     return res.redirect(`${frontendUrl}/dashboard/billing?success=false&error=server_error`);
+  }
+});
+
+router.get("/invoice/:paymentId", async (req: Request, res: Response) => {
+  try {
+    const invoice = await prisma.invoice.findFirst({
+      where: { razorpayPaymentId: req.params.paymentId as string },
+      include: { subscription: { include: { plan: true } } },
+    });
+    if (!invoice) return res.status(404).json({ error: "Invoice not found" });
+    res.json({ invoice });
+  } catch (err) {
+    console.error("Get invoice error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.get("/receipt/:paymentId", async (req: Request, res: Response) => {
+  try {
+    const invoice: any = await prisma.invoice.findFirst({
+      where: { razorpayPaymentId: req.params.paymentId as string },
+      include: { subscription: { include: { user: { select: { name: true, email: true } }, plan: true } } },
+    });
+    if (!invoice) return res.status(404).send("<h1>Receipt not found</h1>");
+
+    const plan = invoice.subscription?.plan;
+    const user = invoice.subscription?.user;
+    const amt = (invoice.amount / 100).toLocaleString("en-IN", { minimumFractionDigits: 2 });
+    const date = new Date(invoice.createdAt).toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" });
+    const gst = (invoice.amount * 0.18 / 100).toLocaleString("en-IN", { minimumFractionDigits: 2 });
+    const total = (invoice.amount / 100).toLocaleString("en-IN", { minimumFractionDigits: 2 });
+    const invNum = invoice.id.slice(-8).toUpperCase();
+
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.send(`<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Receipt - BEYONDVYU</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f5f5f5; padding: 40px 20px; display: flex; justify-content: center; }
+  .receipt { max-width: 640px; width: 100%; background: #fff; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); padding: 48px 40px; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px; padding-bottom: 24px; border-bottom: 2px solid #f0f0f0; }
+  .brand h1 { font-size: 22px; font-weight: 700; color: #0f172a; letter-spacing: -0.3px; }
+  .brand p { font-size: 13px; color: #64748b; margin-top: 2px; }
+  .badge { background: #059669; color: #fff; font-size: 11px; font-weight: 600; padding: 4px 12px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .status { display: flex; align-items: center; gap: 8px; margin-bottom: 24px; padding: 12px 16px; background: #f0fdf4; border-radius: 8px; }
+  .status-icon { width: 20px; height: 20px; background: #059669; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 12px; font-weight: 700; }
+  .status-text { font-size: 14px; font-weight: 600; color: #065f46; }
+  .details { margin-bottom: 24px; }
+  .row { display: flex; justify-content: space-between; padding: 10px 0; font-size: 14px; border-bottom: 1px solid #f5f5f5; }
+  .row:last-child { border-bottom: none; }
+  .label { color: #64748b; }
+  .value { font-weight: 500; color: #0f172a; }
+  .total-row { display: flex; justify-content: space-between; padding: 16px 0 0; margin-top: 8px; border-top: 2px solid #0f172a; font-size: 16px; font-weight: 700; color: #0f172a; }
+  .footer { margin-top: 32px; padding-top: 20px; border-top: 1px solid #f0f0f0; text-align: center; font-size: 12px; color: #94a3b8; line-height: 1.6; }
+  .footer a { color: #0f172a; text-decoration: none; }
+  .actions { margin-top: 24px; text-align: center; }
+  .actions button { background: #0f172a; color: #fff; border: none; padding: 10px 32px; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; }
+  .actions button:hover { background: #1e293b; }
+  @media print { body { padding: 0; background: #fff; } .receipt { box-shadow: none; padding: 24px; } .actions { display: none; } }
+</style></head>
+<body>
+<div class="receipt">
+  <div class="header">
+    <div class="brand">
+      <h1>BEYONDVYU</h1>
+      <p>Payment Receipt</p>
+    </div>
+    <span class="badge">Paid</span>
+  </div>
+  <div class="status">
+    <span class="status-icon">&#10003;</span>
+    <span class="status-text">Payment Successful</span>
+  </div>
+  <div class="details">
+    <div class="row"><span class="label">Invoice Number</span><span class="value">${invNum}</span></div>
+    <div class="row"><span class="label">Date</span><span class="value">${date}</span></div>
+    <div class="row"><span class="label">Plan</span><span class="value">${plan?.name || "N/A"} ${plan ? `(${plan.interval})` : ""}</span></div>
+    <div class="row"><span class="label">Payment ID</span><span class="value" style="font-size:12px">${invoice.razorpayPaymentId}</span></div>
+    <div class="row"><span class="label">Customer</span><span class="value">${user?.name || user?.email || "N/A"}</span></div>
+    <div class="row"><span class="label">Email</span><span class="value">${user?.email || "N/A"}</span></div>
+    <div class="row"><span class="label">Subtotal</span><span class="value">&#8377; ${amt}</span></div>
+    <div class="row"><span class="label">GST (18%)</span><span class="value">&#8377; ${gst}</span></div>
+  </div>
+  <div class="total-row"><span>Total Paid</span><span>&#8377; ${total}</span></div>
+  <div class="footer">
+    <p>BEYONDVYU &middot; <a href="https://beyondvyu.com">beyondvyu.com</a></p>
+    <p>support@beyondvyu.app</p>
+    <p>This is a computer-generated receipt.</p>
+  </div>
+  <div class="actions">
+    <button onclick="window.print()">&#128424; Print / Save as PDF</button>
+  </div>
+</div>
+</body>
+</html>`);
+  } catch (err) {
+    console.error("Receipt generation error:", err);
+    res.status(500).send("<h1>Error generating receipt</h1>");
   }
 });
 
