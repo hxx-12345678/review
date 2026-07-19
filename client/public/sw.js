@@ -1,11 +1,11 @@
-const CACHE = "beyondvyu-v2"
+const CACHE = "beyondvyu-v3"
 const STATIC_ASSETS = [
   "/",
   "/offline",
   "/manifest.json",
   "/icon.svg",
-  "/icon-light-32x32.png",
-  "/icon-dark-32x32.png",
+  "/icon-192x192.png",
+  "/icon-512x512.png",
   "/apple-icon.png",
 ]
 
