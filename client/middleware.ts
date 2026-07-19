@@ -12,7 +12,7 @@ export function middleware(request: NextRequest) {
   const apiOrigin = new URL(apiUrl).origin
   response.headers.set(
     "Content-Security-Policy",
-    `default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http://localhost:4000; font-src 'self' data:; connect-src 'self' http://localhost:4000 http://localhost:3000 ws://localhost:3000 https://api.openai.com ${apiOrigin}; frame-ancestors 'none'`,
+    `default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' ${apiOrigin} https://api.openai.com https://static.cloudflareinsights.com; frame-ancestors 'none'`,
   )
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin")
   response.headers.set("Permissions-Policy", "geolocation=(), microphone=(), camera=(), payment=()")
