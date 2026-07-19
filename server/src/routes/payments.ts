@@ -118,7 +118,7 @@ router.post("/create-subscription", authRequired, async (req: AuthRequest, res: 
 
     const razorpaySub = await razorpay.subscriptions.create({
       plan_id: razorpayPlanId,
-      total_count: 999,
+      total_count: 0,
       customer_notify: true,
       notes: { userId: req.userId!, planId: plan.id },
     } as any);
