@@ -39,9 +39,9 @@ const envSchema = z.object({
   INSTAGRAM_BUSINESS_ACCOUNT_ID: z.string().optional().default(""),
 
   // Razorpay
-  RAZORPAY_KEY_ID: z.string().optional().default(""),
-  RAZORPAY_KEY_SECRET: z.string().optional().default(""),
-  RAZORPAY_WEBHOOK_SECRET: z.string().optional().default(""),
+  RAZORPAY_KEY_ID: z.string().optional().default("").transform((s) => s.trim()),
+  RAZORPAY_KEY_SECRET: z.string().optional().default("").transform((s) => s.trim()),
+  RAZORPAY_WEBHOOK_SECRET: z.string().optional().default("").transform((s) => s.trim()),
 
   // Super Admin
   ADMIN_EMAIL: z.string().email().default("admin@beyondvyu.app"),
