@@ -153,8 +153,7 @@ function BillingPage() {
   }, [plans]);
 
   const displayPlans = useMemo(() => {
-    const monthlyIds = new Set(plans.filter((p) => p.price > 0 && p.interval === "month").map((p) => p.slug));
-    return plans.filter((p) => p.price > 0 && (p.interval === "month" || monthlyIds.has(p.slug.replace("-yearly", ""))));
+    return plans.filter((p) => p.price > 0 && p.interval === "month");
   }, [plans]);
 
   const openRazorpayCheckout = useCallback((

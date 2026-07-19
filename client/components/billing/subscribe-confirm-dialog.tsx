@@ -35,7 +35,6 @@ type Props = {
   loading: boolean;
 };
 
-const GST_RATE = 0.18;
 const DAYS_IN_YEAR = 365;
 
 function formatPrice(paise: number) {
@@ -46,12 +45,6 @@ function formatPrice(paise: number) {
 function formatPriceShort(paise: number) {
   if (paise === 0) return "₹0";
   return `₹${(paise / 100).toLocaleString("en-IN")}`;
-}
-
-function gstTotal(paise: number) {
-  const base = paise / 100;
-  const gst = Math.round(base * GST_RATE);
-  return { base, gst, total: base + gst };
 }
 
 export function SubscribeConfirmDialog({
@@ -68,10 +61,8 @@ export function SubscribeConfirmDialog({
 
   const activePlan = billing === "yearly" && yearlyPlan ? yearlyPlan : monthlyPlan;
   const activePaise = activePlan.price;
-  const activeGst = gstTotal(activePaise);
 
   const monthlyPaise = monthlyPlan.price;
-  const monthlyGst = gstTotal(monthlyPaise);
 
   const yearlyTotalPaise = yearlyPlan ? yearlyPlan.price : monthlyPaise * 12;
   const yearlyMonthlyPrice = yearlyPlan ? yearlyPlan.price / 12 : monthlyPaise;
@@ -193,19 +184,10 @@ export function SubscribeConfirmDialog({
                   Less than ~₹{perDay.toLocaleString("en-IN")}/day
                 </div>
 
-                {/* Price with GST */}
-                <div className="border-t pt-2 mt-2 space-y-1 text-xs text-muted-foreground">
-                  <div className="flex justify-between">
-                    <span>Base price</span>
-                    <span>{formatPriceShort(yearlyPlan.price)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>GST (18%)</span>
-                    <span>₹{activeGst.gst.toLocaleString("en-IN")}</span>
-                  </div>
-                  <div className="flex justify-between border-t pt-1 font-semibold text-foreground">
-                    <span>Total (inc. GST)</span>
-                    <span>₹{activeGst.total.toLocaleString("en-IN")}/yr</span>
+                <div className="border-t pt-2 mt-2 text-xs text-muted-foreground">
+                  <div className="flex justify-between font-semibold text-foreground">
+                    <span>Plan price</span>
+                    <span>{formatPriceShort(yearlyPlan.price)}/yr</span>
                   </div>
                 </div>
 
@@ -238,19 +220,10 @@ export function SubscribeConfirmDialog({
                   </div>
                 )}
 
-                {/* Price with GST */}
-                <div className="border-t pt-2 mt-2 space-y-1 text-xs text-muted-foreground">
-                  <div className="flex justify-between">
-                    <span>Base price</span>
-                    <span>{formatPriceShort(monthlyPaise)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>GST (18%)</span>
-                    <span>₹{monthlyGst.gst.toLocaleString("en-IN")}</span>
-                  </div>
-                  <div className="flex justify-between border-t pt-1 font-semibold text-foreground">
-                    <span>Total (inc. GST)</span>
-                    <span>₹{monthlyGst.total.toLocaleString("en-IN")}/mo</span>
+                <div className="border-t pt-2 mt-2 text-xs text-muted-foreground">
+                  <div className="flex justify-between font-semibold text-foreground">
+                    <span>Plan price</span>
+                    <span>{formatPriceShort(monthlyPaise)}/mo</span>
                   </div>
                 </div>
               </div>
