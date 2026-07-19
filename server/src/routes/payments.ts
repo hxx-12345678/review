@@ -116,7 +116,7 @@ router.post("/create-subscription", authRequired, async (req: AuthRequest, res: 
 
     let razorpayPlanId = plan.razorpayPlanId || await getOrCreateRazorpayPlan(razorpay, plan);
 
-    const now = Math.floor(Date.now() / 1000);
+    const now = Math.floor(Date.now() / 1000) + 60;
     const farFuture = now + 100 * 365 * 24 * 60 * 60;
     let rpSub: any;
     try {
