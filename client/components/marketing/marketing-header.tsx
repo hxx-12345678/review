@@ -136,7 +136,9 @@ export function MarketingHeader() {
               >
                 <span className="relative z-10">Log in</span>
               </Button>
-              <InstallPWA variant="header" />
+              <span className="md:hidden">
+                <InstallPWA variant="header" />
+              </span>
               <Button
                 render={<Link href="/signup" />}
                 nativeButton={false}
