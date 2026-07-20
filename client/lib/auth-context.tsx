@@ -38,10 +38,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setToken(stored);
       const data = await api.auth.me();
       setUser(data.user);
-    } catch {
-      localStorage.removeItem("beyondvyu_token");
-      setToken(null);
-      setUser(null);
+    } catch (err: any) {
+      if (err?.status === 401) {
+        localStorage.removeItem("beyondvyu_token");
+        setToken(null);
+        setUser(null);
+      }
     } finally {
       setLoading(false);
     }

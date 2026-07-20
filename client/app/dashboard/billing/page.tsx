@@ -174,10 +174,10 @@ function BillingPage() {
         description: `${planName} Plan`,
         handler: function (response: RazorpayResponse) {
           window.location.href =
-            `/api/payments/subscription-callback` +
-            `?razorpay_payment_id=${response.razorpay_payment_id}` +
-            `&razorpay_subscription_id=${response.razorpay_subscription_id}` +
-            `&razorpay_signature=${response.razorpay_signature}`;
+            `/payment/success` +
+            `?payment_id=${response.razorpay_payment_id}` +
+            `&subscription_id=${response.razorpay_subscription_id}` +
+            `&signature=${response.razorpay_signature}`;
         },
         prefill: {
           email: user?.email || "",

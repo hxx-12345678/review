@@ -32,7 +32,8 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "https://apis.google.com"],
+      scriptSrc: ["'self'", "https://apis.google.com", "https://static.cloudflareinsights.com"],
+      scriptSrcAttr: ["'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", "data:", "blob:", "https://*.razorpay.com"],
       connectSrc: [

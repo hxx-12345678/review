@@ -267,6 +267,95 @@ router.get("/subscription-callback", async (req: Request, res: Response) => {
   }
 });
 
+router.post("/verify-payment", async (req: Request, res: Response) => {
+  try {
+    const env = getEnv();
+    const { payment_id, subscription_id, signature } = req.body;
+
+    if (!payment_id || !subscription_id || !signature) {
+      return res.status(400).json({ error: "Missing payment verification parameters" });
+    }
+
+    if (!env.RAZORPAY_KEY_SECRET) {
+      return res.status(503).json({ error: "Payment gateway not configured" });
+    }
+
+    const expected = crypto
+      .createHmac("sha256", env.RAZORPAY_KEY_SECRET)
+      .update(`${payment_id}|${subscription_id}`)
+      .digest("hex");
+
+    if (expected !== signature) {
+      return res.status(400).json({ error: "Invalid payment signature" });
+    }
+
+    let invoice = await prisma.invoice.findFirst({
+      where: { razorpayPaymentId: payment_id as string },
+      include: { subscription: { include: { plan: true, user: { select: { name: true, email: true } } } } },
+    });
+
+    if (invoice) {
+      return res.json({ verified: true, invoice });
+    }
+
+    const dbSub = await prisma.subscription.findFirst({
+      where: { razorpaySubscriptionId: subscription_id as string },
+    });
+
+    if (!dbSub) {
+      return res.status(404).json({ error: "Subscription not found" });
+    }
+
+    const razorpay = getRazorpay();
+    let capturedPlan: { name: string; interval: string; price: number } | null = null;
+
+    if (razorpay && dbSub.status === "created") {
+      try {
+        const payment = await razorpay.payments.fetch(payment_id as string);
+        if (payment.status === "captured") {
+          await prisma.subscription.update({
+            where: { id: dbSub.id },
+            data: {
+              status: "authenticated",
+              razorpayCustomerId: (payment as any).customer_id || dbSub.razorpayCustomerId,
+            },
+          });
+          const plan = await prisma.subscriptionPlan.findUnique({ where: { id: dbSub.planId } });
+          if (plan) capturedPlan = { name: plan.name, interval: plan.interval, price: plan.price };
+          invoice = await prisma.invoice.upsert({
+            where: { razorpayPaymentId: payment_id as string },
+            create: {
+              subscriptionId: dbSub.id,
+              razorpayPaymentId: payment_id as string,
+              amount: Number(payment.amount) || plan?.price || 0,
+              currency: "INR",
+              status: "captured",
+              description: `Initial payment for ${plan?.name || "subscription"}`,
+            },
+            update: {},
+          });
+        }
+      } catch (fetchErr: any) {
+        console.warn("Could not verify payment status:", fetchErr.message || fetchErr);
+      }
+    }
+
+    if (!invoice) {
+      return res.status(202).json({ verified: true, invoice: null, message: "Payment verified but invoice not yet created. Please try again." });
+    }
+
+    const fullInvoice = await prisma.invoice.findFirst({
+      where: { id: invoice.id },
+      include: { subscription: { include: { plan: true, user: { select: { name: true, email: true } } } } },
+    });
+
+    res.json({ verified: true, invoice: fullInvoice });
+  } catch (err) {
+    console.error("Verify payment error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 router.get("/invoice/:paymentId", async (req: Request, res: Response) => {
   try {
     const invoice = await prisma.invoice.findFirst({
@@ -293,11 +382,14 @@ router.get("/receipt/:paymentId", async (req: Request, res: Response) => {
     const user = invoice.subscription?.user;
     const amt = (invoice.amount / 100).toLocaleString("en-IN", { minimumFractionDigits: 2 });
     const date = new Date(invoice.createdAt).toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" });
-    const gst = (invoice.amount * 0.18 / 100).toLocaleString("en-IN", { minimumFractionDigits: 2 });
     const total = (invoice.amount / 100).toLocaleString("en-IN", { minimumFractionDigits: 2 });
     const invNum = invoice.id.slice(-8).toUpperCase();
+    const domain = req.headers.host || "beyondvyu.com";
+    const protocol = req.headers["x-forwarded-proto"] || "https";
+    const baseUrl = `${protocol}://${domain}`;
 
     res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.setHeader("Content-Security-Policy", `default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; script-src 'self' 'unsafe-inline'; frame-ancestors 'none';`);
     res.send(`<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="utf-8"><title>Receipt - BEYONDVYU</title>
@@ -306,8 +398,10 @@ router.get("/receipt/:paymentId", async (req: Request, res: Response) => {
   body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f5f5f5; padding: 40px 20px; display: flex; justify-content: center; }
   .receipt { max-width: 640px; width: 100%; background: #fff; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); padding: 48px 40px; }
   .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px; padding-bottom: 24px; border-bottom: 2px solid #f0f0f0; }
-  .brand h1 { font-size: 22px; font-weight: 700; color: #0f172a; letter-spacing: -0.3px; }
-  .brand p { font-size: 13px; color: #64748b; margin-top: 2px; }
+  .logo { display: flex; align-items: center; gap: 12px; }
+  .logo-icon { width: 40px; height: 40px; background: #0f172a; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; font-weight: 800; letter-spacing: -0.5px; }
+  .brand h1 { font-size: 20px; font-weight: 700; color: #0f172a; letter-spacing: -0.3px; }
+  .brand p { font-size: 12px; color: #64748b; margin-top: 1px; }
   .badge { background: #059669; color: #fff; font-size: 11px; font-weight: 600; padding: 4px 12px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; }
   .status { display: flex; align-items: center; gap: 8px; margin-bottom: 24px; padding: 12px 16px; background: #f0fdf4; border-radius: 8px; }
   .status-icon { width: 20px; height: 20px; background: #059669; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 12px; font-weight: 700; }
@@ -320,17 +414,22 @@ router.get("/receipt/:paymentId", async (req: Request, res: Response) => {
   .total-row { display: flex; justify-content: space-between; padding: 16px 0 0; margin-top: 8px; border-top: 2px solid #0f172a; font-size: 16px; font-weight: 700; color: #0f172a; }
   .footer { margin-top: 32px; padding-top: 20px; border-top: 1px solid #f0f0f0; text-align: center; font-size: 12px; color: #94a3b8; line-height: 1.6; }
   .footer a { color: #0f172a; text-decoration: none; }
-  .actions { margin-top: 24px; text-align: center; }
-  .actions button { background: #0f172a; color: #fff; border: none; padding: 10px 32px; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; }
+  .actions { margin-top: 24px; text-align: center; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .actions button { background: #0f172a; color: #fff; border: none; padding: 10px 24px; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; }
   .actions button:hover { background: #1e293b; }
+  .actions .secondary { background: #fff; color: #0f172a; border: 1.5px solid #e2e8f0; }
+  .actions .secondary:hover { background: #f8fafc; }
   @media print { body { padding: 0; background: #fff; } .receipt { box-shadow: none; padding: 24px; } .actions { display: none; } }
 </style></head>
 <body>
 <div class="receipt">
   <div class="header">
-    <div class="brand">
-      <h1>BEYONDVYU</h1>
-      <p>Payment Receipt</p>
+    <div class="logo">
+      <div class="logo-icon">BV</div>
+      <div class="brand">
+        <h1>BEYONDVYU</h1>
+        <p>Payment Receipt</p>
+      </div>
     </div>
     <span class="badge">Paid</span>
   </div>
@@ -345,8 +444,7 @@ router.get("/receipt/:paymentId", async (req: Request, res: Response) => {
     <div class="row"><span class="label">Payment ID</span><span class="value" style="font-size:12px">${invoice.razorpayPaymentId}</span></div>
     <div class="row"><span class="label">Customer</span><span class="value">${user?.name || user?.email || "N/A"}</span></div>
     <div class="row"><span class="label">Email</span><span class="value">${user?.email || "N/A"}</span></div>
-    <div class="row"><span class="label">Subtotal</span><span class="value">&#8377; ${amt}</span></div>
-    <div class="row"><span class="label">GST (18%)</span><span class="value">&#8377; ${gst}</span></div>
+    <div class="row"><span class="label">Amount Paid</span><span class="value">&#8377; ${amt}</span></div>
   </div>
   <div class="total-row"><span>Total Paid</span><span>&#8377; ${total}</span></div>
   <div class="footer">
@@ -355,9 +453,14 @@ router.get("/receipt/:paymentId", async (req: Request, res: Response) => {
     <p>This is a computer-generated receipt.</p>
   </div>
   <div class="actions">
-    <button onclick="window.print()">&#128424; Print / Save as PDF</button>
+    <button id="printBtn">&#128424; Print / Save as PDF</button>
+    <button id="closeBtn" class="secondary">Close</button>
   </div>
 </div>
+<script>
+  document.getElementById('printBtn').addEventListener('click', function() { window.print(); });
+  document.getElementById('closeBtn').addEventListener('click', function() { window.close(); });
+</script>
 </body>
 </html>`);
   } catch (err) {
