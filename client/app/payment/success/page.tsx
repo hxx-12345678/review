@@ -10,7 +10,7 @@ import { useAuth } from "@/lib/auth-context";
 function SuccessContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, token, loading: authLoading } = useAuth();
+  const { token } = useAuth();
   const [invoice, setInvoice] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -19,22 +19,31 @@ function SuccessContent() {
   const subscriptionId = searchParams.get("subscription_id");
   const signature = searchParams.get("signature");
 
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
+
   useEffect(() => {
-    if (!paymentId || !subscriptionId || !signature) {
+    if (!paymentId) {
       setLoading(false);
       return;
     }
-    verifyPayment();
+    tryVerify();
   }, [paymentId, subscriptionId, signature]);
 
-  async function verifyPayment() {
+  async function tryVerify() {
     setLoading(true);
     setError("");
 
-    const maxRetries = 8;
-    for (let i = 0; i < maxRetries; i++) {
+    if (subscriptionId && signature) {
+      const ok = await tryVerifyPayment();
+      if (ok) return;
+    }
+
+    await pollInvoice();
+  }
+
+  async function tryVerifyPayment() {
+    for (let i = 0; i < 4; i++) {
       try {
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
         const res = await fetch(`${API_URL}/payments/verify-payment`, {
           method: "POST",
           headers: {
@@ -48,36 +57,52 @@ function SuccessContent() {
           }),
         });
 
-        const data = await res.json();
+        if (res.status === 404) return false;
 
+        const data = await res.json();
         if (res.ok && data.verified) {
           if (data.invoice) {
             setInvoice(data.invoice);
             setLoading(false);
-            return;
+            return true;
           }
           if (data.message) {
             await new Promise((r) => setTimeout(r, 2000));
             continue;
           }
         }
-
         if (res.status === 400) {
           setError(data.error || "Payment verification failed");
           setLoading(false);
-          return;
+          return true;
         }
-      } catch (err) {
-        console.warn("Verify payment attempt failed:", err);
-      }
+      } catch {}
 
-      if (i < maxRetries - 1) {
-        await new Promise((r) => setTimeout(r, 2000));
-      }
+      await new Promise((r) => setTimeout(r, 2000));
     }
+    return false;
+  }
+
+  async function pollInvoice() {
+    for (let i = 0; i < 12; i++) {
+      try {
+        const res = await fetch(`${API_URL}/payments/invoice/${paymentId}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.invoice) {
+            setInvoice(data.invoice);
+            setLoading(false);
+            return;
+          }
+        }
+      } catch {}
+
+      await new Promise((r) => setTimeout(r, 3000));
+    }
+
     setLoading(false);
-    if (!invoice) {
-      setError("Could not load payment details. Please check your billing page.");
+    if (!subscriptionId) {
+      setError("Payment was successful but we're still processing your subscription. Check your billing page in a few minutes.");
     }
   }
 
@@ -106,9 +131,9 @@ function SuccessContent() {
         </div>
 
         {error && (
-          <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
             <p className="flex items-center gap-2 font-medium">
-              <AlertCircle className="size-4" />
+              <AlertCircle className="size-4 shrink-0" />
               {error}
             </p>
           </div>
@@ -117,7 +142,7 @@ function SuccessContent() {
         {loading ? (
           <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
             <Loader2 className="size-4 animate-spin" />
-            Verifying payment and loading receipt details...
+            Finalizing your payment details...
           </div>
         ) : invoice ? (
           <Card>
@@ -172,6 +197,9 @@ function SuccessContent() {
                 <span className="text-muted-foreground">Status</span>
                 <span className="font-medium text-green-600">Confirmed</span>
               </div>
+              <p className="text-xs text-muted-foreground text-center pt-2 border-t">
+                Your subscription is being activated. Invoice details will appear shortly.
+              </p>
             </CardContent>
           </Card>
         )}
@@ -180,7 +208,7 @@ function SuccessContent() {
           <Button
             variant="outline"
             onClick={() => window.open(`/api/payments/receipt/${paymentId}`, "_blank")}
-            disabled={loading && !error}
+            disabled={loading}
           >
             <Download className="mr-2 size-4" />
             Download Receipt / PDF

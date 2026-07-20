@@ -322,7 +322,7 @@ router.post("/verify-payment", async (req: Request, res: Response) => {
           });
           const plan = await prisma.subscriptionPlan.findUnique({ where: { id: dbSub.planId } });
           if (plan) capturedPlan = { name: plan.name, interval: plan.interval, price: plan.price };
-          invoice = await prisma.invoice.upsert({
+          await prisma.invoice.upsert({
             where: { razorpayPaymentId: payment_id as string },
             create: {
               subscriptionId: dbSub.id,
@@ -333,23 +333,23 @@ router.post("/verify-payment", async (req: Request, res: Response) => {
               description: `Initial payment for ${plan?.name || "subscription"}`,
             },
             update: {},
-          });
+          }).catch(() => {});
         }
       } catch (fetchErr: any) {
         console.warn("Could not verify payment status:", fetchErr.message || fetchErr);
       }
     }
 
+    invoice = await prisma.invoice.findFirst({
+      where: { razorpayPaymentId: payment_id as string },
+      include: { subscription: { include: { plan: true, user: { select: { name: true, email: true } } } } },
+    });
+
     if (!invoice) {
       return res.status(202).json({ verified: true, invoice: null, message: "Payment verified but invoice not yet created. Please try again." });
     }
 
-    const fullInvoice = await prisma.invoice.findFirst({
-      where: { id: invoice.id },
-      include: { subscription: { include: { plan: true, user: { select: { name: true, email: true } } } } },
-    });
-
-    res.json({ verified: true, invoice: fullInvoice });
+    res.json({ verified: true, invoice });
   } catch (err) {
     console.error("Verify payment error:", err);
     res.status(500).json({ error: "Internal server error" });
@@ -376,7 +376,9 @@ router.get("/receipt/:paymentId", async (req: Request, res: Response) => {
       where: { razorpayPaymentId: req.params.paymentId as string },
       include: { subscription: { include: { user: { select: { name: true, email: true } }, plan: true } } },
     });
-    if (!invoice) return res.status(404).send("<h1>Receipt not found</h1>");
+    if (!invoice) {
+      return res.status(404).send(`<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Receipt - BEYONDVYU</title><style>body{font-family:'Segoe UI',system-ui,sans-serif;background:#f5f5f5;padding:40px 20px;display:flex;justify-content:center;}.card{max-width:480px;width:100%;background:#fff;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,0.08);padding:48px 40px;text-align:center;}h1{font-size:22px;color:#0f172a;margin-bottom:8px;}p{color:#64748b;font-size:14px;line-height:1.6;}.spinner{margin:24px auto;width:32px;height:32px;border:3px solid #e2e8f0;border-top-color:#0f172a;border-radius:50%;animation:spin .8s linear infinite;}@keyframes spin{to{transform:rotate(360deg);}}</style></head><body><div class="card"><div class="spinner"></div><h1>Receipt is being generated</h1><p>Your receipt will be available shortly. Please check back in a few minutes.</p></div></body></html>`);
+    }
 
     const plan = invoice.subscription?.plan;
     const user = invoice.subscription?.user;
