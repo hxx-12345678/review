@@ -126,7 +126,7 @@ export function MarketingHeader() {
                 variant="ghost"
                 size="sm"
                 className={cn(
-                  "relative overflow-hidden rounded-lg px-5 py-2 text-sm font-medium inline-flex",
+                  "relative overflow-hidden rounded-lg px-5 py-2 text-sm font-medium hidden md:inline-flex",
                   "before:absolute before:inset-0 before:rounded-lg before:transition-transform before:duration-500 before:-translate-x-full hover:before:translate-x-0",
                   scrolled
                     ? "border border-zinc-300 text-zinc-700 before:bg-gradient-to-r before:from-zinc-200 before:to-zinc-100"
@@ -139,7 +139,7 @@ export function MarketingHeader() {
                 render={<Link href="/signup" />}
                 nativeButton={false}
                 size="sm"
-                className="relative overflow-hidden rounded-lg bg-primary px-5 py-2 text-sm font-bold text-primary-foreground shadow-md hover:shadow-lg squishy before:absolute before:inset-0 before:rounded-lg before:bg-gradient-to-r before:from-white/25 before:to-transparent before:transition-transform before:duration-500 before:-translate-x-full hover:before:translate-x-0"
+                className="relative overflow-hidden rounded-lg bg-primary px-5 py-2 text-sm font-bold text-primary-foreground shadow-md hover:shadow-lg squishy before:absolute before:inset-0 before:rounded-lg before:bg-gradient-to-r before:from-white/25 before:to-transparent before:transition-transform before:duration-500 before:-translate-x-full hover:before:translate-x-0 hidden md:inline-flex"
               >
                 <span className="relative z-10">Get started</span>
               </Button>
@@ -209,8 +209,15 @@ export function MarketingHeader() {
               </Link>
             ) : (
               <Link
-                href="/login"
+                href="/signup"
                 className="flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:bg-primary/90"
+                onClick={() => setMobileOpen(false)}
+              >
+                Get started
+              </Link>
+              <Link
+                href="/login"
+                className="mt-2 flex items-center justify-center gap-2 rounded-xl border border-white/20 px-4 py-2.5 text-sm font-medium text-white/80 transition-all duration-200 hover:bg-white/10 hover:text-white"
                 onClick={() => setMobileOpen(false)}
               >
                 Log in
