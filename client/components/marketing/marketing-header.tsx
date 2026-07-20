@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/lib/auth-context"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { InstallPWA } from "@/components/install-pwa"
 
 export function MarketingHeader() {
   const { user, loading, logout } = useAuth()
@@ -127,7 +126,7 @@ export function MarketingHeader() {
                 variant="ghost"
                 size="sm"
                 className={cn(
-                  "hidden relative overflow-hidden rounded-lg px-5 py-2 text-sm font-medium sm:inline-flex",
+                  "relative overflow-hidden rounded-lg px-5 py-2 text-sm font-medium inline-flex",
                   "before:absolute before:inset-0 before:rounded-lg before:transition-transform before:duration-500 before:-translate-x-full hover:before:translate-x-0",
                   scrolled
                     ? "border border-zinc-300 text-zinc-700 before:bg-gradient-to-r before:from-zinc-200 before:to-zinc-100"
@@ -136,9 +135,6 @@ export function MarketingHeader() {
               >
                 <span className="relative z-10">Log in</span>
               </Button>
-              <span className="md:hidden">
-                <InstallPWA variant="header" />
-              </span>
               <Button
                 render={<Link href="/signup" />}
                 nativeButton={false}
