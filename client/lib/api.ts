@@ -374,12 +374,17 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ planId }),
       }),
+    updateSubscription: (planId: string) =>
+      request<{ subscription: any; upgrade: boolean; immediate: boolean; scheduledDate?: string; message: string }>("/payments/update-subscription", {
+        method: "POST",
+        body: JSON.stringify({ planId }),
+      }),
     cancelPending: () =>
       request<{ success: boolean }>("/payments/cancel-pending", {
         method: "POST",
       }),
     cancel: () =>
-      request<{ success: boolean }>("/payments/cancel", {
+      request<{ success: boolean; refunded?: boolean; message?: string }>("/payments/cancel", {
         method: "POST",
       }),
   },

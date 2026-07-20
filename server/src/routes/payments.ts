@@ -503,47 +503,210 @@ router.post("/cancel-pending", authRequired, async (req: AuthRequest, res: Respo
   }
 });
 
+router.post("/update-subscription", authRequired, async (req: AuthRequest, res: Response) => {
+  try {
+    const { planId } = z.object({ planId: z.string() }).parse(req.body);
+
+    const currentSub = await prisma.subscription.findFirst({
+      where: { userId: req.userId, status: { in: ["active", "authenticated"] } },
+      include: { plan: true },
+    });
+    if (!currentSub) return res.status(404).json({ error: "No active subscription" });
+
+    const newPlan = await prisma.subscriptionPlan.findUnique({ where: { id: planId } });
+    if (!newPlan || !newPlan.active) return res.status(404).json({ error: "Plan not found" });
+    if (newPlan.id === currentSub.planId) return res.status(400).json({ error: "Already on this plan" });
+    if (newPlan.price === 0) return res.status(400).json({ error: "Cannot switch to free plan. Use cancel instead." });
+
+    const isUpgrade = newPlan.price >= currentSub.plan.price;
+    const razorpay = getRazorpay();
+
+    if (isUpgrade) {
+      // Upgrade: change plan immediately with proration
+      let subscription = currentSub;
+
+      if (razorpay && currentSub.razorpaySubscriptionId) {
+        let razorpayPlanId: string;
+        try {
+          razorpayPlanId = newPlan.razorpayPlanId || await getOrCreateRazorpayPlan(razorpay, newPlan);
+          await razorpay.subscriptions.update(currentSub.razorpaySubscriptionId, {
+            plan_id: razorpayPlanId,
+          } as any);
+        } catch (updateErr: any) {
+          // Razorpay PATCH may fail (stale plan_id, emandate) — fallback: create fresh plan + new subscription
+          console.warn("Razorpay subscription update failed, fallback:", updateErr?.error?.description || updateErr?.message || String(updateErr));
+          if (newPlan.razorpayPlanId) {
+            await prisma.subscriptionPlan.update({
+              where: { id: newPlan.id },
+              data: { razorpayPlanId: null },
+            });
+          }
+          razorpayPlanId = await getOrCreateRazorpayPlan(razorpay, newPlan);
+          try { await razorpay.subscriptions.cancel(currentSub.razorpaySubscriptionId); } catch (_) {}
+          const rpSub = await razorpay.subscriptions.create({
+            plan_id: razorpayPlanId,
+            total_count: getSafeTotalCount(newPlan.interval),
+            customer_notify: true,
+            notes: { userId: req.userId!, planId: newPlan.id },
+          } as any);
+          await prisma.subscription.update({
+            where: { id: currentSub.id },
+            data: { razorpaySubscriptionId: rpSub.id },
+          });
+        }
+      }
+
+      subscription = await prisma.subscription.update({
+        where: { id: currentSub.id },
+        data: {
+          planId: newPlan.id,
+          aiCallsLimit: newPlan.aiCallsLimit,
+          businessLimit: newPlan.businessLimit,
+          aiCallsUsed: 0,
+          aiCallsLastResetAt: new Date(),
+          pendingPlanId: null,
+          scheduledChangeAt: null,
+        },
+        include: { plan: true },
+      });
+
+      return res.json({
+        subscription,
+        upgrade: true,
+        immediate: true,
+        message: `Upgraded to ${newPlan.name}. Prorated difference will be charged.`,
+      });
+    } else {
+      // Downgrade: schedule at end of current billing cycle
+      if (razorpay && currentSub.razorpaySubscriptionId) {
+        try {
+          let razorpayPlanId = newPlan.razorpayPlanId || await getOrCreateRazorpayPlan(razorpay, newPlan);
+          await razorpay.subscriptions.update(currentSub.razorpaySubscriptionId, {
+            plan_id: razorpayPlanId,
+            schedule_change_at: "cycle_end",
+          } as any);
+        } catch (updateErr: any) {
+          // Razorpay PATCH may fail (stale plan_id, emandate) — retry with fresh plan
+          console.warn("Razorpay scheduled update failed, retrying with fresh plan:", updateErr?.error?.description || updateErr?.message || String(updateErr));
+          if (newPlan.razorpayPlanId) {
+            await prisma.subscriptionPlan.update({
+              where: { id: newPlan.id },
+              data: { razorpayPlanId: null },
+            });
+            try {
+              const freshPlanId = await getOrCreateRazorpayPlan(razorpay, newPlan);
+              await razorpay.subscriptions.update(currentSub.razorpaySubscriptionId, {
+                plan_id: freshPlanId,
+                schedule_change_at: "cycle_end",
+              } as any);
+            } catch (retryErr: any) {
+              console.warn("Razorpay scheduled update retry also failed, using DB-only fallback:", retryErr?.error?.description || retryErr?.message || String(retryErr));
+            }
+          }
+        }
+      }
+
+      const scheduledChangeAt = currentSub.currentPeriodEnd || new Date(Date.now() + 30 * 86400000);
+      const subscription = await prisma.subscription.update({
+        where: { id: currentSub.id },
+        data: {
+          pendingPlanId: newPlan.id,
+          scheduledChangeAt,
+        },
+      });
+
+      return res.json({
+        subscription,
+        upgrade: false,
+        immediate: false,
+        scheduledDate: scheduledChangeAt.toISOString(),
+        message: `Downgrade to ${newPlan.name} scheduled at end of current billing period (${scheduledChangeAt.toLocaleDateString()}).`,
+      });
+    }
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return res.status(400).json({ error: "Invalid input", details: err.errors });
+    }
+    console.error("Update subscription error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 router.post("/cancel", authRequired, async (req: AuthRequest, res: Response) => {
   try {
     const sub = await prisma.subscription.findFirst({
-      where: { userId: req.userId, status: { in: ["active", "paused", "created"] } },
+      where: { userId: req.userId, status: { in: ["active", "authenticated"] } },
+      include: { plan: true },
     });
     if (!sub) return res.status(404).json({ error: "No active subscription" });
 
     const razorpay = getRazorpay();
+    const daysSinceCreation = (Date.now() - new Date(sub.createdAt).getTime()) / 86400000;
+    const isRefundEligible = daysSinceCreation <= 7;
+
     if (razorpay && sub.razorpaySubscriptionId) {
       try {
-        const rpSubInfo = await razorpay.subscriptions.fetch(sub.razorpaySubscriptionId);
-        const cancellableStatuses = ["active", "paused", "pending", "created"];
-        if (rpSubInfo && cancellableStatuses.includes(rpSubInfo.status)) {
+        if (isRefundEligible) {
+          // Full refund within 7-day window
+          const invoice = await prisma.invoice.findFirst({
+            where: { subscriptionId: sub.id, status: "captured" },
+            orderBy: { createdAt: "asc" },
+          });
+          if (invoice?.razorpayPaymentId) {
+            try {
+              await razorpay.payments.refund(invoice.razorpayPaymentId, { amount: invoice.amount });
+            } catch (refundErr: any) {
+              console.warn("Refund failed:", refundErr?.error?.description || refundErr?.message || String(refundErr));
+            }
+          }
           await razorpay.subscriptions.cancel(sub.razorpaySubscriptionId);
+        } else {
+          // Cancel at cycle end — user keeps access until period end
+          await razorpay.subscriptions.cancel(sub.razorpaySubscriptionId, 1);
         }
       } catch (cancelErr: any) {
         console.warn("Failed to cancel Razorpay subscription:", cancelErr?.error?.description || cancelErr?.message || String(cancelErr));
       }
     }
 
-    await prisma.subscription.update({
-      where: { id: sub.id },
-      data: { status: "cancelled", cancelledAt: new Date() },
-    });
-
-    const freePlan = await prisma.subscriptionPlan.findUnique({ where: { slug: "free" } });
-    if (freePlan) {
-      await prisma.subscription.create({
+    if (isRefundEligible) {
+      // Within 7 days: immediate revert to free plan
+      await prisma.subscription.update({
+        where: { id: sub.id },
+        data: { status: "cancelled", cancelledAt: new Date() },
+      });
+      const freePlan = await prisma.subscriptionPlan.findUnique({ where: { slug: "free" } });
+      if (freePlan) {
+        await prisma.subscription.create({
+          data: {
+            userId: req.userId!,
+            planId: freePlan.id,
+            status: "active",
+            aiCallsLimit: freePlan.aiCallsLimit,
+            businessLimit: freePlan.businessLimit,
+            aiCallsLastResetAt: new Date(),
+            currentPeriodStart: new Date(),
+            currentPeriodEnd: new Date(Date.now() + 365 * 86400000),
+          },
+        });
+      }
+      return res.json({ success: true, refunded: true, message: "Subscription cancelled and fully refunded." });
+    } else {
+      // After 7 days: keep access until period end
+      await prisma.subscription.update({
+        where: { id: sub.id },
         data: {
-          userId: req.userId!,
-          planId: freePlan.id,
-          status: "active",
-          aiCallsLimit: freePlan.aiCallsLimit,
-          businessLimit: freePlan.businessLimit,
-          currentPeriodStart: new Date(),
-          currentPeriodEnd: new Date(Date.now() + 365 * 86400000),
+          cancelledAt: new Date(),
+          pendingPlanId: null,
+          scheduledChangeAt: null,
         },
       });
+      return res.json({
+        success: true,
+        refunded: false,
+        message: `Subscription will remain active until ${sub.currentPeriodEnd?.toLocaleDateString() || "end of billing period"}. No refund issued as per our policy.`,
+      });
     }
-
-    res.json({ success: true });
   } catch (err) {
     console.error("Cancel subscription error:", err);
     res.status(500).json({ error: "Internal server error" });

@@ -46,6 +46,17 @@ export async function requireSubscription(req: AuthRequest, res: Response, next:
       }
     }
 
+    // Monthly AI calls reset: if more than ~30 days since last reset, reset counter
+    const daysSinceReset = sub.aiCallsLastResetAt
+      ? (Date.now() - new Date(sub.aiCallsLastResetAt).getTime()) / 86400000
+      : 31;
+    if (daysSinceReset >= 30) {
+      sub = await prisma.subscription.update({
+        where: { id: sub.id },
+        data: { aiCallsUsed: 0, aiCallsLastResetAt: new Date() },
+      });
+    }
+
     if (sub.aiCallsUsed >= sub.aiCallsLimit) {
       return res.status(403).json({ error: "AI call limit reached. Please upgrade your plan.", code: "LIMIT_REACHED" });
     }

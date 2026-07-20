@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react"
 import { adminApi } from "@/lib/admin-api"
-import { ChevronLeft, ChevronRight } from "lucide-react"
+import { ChevronLeft, ChevronRight, RotateCcw } from "lucide-react"
 
 export default function AdminInvoicesPage() {
   const [data, setData] = useState<any>(null)
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
+  const [refunding, setRefunding] = useState<string | null>(null)
+  const [refundMsg, setRefundMsg] = useState<string | null>(null)
 
   useEffect(() => {
     setLoading(true)
@@ -17,10 +19,29 @@ export default function AdminInvoicesPage() {
       .finally(() => setLoading(false))
   }, [page])
 
+  const handleRefund = async (paymentId: string) => {
+    if (!confirm("Issue a full refund for this payment? This cannot be undone.")) return
+    setRefunding(paymentId)
+    try {
+      const res = await adminApi.refundInvoice(paymentId)
+      setRefundMsg(`Refunded ₹${(res.amount / 100).toLocaleString()} successfully`)
+      const updated = await adminApi.invoices({ page, limit: 20 })
+      setData(updated)
+    } catch (e: any) {
+      setRefundMsg(e.message || "Refund failed")
+    } finally {
+      setRefunding(null)
+      setTimeout(() => setRefundMsg(null), 5000)
+    }
+  }
+
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-bold text-zinc-100 md:text-2xl">Payments</h1>
 
+      {refundMsg && (
+        <div className="rounded-lg bg-emerald-500/10 p-3 text-sm text-emerald-400">{refundMsg}</div>
+      )}
       {loading ? (
         <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-14 animate-pulse rounded-lg bg-zinc-800" />)}</div>
       ) : (
@@ -36,6 +57,7 @@ export default function AdminInvoicesPage() {
                   <th className="p-3 font-medium">Amount</th>
                   <th className="p-3 font-medium">Status</th>
                   <th className="p-3 font-medium">Date</th>
+                  <th className="p-3 font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -54,6 +76,18 @@ export default function AdminInvoicesPage() {
                       }`}>{inv.status}</span>
                     </td>
                     <td className="p-3 text-zinc-300">{new Date(inv.createdAt).toLocaleDateString()}</td>
+                    <td className="p-3">
+                      {inv.status === "captured" && (
+                        <button
+                          onClick={() => handleRefund(inv.razorpayPaymentId)}
+                          disabled={refunding === inv.razorpayPaymentId}
+                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-amber-400 hover:bg-amber-500/10 transition-colors disabled:opacity-50"
+                        >
+                          <RotateCcw className={`size-3 ${refunding === inv.razorpayPaymentId ? "animate-spin" : ""}`} />
+                          {refunding === inv.razorpayPaymentId ? "..." : "Refund"}
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -65,12 +99,23 @@ export default function AdminInvoicesPage() {
               <div key={inv.id} className="rounded-lg border border-zinc-800 bg-zinc-900 p-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-zinc-100">₹{(inv.amount / 100).toLocaleString()}</span>
-                  <span className={`rounded-full px-2 py-0.5 text-xs ${
-                    inv.status === "captured" ? "bg-emerald-500/10 text-emerald-400" :
-                    inv.status === "created" ? "bg-blue-500/10 text-blue-400" :
-                    inv.status === "failed" ? "bg-red-500/10 text-red-400" :
-                    "bg-zinc-800 text-zinc-500"
-                  }`}>{inv.status}</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className={`rounded-full px-2 py-0.5 text-xs ${
+                      inv.status === "captured" ? "bg-emerald-500/10 text-emerald-400" :
+                      inv.status === "created" ? "bg-blue-500/10 text-blue-400" :
+                      inv.status === "failed" ? "bg-red-500/10 text-red-400" :
+                      "bg-zinc-800 text-zinc-500"
+                    }`}>{inv.status}</span>
+                    {inv.status === "captured" && (
+                      <button
+                        onClick={() => handleRefund(inv.razorpayPaymentId)}
+                        disabled={refunding === inv.razorpayPaymentId}
+                        className="rounded-md p-1 text-amber-400 hover:bg-amber-500/10 transition-colors disabled:opacity-50"
+                      >
+                        <RotateCcw className={`size-3.5 ${refunding === inv.razorpayPaymentId ? "animate-spin" : ""}`} />
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500">
                   <span className="font-mono">{inv.id.slice(0, 8)}</span>

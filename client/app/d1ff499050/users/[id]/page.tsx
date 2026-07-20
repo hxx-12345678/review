@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
-import { ArrowLeft, Mail, Calendar, Building2, CreditCard, Activity, Ban, CheckCircle, Trash2, RotateCcw, XCircle } from "lucide-react"
+import { ArrowLeft, Mail, Calendar, Building2, CreditCard, Activity, Ban, CheckCircle, Trash2, RotateCcw, XCircle, ArrowUpDown, RefreshCw } from "lucide-react"
 import { adminApi } from "@/lib/admin-api"
 import { ADMIN_BASE } from "@/lib/admin-path"
 
@@ -11,14 +11,26 @@ export default function AdminUserDetailPage() {
   const { id } = useParams()
   const router = useRouter()
   const [data, setData] = useState<any>(null)
+  const [plans, setPlans] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [confirmAction, setConfirmAction] = useState<string | null>(null)
+  const [changePlanOpen, setChangePlanOpen] = useState(false)
+  const [selectedPlanId, setSelectedPlanId] = useState("")
+  const [changeImmediate, setChangeImmediate] = useState(true)
+  const [refundOnCancel, setRefundOnCancel] = useState(false)
+  const [planActionLoading, setPlanActionLoading] = useState(false)
 
   const loadUser = () => {
     setLoading(true)
-    adminApi.user(id as string)
-      .then(setData)
+    Promise.all([
+      adminApi.user(id as string),
+      adminApi.plans(),
+    ])
+      .then(([userData, planData]) => {
+        setData(userData)
+        setPlans(planData.plans)
+      })
       .catch(() => {})
       .finally(() => setLoading(false))
   }
@@ -32,13 +44,29 @@ export default function AdminUserDetailPage() {
       else if (action === "unsuspend") await adminApi.unsuspendUser(id as string)
       else if (action === "delete") await adminApi.deleteUser(id as string)
       else if (action === "restore") await adminApi.restoreUser(id as string)
-      else if (action === "cancel_sub") await adminApi.cancelSubscription(id as string)
+      else if (action === "cancel_sub") await adminApi.cancelSubscription(id as string, refundOnCancel)
       loadUser()
     } catch (e) {
       console.error(e)
     } finally {
       setActionLoading(null)
       setConfirmAction(null)
+      setRefundOnCancel(false)
+    }
+  }
+
+  const handlePlanChange = async () => {
+    if (!selectedPlanId) return
+    setPlanActionLoading(true)
+    try {
+      await adminApi.updateUserSubscription(id as string, selectedPlanId, changeImmediate)
+      setChangePlanOpen(false)
+      setSelectedPlanId("")
+      loadUser()
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setPlanActionLoading(false)
     }
   }
 
@@ -114,12 +142,20 @@ export default function AdminUserDetailPage() {
               </button>
             )}
             {user.subscriptions?.some((s: any) => s.status === "active") && (
-              <button
-                onClick={() => setConfirmAction("cancel_sub")}
-                className="inline-flex items-center gap-1.5 rounded-md bg-red-500/10 px-3 py-2 text-sm font-medium text-red-400 hover:bg-red-500/20 transition-colors"
-              >
-                <XCircle className="size-4" /> Cancel Subscription
-              </button>
+              <>
+                <button
+                  onClick={() => setChangePlanOpen(true)}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-blue-500/10 px-3 py-2 text-sm font-medium text-blue-400 hover:bg-blue-500/20 transition-colors"
+                >
+                  <ArrowUpDown className="size-4" /> Change Plan
+                </button>
+                <button
+                  onClick={() => setConfirmAction("cancel_sub")}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-red-500/10 px-3 py-2 text-sm font-medium text-red-400 hover:bg-red-500/20 transition-colors"
+                >
+                  <XCircle className="size-4" /> Cancel Subscription
+                </button>
+              </>
             )}
             {user.deletedAt ? (
               <button
@@ -144,19 +180,51 @@ export default function AdminUserDetailPage() {
         <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-4">
           <h2 className="mb-3 flex items-center gap-2 font-semibold text-zinc-100"><CreditCard className="size-4" /> Subscriptions</h2>
           <div className="space-y-2">
-            {user.subscriptions.map((sub: any) => (
-              <div key={sub.id} className="rounded-md bg-zinc-800/50 p-3 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-zinc-100">{sub.plan?.name || "Unknown Plan"}</span>
-                  <span className={`rounded-full px-2 py-0.5 text-xs ${sub.status === "active" ? "bg-emerald-500/10 text-emerald-400" : "bg-zinc-700 text-zinc-400"}`}>
-                    {sub.status}
-                  </span>
+            {user.subscriptions.map((sub: any) => {
+              const isCancelling = sub.cancelledAt && sub.status === "active";
+              const hasPendingChange = sub.pendingPlanId && sub.scheduledChangeAt;
+              return (
+                <div key={sub.id} className="rounded-md bg-zinc-800/50 p-3 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-zinc-100">{sub.plan?.name || "Unknown Plan"}</span>
+                    <span className={`rounded-full px-2 py-0.5 text-xs ${sub.status === "active" ? "bg-emerald-500/10 text-emerald-400" : "bg-zinc-700 text-zinc-400"}`}>
+                      {sub.status}
+                    </span>
+                  </div>
+                  <div className="mt-1 space-y-0.5 text-zinc-500">
+                    <div>AI: {sub.aiCallsUsed}/{sub.aiCallsLimit} | Biz limit: {sub.businessLimit} | Created: {new Date(sub.createdAt).toLocaleDateString()}</div>
+                    {sub.currentPeriodEnd && (
+                      <div>Period end: {new Date(sub.currentPeriodEnd).toLocaleDateString()}</div>
+                    )}
+                    {isCancelling && (
+                      <div className="text-amber-400">Cancelling — active until {sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd).toLocaleDateString() : "period end"}</div>
+                    )}
+                    {hasPendingChange && (
+                      <div className="text-blue-400">
+                        Pending change to <strong>{sub.pendingPlan?.name || "new plan"}</strong> on {new Date(sub.scheduledChangeAt).toLocaleDateString()}
+                      </div>
+                    )}
+                    {sub.cancelledAt && sub.status !== "active" && (
+                      <div className="text-zinc-600">Cancelled: {new Date(sub.cancelledAt).toLocaleDateString()}</div>
+                    )}
+                  </div>
+                  {sub.invoices?.length > 0 && (
+                    <details className="mt-2">
+                      <summary className="cursor-pointer text-xs text-zinc-600 hover:text-zinc-400">Invoices ({sub.invoices.length})</summary>
+                      <div className="mt-1 space-y-1">
+                        {sub.invoices.map((inv: any) => (
+                          <div key={inv.id} className="flex items-center justify-between rounded bg-zinc-900/50 px-2 py-1 text-xs text-zinc-500">
+                            <span>₹{(inv.amount / 100).toLocaleString()}</span>
+                            <span className={inv.status === "captured" ? "text-emerald-400" : inv.status === "refunded" ? "text-amber-400" : "text-zinc-600"}>{inv.status}</span>
+                            <span>{new Date(inv.createdAt).toLocaleDateString()}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  )}
                 </div>
-                <div className="mt-1 text-zinc-500">
-                  AI: {sub.aiCallsUsed}/{sub.aiCallsLimit} | Created: {new Date(sub.createdAt).toLocaleDateString()}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -190,6 +258,72 @@ export default function AdminUserDetailPage() {
         </div>
       )}
 
+      {/* Change Plan dialog */}
+      {changePlanOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md rounded-lg border border-zinc-800 bg-zinc-900 p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-zinc-100">Change Plan</h3>
+            <p className="mt-1 text-sm text-zinc-500">Select a new plan for {user.name || user.email}</p>
+            <div className="mt-4 space-y-2">
+              {plans
+                .filter((p: any) => p.active)
+                .map((plan: any) => (
+                  <label
+                    key={plan.id}
+                    className={`flex cursor-pointer items-center justify-between rounded-md border p-3 text-sm transition-colors ${
+                      selectedPlanId === plan.id
+                        ? "border-blue-500 bg-blue-500/10"
+                        : "border-zinc-700 hover:border-zinc-600"
+                    }`}
+                  >
+                    <div>
+                      <span className="font-medium text-zinc-100">{plan.name}</span>
+                      <span className="ml-2 text-zinc-500">₹{(plan.price / 100).toLocaleString()}/{plan.interval}</span>
+                    </div>
+                    <input
+                      type="radio"
+                      name="plan"
+                      value={plan.id}
+                      checked={selectedPlanId === plan.id}
+                      onChange={() => setSelectedPlanId(plan.id)}
+                      className="size-4 accent-blue-500"
+                    />
+                  </label>
+                ))}
+            </div>
+            <div className="mt-4 flex items-center gap-3">
+              <label className="flex items-center gap-2 text-sm text-zinc-400">
+                <input
+                  type="checkbox"
+                  checked={changeImmediate}
+                  onChange={() => setChangeImmediate(!changeImmediate)}
+                  className="size-4 accent-blue-500"
+                />
+                Apply immediately
+              </label>
+              {!changeImmediate && (
+                <span className="text-xs text-amber-400">Will apply at end of current billing cycle</span>
+              )}
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                onClick={() => { setChangePlanOpen(false); setSelectedPlanId("") }}
+                className="rounded-md px-3 py-2 text-sm font-medium text-zinc-400 hover:bg-zinc-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handlePlanChange}
+                disabled={!selectedPlanId || planActionLoading}
+                className="rounded-md bg-blue-500 px-3 py-2 text-sm font-medium text-white hover:bg-blue-400 transition-colors disabled:opacity-50"
+              >
+                {planActionLoading ? "Processing..." : "Change Plan"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Confirmation dialog */}
       {confirmAction && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
@@ -200,7 +334,20 @@ export default function AdminUserDetailPage() {
               {confirmAction === "unsuspend" && `Restore access for "${user.name || user.email}"?`}
               {confirmAction === "delete" && `Are you sure you want to delete "${user.name || user.email}"? This will soft-delete their account. They will be unable to log in.`}
               {confirmAction === "restore" && `Restore "${user.name || user.email}"? Their account will be reactivated.`}
-              {confirmAction === "cancel_sub" && `Cancel the active subscription for "${user.name || user.email}"? They will lose access to premium features.`}
+              {confirmAction === "cancel_sub" && (
+                <>
+                  <p>Cancel the active subscription for "{user.name || user.email}"? They will lose access to premium features.</p>
+                  <label className="mt-3 flex items-center gap-2 text-sm text-zinc-400">
+                    <input
+                      type="checkbox"
+                      checked={refundOnCancel}
+                      onChange={() => setRefundOnCancel(!refundOnCancel)}
+                      className="size-4 accent-amber-500"
+                    />
+                    Issue full refund (only for cancellations within 7-day window)
+                  </label>
+                </>
+              )}
             </p>
             <div className="mt-4 flex justify-end gap-2">
               <button

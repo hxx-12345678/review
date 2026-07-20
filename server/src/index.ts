@@ -131,6 +131,7 @@ app.post("/api/payments/webhook", express.raw({ type: "application/json" }), asy
       where: { razorpaySubscriptionId: razorpaySub.id },
     });
     if (!dbSub) return res.json({ status: "not_found" });
+    if (dbSub.status === "cancelled") return res.json({ status: "skipped_cancelled" });
 
     switch (event.event) {
       case "subscription.authenticated": {
@@ -199,6 +200,29 @@ app.post("/api/payments/webhook", express.raw({ type: "application/json" }), asy
             });
           } catch (invoiceErr) {
             console.error("Failed to create invoice record:", invoiceErr);
+          }
+        }
+        // Apply pending plan change (downgrade scheduled at cycle end)
+        if (dbSub.pendingPlanId && dbSub.pendingPlanId !== dbSub.planId) {
+          try {
+            const pendingPlan = await prisma.subscriptionPlan.findUnique({ where: { id: dbSub.pendingPlanId } });
+            if (pendingPlan) {
+              await prisma.subscription.update({
+                where: { id: dbSub.id },
+                data: {
+                  planId: pendingPlan.id,
+                  aiCallsLimit: pendingPlan.aiCallsLimit,
+                  businessLimit: pendingPlan.businessLimit,
+                  aiCallsUsed: 0,
+                  aiCallsLastResetAt: new Date(),
+                  pendingPlanId: null,
+                  scheduledChangeAt: null,
+                },
+              });
+              console.log(`Applied pending plan change for sub ${dbSub.id}: ${dbSub.planId} -> ${pendingPlan.id}`);
+            }
+          } catch (pendingErr) {
+            console.error("Failed to apply pending plan change:", pendingErr);
           }
         }
         break;

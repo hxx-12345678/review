@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState, useMemo, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Check, Receipt, Loader2, AlertCircle, IndianRupee, Download } from "lucide-react";
+import { Check, Receipt, Loader2, AlertCircle, IndianRupee, Download, ArrowUpDown, XCircle, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +11,14 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
 import { SubscribeConfirmDialog } from "@/components/billing/subscribe-confirm-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 type Plan = {
   id: string;
@@ -33,6 +41,10 @@ type Subscription = {
   aiCallsLimit: number;
   businessLimit: number;
   currentPeriodEnd: string | null;
+  cancelledAt: string | null;
+  pendingPlanId: string | null;
+  scheduledChangeAt: string | null;
+  pendingPlan: Plan | null;
   plan: Plan;
   invoices: any[];
 };
@@ -100,8 +112,12 @@ function BillingPage() {
   const [loading, setLoading] = useState(true);
   const [subscribing, setSubscribing] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [changingPlan, setChangingPlan] = useState(false);
   const [error, setError] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [changePlanOpen, setChangePlanOpen] = useState(false);
+  const [changePlanResult, setChangePlanResult] = useState<{ message: string; upgrade: boolean; immediate: boolean; scheduledDate?: string } | null>(null);
   const [selectedMonthlyPlan, setSelectedMonthlyPlan] = useState<Plan | null>(null);
 
   const success = searchParams.get("success");
@@ -116,6 +132,13 @@ function BillingPage() {
       return () => clearTimeout(timer);
     }
   }, [user, authLoading, paymentId]);
+
+  useEffect(() => {
+    if (successMsg) {
+      const timer = setTimeout(() => setSuccessMsg(""), 8000);
+      return () => clearTimeout(timer);
+    }
+  }, [successMsg]);
 
   async function loadData() {
     setLoading(true);
@@ -256,16 +279,39 @@ function BillingPage() {
   }
 
   async function handleCancel() {
-    if (!confirm("Are you sure you want to cancel your subscription? You will be downgraded to the Free plan.")) return;
+    const label = subscription?.cancelledAt
+      ? "Cancel scheduled cancellation?"
+      : "Cancel subscription? You'll keep access until the end of your billing period.";
+    if (!confirm(label)) return;
     setCancelling(true);
     setError("");
     try {
-      await api.payments.cancel();
+      const res = await api.payments.cancel();
+      setSuccessMsg(res.message || "Subscription cancelled");
       await loadData();
     } catch (err: any) {
       setError(err.message || "Failed to cancel subscription");
     } finally {
       setCancelling(false);
+    }
+  }
+
+  async function handleChangePlan(planId: string) {
+    setChangingPlan(true);
+    setError("");
+    try {
+      const res = await api.payments.updateSubscription(planId);
+      setChangePlanResult({
+        message: res.message,
+        upgrade: res.upgrade,
+        immediate: res.immediate,
+        scheduledDate: res.scheduledDate,
+      });
+      await loadData();
+    } catch (err: any) {
+      setError(err.message || "Failed to change plan");
+    } finally {
+      setChangingPlan(false);
     }
   }
 
@@ -327,6 +373,35 @@ function BillingPage() {
           </div>
         )}
 
+        {successMsg && (
+          <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">
+            <p className="flex items-center gap-2 font-medium">
+              <Check className="size-4" />
+              {successMsg}
+            </p>
+          </div>
+        )}
+
+        {changePlanResult && (
+          <div className={`rounded-xl border p-4 text-sm ${changePlanResult.upgrade ? "border-green-200 bg-green-50 text-green-800" : "border-blue-200 bg-blue-50 text-blue-800"}`}>
+            <p className="flex items-center gap-2 font-medium">
+              {changePlanResult.upgrade ? <ArrowUpDown className="size-4" /> : <Calendar className="size-4" />}
+              {changePlanResult.message}
+            </p>
+            {!changePlanResult.immediate && changePlanResult.scheduledDate && (
+              <p className="mt-1 opacity-80">
+                Scheduled for {new Date(changePlanResult.scheduledDate).toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" })}
+              </p>
+            )}
+            <button
+              onClick={() => setChangePlanResult(null)}
+              className="mt-1 text-xs underline opacity-70 hover:opacity-100"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
         {success === "false" && (
           <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
             <p className="flex items-center gap-2 font-medium">
@@ -353,8 +428,11 @@ function BillingPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 Current Plan
-                <Badge variant={subscription.status === "active" ? "default" : "secondary"}>
-                  {subscription.status}
+                <Badge variant={
+                  subscription.cancelledAt && subscription.status === "active" ? "secondary" :
+                  subscription.status === "active" ? "default" : "secondary"
+                }>
+                  {subscription.cancelledAt && subscription.status === "active" ? "Cancelling" : subscription.status}
                 </Badge>
               </CardTitle>
               <CardDescription>
@@ -384,14 +462,27 @@ function BillingPage() {
                 </div>
                 {subscription.currentPeriodEnd && (
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Current period ends</span>
+                    <span className="text-muted-foreground">{subscription.cancelledAt ? "Access until" : "Current period ends"}</span>
                     <span className="font-medium">{new Date(subscription.currentPeriodEnd).toLocaleDateString()}</span>
+                  </div>
+                )}
+                {subscription.pendingPlanId && subscription.pendingPlan && (
+                  <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+                    <p className="flex items-center gap-1.5 font-medium">
+                      <Calendar className="size-4" />
+                      Scheduled plan change
+                    </p>
+                    <p className="mt-0.5 text-blue-600">
+                      Changing to <strong>{subscription.pendingPlan.name}</strong> on {subscription.scheduledChangeAt
+                        ? new Date(subscription.scheduledChangeAt).toLocaleDateString()
+                        : "next billing date"}
+                    </p>
                   </div>
                 )}
               </div>
             </CardContent>
             <CardFooter className="flex-col gap-3 items-stretch">
-              {subscription.currentPeriodEnd && (
+              {subscription.currentPeriodEnd && !subscription.cancelledAt && (
                 <div className="flex items-center justify-between text-xs text-muted-foreground px-1 pb-1 border-b">
                   <span>Next billing date</span>
                   <span className="font-medium text-foreground">
@@ -411,10 +502,26 @@ function BillingPage() {
                     Receipt
                   </Button>
                 )}
+                {subscription.plan.slug !== "free" && !subscription.cancelledAt && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => setChangePlanOpen(true)}
+                  >
+                    <ArrowUpDown className="mr-1.5 size-3.5" />
+                    Change Plan
+                  </Button>
+                )}
                 {subscription.plan.slug !== "free" && (
-                  <Button variant="destructive" onClick={handleCancel} disabled={cancelling} className="flex-1">
+                  <Button
+                    variant={subscription.cancelledAt ? "outline" : "destructive"}
+                    onClick={handleCancel}
+                    disabled={cancelling}
+                    className={cn(subscription.cancelledAt ? "" : "flex-1")}
+                  >
                     {cancelling ? <Loader2 className="size-4 animate-spin" /> : null}
-                    Cancel
+                    {subscription.cancelledAt ? "Undo Cancel" : "Cancel"}
                   </Button>
                 )}
               </div>
@@ -425,9 +532,10 @@ function BillingPage() {
         <div>
           <h2 className="mb-4 text-lg font-medium">Available Plans</h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {displayPlans.map((plan) => {
+              {displayPlans.map((plan) => {
               const isCurrentPlan = subscription?.planId === plan.id && subscription?.status !== "created";
-              const isDowngrade = subscription && plan.price < subscription.plan.price;
+              const hasSubscription = !!subscription && subscription.plan.slug !== "free";
+              const isDowngrade = hasSubscription && plan.price < subscription!.plan.price;
               const planPair = yearlyPlanPairs[plan.slug];
               const hasYearly = !!planPair?.yearly;
 
@@ -465,15 +573,19 @@ function BillingPage() {
                     <Button
                       className="w-full"
                       variant={isCurrentPlan ? "outline" : "default"}
-                      disabled={isCurrentPlan || subscribing}
-                      onClick={() => handleSubscribeClick(plan.id)}
+                      disabled={isCurrentPlan || subscribing || changingPlan}
+                      onClick={() => hasSubscription ? handleChangePlan(plan.id) : handleSubscribeClick(plan.id)}
                     >
-                      {subscribing ? (
+                      {subscribing || changingPlan ? (
                         <Loader2 className="size-4 animate-spin" />
                       ) : isCurrentPlan ? (
                         "Current plan"
+                      ) : hasSubscription ? (
+                        isDowngrade ? "Downgrade" : "Upgrade"
+                      ) : isDowngrade ? (
+                        "Downgrade"
                       ) : (
-                        isDowngrade ? "Downgrade" : "Subscribe"
+                        "Subscribe"
                       )}
                     </Button>
                   </CardFooter>
@@ -573,6 +685,53 @@ function BillingPage() {
         yearlyPlan={pair?.yearly ?? null}
         loading={subscribing}
       />
+
+      {/* Change Plan Dialog */}
+      <Dialog open={changePlanOpen} onOpenChange={(v) => { if (!v && !changingPlan) setChangePlanOpen(false); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Change Plan</DialogTitle>
+            <DialogDescription>
+              Pick a new plan. Upgrades take effect immediately with prorated charge. Downgrades apply at end of billing cycle.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            {displayPlans
+              .filter((p) => p.id !== subscription?.planId)
+              .map((plan) => {
+                const isUpgrade = subscription && plan.price >= subscription.plan.price;
+                return (
+                  <button
+                    key={plan.id}
+                    onClick={() => handleChangePlan(plan.id)}
+                    disabled={changingPlan}
+                    className="w-full rounded-lg border border-border p-4 text-left transition-colors hover:bg-accent disabled:opacity-50"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="font-medium">{plan.name}</span>
+                        <span className="ml-2 text-sm text-muted-foreground">
+                          {formatPrice(plan.price)}/{plan.interval}
+                        </span>
+                      </div>
+                      <Badge variant={isUpgrade ? "default" : "secondary"}>
+                        {isUpgrade ? "Upgrade" : "Downgrade"}
+                      </Badge>
+                    </div>
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      {plan.aiCallsLimit >= 999999 ? "Unlimited" : `${plan.aiCallsLimit}`} AI calls/mo &middot; {plan.businessLimit} business{plan.businessLimit > 1 ? "es" : ""}
+                    </div>
+                  </button>
+                );
+              })}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setChangePlanOpen(false)} disabled={changingPlan}>
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

@@ -115,6 +115,18 @@ export const adminApi = {
   restoreUser: (id: string) =>
     request<{ user: any }>(`/admin/users/${id}/restore`, { method: "PUT" }),
 
-  cancelSubscription: (userId: string) =>
-    request<{ subscription: any }>(`/admin/users/${userId}/subscription/cancel`, { method: "PUT" }),
+  cancelSubscription: (userId: string, issueRefund?: boolean) =>
+    request<{ subscription: any; refunded?: boolean }>(`/admin/users/${userId}/subscription/cancel`, {
+      method: "PUT",
+      body: JSON.stringify({ issueRefund: issueRefund || false }),
+    }),
+
+  updateUserSubscription: (userId: string, planId: string, immediate?: boolean) =>
+    request<{ subscription: any; immediate: boolean }>(`/admin/users/${userId}/subscription/update`, {
+      method: "PUT",
+      body: JSON.stringify({ planId, immediate: immediate ?? true }),
+    }),
+
+  refundInvoice: (paymentId: string) =>
+    request<{ success: boolean; amount: number }>(`/admin/invoices/${paymentId}/refund`, { method: "POST" }),
 };

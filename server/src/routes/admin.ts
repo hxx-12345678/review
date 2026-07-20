@@ -1,10 +1,21 @@
 import { Router, Response } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import Razorpay from "razorpay";
+import crypto from "crypto";
 import { prisma } from "../config/database";
 import { getEnv } from "../config/env";
 import { adminAuthRequired, AdminRequest } from "../middleware/admin";
 import { authLimiter } from "../middleware/rate-limit";
+
+function getRazorpay(): Razorpay | null {
+  const env = getEnv();
+  if (!env.RAZORPAY_KEY_ID || !env.RAZORPAY_KEY_SECRET) return null;
+  return new Razorpay({
+    key_id: env.RAZORPAY_KEY_ID,
+    key_secret: env.RAZORPAY_KEY_SECRET,
+  });
+}
 
 const router = Router();
 
@@ -52,39 +63,63 @@ router.get("/stats", async (_req: AdminRequest, res: Response) => {
       totalBusinesses,
       totalSubscriptions,
       activeSubscriptions,
+      cancelledSubscriptions,
+      pendingChanges,
       totalFeedback,
       totalInvoices,
       totalRevenue,
+      lastMonthRevenue,
       totalAiCalls,
+      refundedAmount,
       plans,
     ] = await Promise.all([
       prisma.user.count(),
       prisma.business.count(),
       prisma.subscription.count(),
       prisma.subscription.count({ where: { status: "active" } }),
+      prisma.subscription.count({ where: { status: { in: ["cancelled", "completed", "expired"] } } }),
+      prisma.subscription.count({ where: { pendingPlanId: { not: null } } }),
       prisma.feedback.count(),
       prisma.invoice.count(),
       prisma.invoice.aggregate({ _sum: { amount: true }, where: { status: "captured" } }),
+      prisma.invoice.aggregate({
+        _sum: { amount: true },
+        where: { status: "captured", createdAt: { gte: new Date(Date.now() - 30 * 86400000) } },
+      }),
       prisma.subscription.aggregate({ _sum: { aiCallsUsed: true } }),
-      prisma.subscriptionPlan.findMany({ orderBy: { sortOrder: "asc" } }),
+      prisma.invoice.aggregate({ _sum: { amount: true }, where: { status: "refunded" } }),
+      prisma.subscriptionPlan.findMany({
+        orderBy: { sortOrder: "asc" },
+        include: { _count: { select: { subscriptions: true } } },
+      }),
     ]);
+
+    const totalSubs = totalSubscriptions || 1;
+    const churnRate = Math.round((cancelledSubscriptions / totalSubs) * 100);
 
     res.json({
       totalUsers,
       totalBusinesses,
       totalSubscriptions,
       activeSubscriptions,
+      cancelledSubscriptions,
+      churnRate,
+      pendingChanges,
       totalFeedback,
       totalInvoices,
       totalRevenue: totalRevenue._sum.amount || 0,
+      lastMonthRevenue: lastMonthRevenue._sum.amount || 0,
       totalAiCalls: totalAiCalls._sum.aiCallsUsed || 0,
+      refundedAmount: refundedAmount._sum.amount || 0,
       plans: plans.map((p) => ({
         id: p.id,
         name: p.name,
         slug: p.slug,
         price: p.price,
+        aiCallsLimit: p.aiCallsLimit,
+        businessLimit: p.businessLimit,
         active: p.active,
-        subscriberCount: 0,
+        subscriberCount: p._count.subscriptions,
       })),
     });
   } catch (err) {
@@ -242,22 +277,235 @@ router.put("/users/:id/subscription/cancel", async (req: AdminRequest, res: Resp
   try {
     const userId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const activeSub = await prisma.subscription.findFirst({
-      where: { userId, status: "active" },
+      where: { userId, status: { in: ["active", "authenticated"] } },
+      include: { plan: true },
     });
     if (!activeSub) {
       return res.status(404).json({ error: "No active subscription found" });
     }
-    const sub = await prisma.subscription.update({
-      where: { id: activeSub.id },
-      data: { status: "cancelled", cancelledAt: new Date() },
-    });
+
+    const razorpay = getRazorpay();
+    const { issueRefund } = req.body || {};
+    const isRefundEligible = issueRefund === true;
+    let refunded = false;
+
+    if (razorpay && activeSub.razorpaySubscriptionId) {
+      try {
+        if (isRefundEligible) {
+          const invoice = await prisma.invoice.findFirst({
+            where: { subscriptionId: activeSub.id, status: "captured" },
+            orderBy: { createdAt: "asc" },
+          });
+          if (invoice?.razorpayPaymentId) {
+            try {
+              await razorpay.payments.refund(invoice.razorpayPaymentId, { amount: invoice.amount });
+              await prisma.invoice.update({
+                where: { id: invoice.id },
+                data: { status: "refunded" },
+              });
+              refunded = true;
+            } catch (refundErr: any) {
+              console.warn("Admin refund failed:", refundErr?.error?.description || refundErr?.message || String(refundErr));
+            }
+          }
+          await razorpay.subscriptions.cancel(activeSub.razorpaySubscriptionId);
+          await prisma.subscription.update({
+            where: { id: activeSub.id },
+            data: { status: "cancelled", cancelledAt: new Date(), pendingPlanId: null, scheduledChangeAt: null },
+          });
+          const freePlan = await prisma.subscriptionPlan.findUnique({ where: { slug: "free" } });
+          if (freePlan) {
+            await prisma.subscription.create({
+              data: {
+                userId, planId: freePlan.id, status: "active",
+                aiCallsLimit: freePlan.aiCallsLimit, businessLimit: freePlan.businessLimit,
+                aiCallsLastResetAt: new Date(),
+                currentPeriodStart: new Date(), currentPeriodEnd: new Date(Date.now() + 365 * 86400000),
+              },
+            });
+          }
+        } else {
+          await razorpay.subscriptions.cancel(activeSub.razorpaySubscriptionId, 1);
+          await prisma.subscription.update({
+            where: { id: activeSub.id },
+            data: { cancelledAt: new Date(), pendingPlanId: null, scheduledChangeAt: null },
+          });
+        }
+      } catch (cancelErr: any) {
+        console.warn("Admin Razorpay cancel failed:", cancelErr?.error?.description || cancelErr?.message || String(cancelErr));
+        await prisma.subscription.update({
+          where: { id: activeSub.id },
+          data: { status: "cancelled", cancelledAt: new Date(), pendingPlanId: null, scheduledChangeAt: null },
+        });
+      }
+    } else {
+      await prisma.subscription.update({
+        where: { id: activeSub.id },
+        data: { status: "cancelled", cancelledAt: new Date(), pendingPlanId: null, scheduledChangeAt: null },
+      });
+    }
+
     await prisma.activityLog.create({
-      data: { userId, businessId: "", action: "admin:cancel_subscription", details: { subscriptionId: sub.id, adminId: req.adminId } },
+      data: { userId, businessId: "", action: "admin:cancel_subscription", details: { subscriptionId: activeSub.id, adminId: req.adminId, refunded, planName: activeSub.plan?.name } },
     });
-    res.json({ subscription: sub });
+
+    const updatedSub = await prisma.subscription.findUnique({
+      where: { id: activeSub.id },
+      include: { plan: true },
+    });
+
+    res.json({ subscription: updatedSub, refunded });
   } catch (err) {
     console.error("Admin cancel subscription error:", err);
     res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ─── Admin: Force plan change for a user ─────────────────────────────────────
+router.put("/users/:id/subscription/update", async (req: AdminRequest, res: Response) => {
+  try {
+    const userId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const { planId, immediate } = req.body;
+    if (!planId) return res.status(400).json({ error: "planId is required" });
+
+    const newPlan = await prisma.subscriptionPlan.findUnique({ where: { id: planId } });
+    if (!newPlan) return res.status(404).json({ error: "Plan not found" });
+
+    const activeSub = await prisma.subscription.findFirst({
+      where: { userId, status: { in: ["active", "authenticated"] } },
+      include: { plan: true },
+    });
+    if (!activeSub) return res.status(404).json({ error: "No active subscription" });
+    if (newPlan.id === activeSub.planId) return res.status(400).json({ error: "Already on this plan" });
+
+    const isImmediate = immediate !== false;
+    const razorpay = getRazorpay();
+
+    let subscription;
+
+    if (isImmediate) {
+      if (razorpay && activeSub.razorpaySubscriptionId) {
+        let razorpayPlanId = newPlan.razorpayPlanId;
+        if (!razorpayPlanId) {
+          const rp = razorpay;
+          const periodMap: Record<string, string> = { month: "monthly", year: "yearly", day: "daily", week: "weekly", quarter: "quarterly" };
+          const period = periodMap[newPlan.interval] || newPlan.interval;
+          try {
+            const rpPlan = await rp.plans.create({
+              period: period as any, interval: 1,
+              item: { name: newPlan.name, amount: newPlan.price, currency: "INR" },
+              notes: { internalPlanId: newPlan.id },
+            });
+            await prisma.subscriptionPlan.update({ where: { id: newPlan.id }, data: { razorpayPlanId: rpPlan.id } });
+            razorpayPlanId = rpPlan.id;
+          } catch (planErr: any) {
+            console.warn("Admin create plan failed:", planErr?.error?.description || planErr?.message || String(planErr));
+          }
+        }
+        if (razorpayPlanId) {
+          try {
+            await razorpay.subscriptions.update(activeSub.razorpaySubscriptionId, { plan_id: razorpayPlanId } as any);
+          } catch (updateErr: any) {
+            console.warn("Admin Razorpay update failed:", updateErr?.error?.description || updateErr?.message || String(updateErr));
+          }
+        }
+      }
+      subscription = await prisma.subscription.update({
+        where: { id: activeSub.id },
+        data: {
+          planId: newPlan.id,
+          aiCallsLimit: newPlan.aiCallsLimit,
+          businessLimit: newPlan.businessLimit,
+          aiCallsUsed: 0,
+          aiCallsLastResetAt: new Date(),
+          pendingPlanId: null,
+          scheduledChangeAt: null,
+        },
+      });
+    } else {
+      const scheduledChangeAt = activeSub.currentPeriodEnd || new Date(Date.now() + 30 * 86400000);
+      if (razorpay && activeSub.razorpaySubscriptionId) {
+        let razorpayPlanId = newPlan.razorpayPlanId;
+        if (!razorpayPlanId) {
+          try {
+            const rpPlan = await razorpay.plans.create({
+              period: (newPlan.interval === "year" ? "yearly" : "monthly") as any, interval: 1,
+              item: { name: newPlan.name, amount: newPlan.price, currency: "INR" },
+              notes: { internalPlanId: newPlan.id },
+            });
+            await prisma.subscriptionPlan.update({ where: { id: newPlan.id }, data: { razorpayPlanId: rpPlan.id } });
+            razorpayPlanId = rpPlan.id;
+          } catch (_) {}
+        }
+        if (razorpayPlanId) {
+          try {
+            await razorpay.subscriptions.update(activeSub.razorpaySubscriptionId, {
+              plan_id: razorpayPlanId,
+              schedule_change_at: "cycle_end",
+            } as any);
+          } catch (_) {}
+        }
+      }
+      subscription = await prisma.subscription.update({
+        where: { id: activeSub.id },
+        data: { pendingPlanId: newPlan.id, scheduledChangeAt },
+      });
+    }
+
+    await prisma.activityLog.create({
+      data: {
+        userId, businessId: "",
+        action: `admin:${isImmediate ? "immediate" : "scheduled"}_plan_change`,
+        details: { fromPlanId: activeSub.planId, toPlanId: newPlan.id, adminId: req.adminId },
+      },
+    });
+
+    subscription = await prisma.subscription.findUnique({
+      where: { id: subscription.id },
+      include: { plan: true, pendingPlan: true },
+    });
+
+    res.json({ subscription, immediate: isImmediate });
+  } catch (err) {
+    console.error("Admin update subscription error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ─── Admin: Manual refund ─────────────────────────────────────────────────────
+router.post("/invoices/:paymentId/refund", async (req: AdminRequest, res: Response) => {
+  try {
+    const paymentId = Array.isArray(req.params.paymentId) ? req.params.paymentId[0] : req.params.paymentId;
+    const invoice = await prisma.invoice.findFirst({
+      where: { razorpayPaymentId: paymentId },
+      include: { subscription: { include: { user: true } } },
+    });
+    if (!invoice) return res.status(404).json({ error: "Invoice not found" });
+    if (invoice.status !== "captured") return res.status(400).json({ error: "Invoice is not in captured status" });
+
+    const razorpay = getRazorpay();
+    if (!razorpay) return res.status(503).json({ error: "Payment gateway not configured" });
+
+    await razorpay.payments.refund(paymentId, { amount: invoice.amount });
+
+    await prisma.invoice.update({
+      where: { id: invoice.id },
+      data: { status: "refunded" },
+    });
+
+    await prisma.activityLog.create({
+      data: {
+        userId: invoice.subscription.userId, businessId: "",
+        action: "admin:manual_refund",
+        details: { paymentId, amount: invoice.amount, subscriptionId: invoice.subscriptionId, adminId: req.adminId },
+      },
+    });
+
+    res.json({ success: true, amount: invoice.amount });
+  } catch (err: any) {
+    console.error("Admin refund error:", err);
+    const message = err?.error?.description || err?.message || "Refund failed";
+    res.status(500).json({ error: message });
   }
 });
 
@@ -330,6 +578,7 @@ router.get("/subscriptions", async (req: AdminRequest, res: Response) => {
         include: {
           user: { select: { id: true, email: true, name: true } },
           plan: true,
+          pendingPlan: true,
           invoices: { orderBy: { createdAt: "desc" }, take: 5 },
         },
       }),

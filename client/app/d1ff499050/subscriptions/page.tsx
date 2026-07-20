@@ -54,11 +54,21 @@ export default function AdminSubscriptionsPage() {
                     <td className="p-3 text-zinc-300">{sub.user.email}</td>
                     <td className="p-3 text-zinc-100">{sub.plan?.name || "—"}</td>
                     <td className="p-3">
-                      <span className={`rounded-full px-2 py-0.5 text-xs ${
-                        sub.status === "active" ? "bg-emerald-500/10 text-emerald-400" :
-                        sub.status === "cancelled" ? "bg-red-500/10 text-red-400" :
-                        "bg-zinc-800 text-zinc-500"
-                      }`}>{sub.status}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className={`rounded-full px-2 py-0.5 text-xs ${
+                          sub.status === "active" ? "bg-emerald-500/10 text-emerald-400" :
+                          sub.status === "cancelled" ? "bg-red-500/10 text-red-400" :
+                          "bg-zinc-800 text-zinc-500"
+                        }`}>{sub.status}</span>
+                        {sub.pendingPlanId && (
+                          <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-xs text-blue-400" title={`Pending: ${sub.pendingPlan?.name || "change"}`}>
+                            Pending
+                          </span>
+                        )}
+                        {sub.cancelledAt && sub.status === "active" && (
+                          <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs text-amber-400">Cancelling</span>
+                        )}
+                      </div>
                     </td>
                     <td className="p-3 text-zinc-300">{sub.aiCallsUsed}/{sub.aiCallsLimit}</td>
                     <td className="p-3 text-zinc-300">{sub.currentPeriodStart ? new Date(sub.currentPeriodStart).toLocaleDateString() : "—"} - {sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd).toLocaleDateString() : "—"}</td>
@@ -73,16 +83,22 @@ export default function AdminSubscriptionsPage() {
               <div key={sub.id} className="rounded-lg border border-zinc-800 bg-zinc-900 p-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-zinc-100">{sub.user.email}</span>
-                  <span className={`rounded-full px-2 py-0.5 text-xs ${
-                    sub.status === "active" ? "bg-emerald-500/10 text-emerald-400" :
-                    sub.status === "cancelled" ? "bg-red-500/10 text-red-400" :
-                    "bg-zinc-800 text-zinc-500"
-                  }`}>{sub.status}</span>
+                  <div className="flex items-center gap-1">
+                    <span className={`rounded-full px-2 py-0.5 text-xs ${
+                      sub.status === "active" ? "bg-emerald-500/10 text-emerald-400" :
+                      sub.status === "cancelled" ? "bg-red-500/10 text-red-400" :
+                      "bg-zinc-800 text-zinc-500"
+                    }`}>{sub.status}</span>
+                    {sub.pendingPlanId && (
+                      <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-xs text-blue-400">Pending</span>
+                    )}
+                  </div>
                 </div>
                 <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500">
                   <span>Plan: {sub.plan?.name || "—"}</span>
                   <span>AI: {sub.aiCallsUsed}/{sub.aiCallsLimit}</span>
                   <span>{sub.currentPeriodStart ? new Date(sub.currentPeriodStart).toLocaleDateString() : "—"} - {sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd).toLocaleDateString() : "—"}</span>
+                  {sub.pendingPlan && <span className="text-blue-400">→ {sub.pendingPlan.name}</span>}
                 </div>
               </div>
             ))}
