@@ -290,7 +290,7 @@ export default function TermsPage() {
             For questions about these Terms, please contact us at:
           </p>
           <p className="text-muted-foreground">
-            Email: legal@beyondvyu.app
+            Email: legal@beyondvyu.com
           </p>
         </section>
       </main>

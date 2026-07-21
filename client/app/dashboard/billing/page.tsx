@@ -667,7 +667,7 @@ function BillingPage() {
             </p>
             <p>
               <strong>Grievance Redressal:</strong> For disputes or questions, contact us at
-              support@beyondvyu.app or visit our{" "}
+              support@beyondvyu.com or visit our{" "}
               <a href="/contact" className="underline hover:text-amber-900">Contact page</a>.
               See our{" "}
               <a href="/refund" className="underline hover:text-amber-900">Refund Policy</a> for

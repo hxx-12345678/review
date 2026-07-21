@@ -39,19 +39,19 @@ export function CtaSection() {
               size="lg"
               className="btn-3d magnetic-child group rounded-xl bg-primary px-10 py-4 text-sm font-bold text-primary-foreground squishy"
             >
-              Start free — no credit card
+              Start your journey — zero commitment
               <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
             </Button>
           </div>
           <div className="magnetic-wrap">
             <Button
-              render={<Link href="/pricing" />}
+              render={<Link href="/contact" />}
               nativeButton={false}
               size="lg"
               variant="outline"
               className="magnetic-child rounded-xl border-white/20 bg-white/10 px-8 py-4 text-sm font-bold text-white squishy hover:bg-white/15"
             >
-              View pricing
+              Contact us
             </Button>
           </div>
           <InstallPWA variant="cta" />
@@ -59,10 +59,6 @@ export function CtaSection() {
 
         {/* Trust signals */}
         <div className="mt-10 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-white/60">
-          <span className="flex items-center gap-1.5">
-            <ShieldCheck className="size-3.5 text-primary" />
-            No credit card required
-          </span>
           <span className="flex items-center gap-1.5">
             <ShieldCheck className="size-3.5 text-primary" />
             Set up in 2 minutes

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { ExternalLink, Sparkles, Loader2, Check, MessageSquareHeart, ArrowRight, ArrowLeft, Stethoscope, Scissors, Dumbbell, Home, Utensils, Car, ShieldCheck, Lock, Award, Star, ThumbsUp, Meh, Frown, PenLine, RefreshCw, Lightbulb, SmilePlus, ChevronDown, ChevronRight, Wrench, Clock, Wine, UserCheck, Users, Building, Calendar, MessageSquare, MapPin, Music } from "lucide-react"
+import { ExternalLink, Sparkles, Loader2, Check, MessageSquareHeart, ArrowRight, ArrowLeft, Stethoscope, Scissors, Dumbbell, Home, Utensils, Car, ShieldCheck, Lock, Award, Star, ThumbsUp, Meh, Frown, PenLine, RefreshCw, Lightbulb, SmilePlus, ChevronDown, Wrench, Clock, Wine, UserCheck, Users, Building, Calendar, MessageSquare, MapPin, Music } from "lucide-react"
 import { getReviewStepConfig, scoreAuthenticity, type AuthenticityResult } from "@/lib/compliance"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -482,28 +482,12 @@ function MCQStep({
   business: any; rating: number; selectedSubOptions: string[]; toggleSubOption: (id: string) => void; specialMention: string; onSpecialMentionChange: (v: string) => void; onContinue: () => void; onBack: () => void; submitting: boolean
 }) {
   const moodKey = getMoodKey(rating)
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
   const [specialDismissed, setSpecialDismissed] = useState(false)
 
   const categories = getCategoriesForIndustry(business.industry)
 
   const allSubLabels = categories.flatMap((c) => c.subOptions).filter((s) => selectedSubOptions.includes(s.id)).map((s) => s.label)
   const canContinue = selectedSubOptions.length > 0 || specialMention.trim().length > 0
-
-  function toggleCategory(id: string) {
-    setExpandedCategories((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
-
-  useEffect(() => {
-    if (expandedCategories.size === 0 && categories.length > 0) {
-      setExpandedCategories(new Set([categories[0].id]))
-    }
-  }, [])
 
   const ICON_MAP: Record<string, any> = {
     Utensils, ThumbsUp, Sparkles, SmilePlus, Wine,
@@ -544,16 +528,11 @@ function MCQStep({
 
       <div className="space-y-2">
         {categories.map((category) => {
-          const isExpanded = expandedCategories.has(category.id)
           const selectedCount = category.subOptions.filter((s) => selectedSubOptions.includes(s.id)).length
 
           return (
             <div key={category.id} className="rounded-xl border border-border/60 bg-card/50 overflow-hidden transition-all duration-200">
-              <button
-                type="button"
-                onClick={() => toggleCategory(category.id)}
-                className="flex w-full items-center justify-between px-3.5 py-2.5 text-left hover:bg-muted/30 transition-colors"
-              >
+              <div className="flex w-full items-center justify-between px-3.5 py-2.5">
                 <div className="flex items-center gap-2.5">
                   <span className="text-muted-foreground">{getIcon(category.icon)}</span>
                   <span className="text-sm font-semibold text-foreground">{category.label}</span>
@@ -563,34 +542,30 @@ function MCQStep({
                     </span>
                   )}
                 </div>
-                <ChevronDown className={cn("size-4 text-muted-foreground transition-transform duration-200", isExpanded && "rotate-180")} />
-              </button>
-
-              {isExpanded && (
-                <div className="border-t border-border/40 px-3.5 py-2.5 animate-fade-in-up">
-                  <div className="flex flex-wrap gap-2">
-                    {category.subOptions.map((sub) => {
-                      const isSelected = selectedSubOptions.includes(sub.id)
-                      return (
-                        <button
-                          key={sub.id}
-                          type="button"
-                          onClick={() => toggleSubOption(sub.id)}
-                          aria-pressed={isSelected}
-                          className={cn(
-                            "rounded-lg border px-3 py-1.5 text-xs font-medium transition-all duration-150 active:scale-95",
-                            isSelected
-                              ? "border-primary bg-primary text-primary-foreground shadow-sm"
-                              : "border-border/60 bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground"
-                          )}
-                        >
-                          {sub.label}
-                        </button>
-                      )
-                    })}
-                  </div>
+              </div>
+              <div className="border-t border-border/40 px-3.5 py-2.5">
+                <div className="flex flex-wrap gap-2">
+                  {category.subOptions.map((sub) => {
+                    const isSelected = selectedSubOptions.includes(sub.id)
+                    return (
+                      <button
+                        key={sub.id}
+                        type="button"
+                        onClick={() => toggleSubOption(sub.id)}
+                        aria-pressed={isSelected}
+                        className={cn(
+                          "rounded-lg border px-3 py-1.5 text-xs font-medium transition-all duration-150 active:scale-95",
+                          isSelected
+                            ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                            : "border-border/60 bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground"
+                        )}
+                      >
+                        {sub.label}
+                      </button>
+                    )
+                  })}
                 </div>
-              )}
+              </div>
             </div>
           )
         })}

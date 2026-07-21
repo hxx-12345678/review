@@ -41,12 +41,12 @@ export default function PrivacyPage() {
           <ul className="list-disc space-y-1 pl-6 text-sm">
             <li>
               <strong>Email:</strong>{" "}
-              <a href="mailto:privacy@beyondvyu.app" className="text-primary underline-offset-2 hover:underline">
-                privacy@beyondvyu.app
+              <a href="mailto:privacy@beyondvyu.com" className="text-primary underline-offset-2 hover:underline">
+                privacy@beyondvyu.com
               </a>
             </li>
             <li>
-              <strong>Grievance Officer:</strong> Contact us at privacy@beyondvyu.app —
+              <strong>Grievance Officer:</strong> Contact us at privacy@beyondvyu.com —
               complaints will be acknowledged within 24 hours and resolved within 30 days as
               required by the DPDP Act.
             </li>
@@ -100,7 +100,7 @@ export default function PrivacyPage() {
             You may <strong>withdraw your consent at any time</strong> with the same ease as you
             gave it. Withdrawing consent does not affect the lawfulness of processing carried out
             before the withdrawal. To withdraw consent, visit your account settings or email
-            privacy@beyondvyu.app.
+            privacy@beyondvyu.com.
           </p>
         </section>
 
@@ -210,7 +210,7 @@ export default function PrivacyPage() {
             </li>
           </ul>
           <p className="mt-3">
-            To exercise any of these rights, email us at privacy@beyondvyu.app. We will respond
+            To exercise any of these rights, email us at privacy@beyondvyu.com. We will respond
             within 30 days as required by the DPDP Act.
           </p>
         </section>
@@ -269,8 +269,8 @@ export default function PrivacyPage() {
           <ul className="list-disc space-y-1 pl-6 text-sm">
             <li>
               <strong>Email:</strong>{" "}
-              <a href="mailto:privacy@beyondvyu.app" className="text-primary underline-offset-2 hover:underline">
-                privacy@beyondvyu.app
+              <a href="mailto:privacy@beyondvyu.com" className="text-primary underline-offset-2 hover:underline">
+                privacy@beyondvyu.com
               </a>
             </li>
             <li>

@@ -73,7 +73,7 @@ export default function Page() {
             "@type": "ContactPoint",
             telephone: "+1-555-000-0000",
             contactType: "sales",
-            email: "sales@beyondvyu.app",
+            email: "sales@beyondvyu.com",
             availableLanguage: ["English", "Hindi"],
           },
         }}

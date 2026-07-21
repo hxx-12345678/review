@@ -11,7 +11,7 @@ const envSchema = z.object({
   SMTP_PORT: z.coerce.number().optional().default(587),
   SMTP_USER: z.string().optional().default(""),
   SMTP_PASS: z.string().optional().default(""),
-  SMTP_FROM: z.string().optional().default("noreply@beyondvyu.app"),
+  SMTP_FROM: z.string().optional().default("noreply@beyondvyu.com"),
   FRONTEND_URL: z.string().default("http://localhost:3000"),
   SMS_API_KEY: z.string().optional().default(""),
   SMS_SENDER_ID: z.string().optional().default(""),
@@ -44,7 +44,7 @@ const envSchema = z.object({
   RAZORPAY_WEBHOOK_SECRET: z.string().optional().default("").transform((s) => s.trim()),
 
   // Super Admin
-  ADMIN_EMAIL: z.string().email().default("admin@beyondvyu.app"),
+  ADMIN_EMAIL: z.string().email().default("admin@beyondvyu.com"),
   ADMIN_PASSWORD_HASH: z.string().min(16).default(""), // bcrypt hash of admin password
   ADMIN_JWT_SECRET: z.string().min(16).default(""),
   ADMIN_PATH_PREFIX: z.string().default("admin"), // frontend path prefix for admin pages

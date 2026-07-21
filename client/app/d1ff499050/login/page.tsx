@@ -11,7 +11,7 @@ import { ADMIN_BASE } from "@/lib/admin-path"
 
 export default function AdminLoginPage() {
   const router = useRouter()
-  const [email, setEmail] = useState("admin@beyondvyu.app")
+  const [email, setEmail] = useState("admin@beyondvyu.com")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")

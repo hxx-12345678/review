@@ -451,7 +451,7 @@ router.get("/receipt/:paymentId", async (req: Request, res: Response) => {
   <div class="total-row"><span>Total Paid</span><span>&#8377; ${total}</span></div>
   <div class="footer">
     <p>BEYONDVYU &middot; <a href="https://beyondvyu.com">beyondvyu.com</a></p>
-    <p>support@beyondvyu.app</p>
+    <p>support@beyondvyu.com</p>
     <p>This is a computer-generated receipt.</p>
   </div>
   <div class="actions">

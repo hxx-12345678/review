@@ -54,9 +54,9 @@ BEYONDVYU is a SaaS platform for local businesses to collect authentic Google re
 
 ## Contact
 
-- Email: support@beyondvyu.app
-- Sales: sales@beyondvyu.app
-- Legal: legal@beyondvyu.app
+- Email: support@beyondvyu.com
+- Sales: sales@beyondvyu.com
+- Legal: legal@beyondvyu.com
 
 ## Public URLs
 

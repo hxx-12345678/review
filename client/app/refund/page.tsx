@@ -65,7 +65,7 @@ export default function RefundPage() {
             <li>A brief explanation of your refund request</li>
           </ul>
           <p className="mt-4">
-            Contact us at <strong>support@beyondvyu.app</strong> or visit our{" "}
+            Contact us at <strong>support@beyondvyu.com</strong> or visit our{" "}
             <a href="/contact" className="text-primary underline hover:no-underline">Contact Us</a> page.
           </p>
         </section>
@@ -93,7 +93,7 @@ export default function RefundPage() {
             For questions about this policy, please contact us:
           </p>
           <p className="text-muted-foreground">
-            Email: support@beyondvyu.app<br />
+            Email: support@beyondvyu.com<br />
             Address: 123 Innovation Drive, Suite 400, San Francisco, CA 94105, United States
           </p>
         </section>

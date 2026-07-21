@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import { MarketingHeader } from "@/components/marketing/marketing-header";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
-import { Mail, Phone, MapPin, Clock } from "lucide-react";
+import { Mail } from "lucide-react";
 import { JsonLd } from "@/components/json-ld";
 
 export const metadata: Metadata = {
   title: "Contact",
-  description: "Get in touch with BEYONDVYU. Email us at support@beyondvyu.app or reach out through our contact form.",
+  description: "Get in touch with BEYONDVYU. Email us at support@beyondvyu.com or reach out through our contact form.",
   alternates: {
     canonical: "https://beyondvyu.com/contact",
   },
@@ -47,50 +47,19 @@ export default function ContactPage() {
               <Mail className="mt-1 size-5 shrink-0 text-primary" />
               <div>
                 <h3 className="font-medium">Email</h3>
-                <p className="mt-1 text-sm text-muted-foreground">support@beyondvyu.app</p>
-                <p className="text-sm text-muted-foreground">sales@beyondvyu.app</p>
+                <p className="mt-1 text-sm text-muted-foreground">support@beyondvyu.com</p>
+                <p className="text-sm text-muted-foreground">sales@beyondvyu.com</p>
                 <p className="mt-1 text-xs text-muted-foreground">We respond within 24 hours</p>
               </div>
             </div>
 
-            <div className="flex items-start gap-4">
-              <Phone className="mt-1 size-5 shrink-0 text-primary" />
-              <div>
-                <h3 className="font-medium">Phone</h3>
-                <p className="mt-1 text-sm text-muted-foreground">+1 (555) 000-0000</p>
-                <p className="mt-1 text-xs text-muted-foreground">Mon-Fri, 9 AM - 6 PM PST</p>
-              </div>
-            </div>
 
-            <div className="flex items-start gap-4">
-              <MapPin className="mt-1 size-5 shrink-0 text-primary" />
-              <div>
-                <h3 className="font-medium">Business Address</h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  123 Innovation Drive, Suite 400<br />
-                  San Francisco, CA 94105<br />
-                  United States
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-4">
-              <Clock className="mt-1 size-5 shrink-0 text-primary" />
-              <div>
-                <h3 className="font-medium">Business Hours</h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Monday - Friday: 9:00 AM - 6:00 PM PST<br />
-                  Saturday: 10:00 AM - 2:00 PM PST<br />
-                  Sunday: Closed
-                </p>
-              </div>
-            </div>
           </div>
 
           <div className="rounded-2xl border bg-card p-6">
             <h3 className="mb-4 font-medium">Send us a message</h3>
             <form
-              action={`mailto:support@beyondvyu.app`}
+              action={`mailto:support@beyondvyu.com`}
               method="GET"
               encType="text/plain"
               className="space-y-4"
@@ -157,19 +126,19 @@ export default function ContactPage() {
               {
                 "@type": "ContactPoint",
                 contactType: "customer support",
-                email: "support@beyondvyu.app",
+                email: "support@beyondvyu.com",
                 availableLanguage: ["English"],
               },
               {
                 "@type": "ContactPoint",
                 contactType: "sales",
-                email: "sales@beyondvyu.app",
+                email: "sales@beyondvyu.com",
                 availableLanguage: ["English"],
               },
               {
                 "@type": "ContactPoint",
                 contactType: "legal",
-                email: "legal@beyondvyu.app",
+                email: "legal@beyondvyu.com",
                 availableLanguage: ["English"],
               },
             ],

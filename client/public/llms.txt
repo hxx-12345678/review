@@ -22,6 +22,6 @@ BEYONDVYU helps local businesses collect more authentic Google reviews with QR c
 - Refund Policy: https://beyondvyu.com/refund
 
 ## Contact
-- Email: support@beyondvyu.app
-- Sales: sales@beyondvyu.app
-- Legal: legal@beyondvyu.app
+- Email: support@beyondvyu.com
+- Sales: sales@beyondvyu.com
+- Legal: legal@beyondvyu.com
