@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/lib/auth-context";
 import { api } from "@/lib/api";
 import { Logo } from "@/components/logo";
+import { DataConsentCheckboxes } from "@/components/consent/data-consent-checkboxes";
+import { saveConsentsToServer } from "@/lib/consent";
 
 export default function SignupPage() {
   const [name, setName] = useState("");
@@ -19,6 +21,8 @@ export default function SignupPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [consentValid, setConsentValid] = useState(false);
+  const [consentState, setConsentState] = useState<{ dataProcessing: boolean; privacyTerms: boolean; marketing: boolean } | null>(null);
   const { user, loading: authLoading, signup } = useAuth();
   const router = useRouter();
 
@@ -44,6 +48,14 @@ export default function SignupPage() {
     setLoading(true);
     try {
       await signup(email, password, name || undefined);
+      // Save consent records server-side for persistent audit trail
+      if (consentState) {
+        await saveConsentsToServer([
+          { type: "data_processing", granted: consentState.dataProcessing, context: "signup" },
+          { type: "privacy_terms", granted: consentState.privacyTerms, context: "signup" },
+          { type: "marketing", granted: consentState.marketing, context: "signup" },
+        ]);
+      }
       router.push("/onboarding");
     } catch (err: any) {
       setError(err.message || "Signup failed");
@@ -160,10 +172,12 @@ export default function SignupPage() {
               </div>
             </div>
 
+            <DataConsentCheckboxes onValidityChange={setConsentValid} onConsentChange={setConsentState} />
+
             <Button
               type="submit"
               className="squishy h-11 w-full rounded-xl text-sm font-bold"
-              disabled={loading}
+              disabled={loading || !consentValid}
             >
               {loading ? "Creating account..." : "Create account"}
             </Button>

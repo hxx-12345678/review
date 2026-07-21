@@ -26,6 +26,7 @@ export function FeedbackFlow({ business, slug, demo: isDemo = false }: { busines
   const [highlights, setHighlights] = useState("")
   const [selectedTopics, setSelectedTopics] = useState<string[]>([])
   const [selectedSubOptions, setSelectedSubOptions] = useState<string[]>([])
+  const [specialMention, setSpecialMention] = useState("")
   const [language, setLanguage] = useState<string>("english")
   const [combinedInput, setCombinedInput] = useState("")
   const [talkingPoints, setTalkingPoints] = useState<string[]>([])
@@ -71,14 +72,19 @@ export function FeedbackFlow({ business, slug, demo: isDemo = false }: { busines
       .flatMap((c) => c.subOptions)
       .filter((s) => selectedSubOptions.includes(s.id))
       .map((s) => s.label)
-    const combined = subLabels.length > 0 ? subLabels.join(", ") : ""
+    const subText = subLabels.length > 0 ? subLabels.join(", ") : ""
+    const specialText = specialMention.trim()
+    const combined = [subText, specialText].filter(Boolean).join(". ")
 
     setCombinedInput(combined)
     setSelectedTopics([...subLabels])
     setAuthenticity(scoreAuthenticity(combined))
 
     if (!feedbackId) {
-      const id = await submitFeedback({ selectedSubOptions: selectedSubOptions.length > 0 ? selectedSubOptions : undefined })
+      const id = await submitFeedback({
+        liked: specialText || undefined,
+        selectedSubOptions: selectedSubOptions.length > 0 ? selectedSubOptions : undefined,
+      })
       if (!id) return
     }
 
@@ -94,6 +100,7 @@ export function FeedbackFlow({ business, slug, demo: isDemo = false }: { busines
             highlights: combined,
             selectedTopics: [...subLabels],
             businessName: business.name,
+            promptTopics: business.promptTopics || [],
             rating,
             language,
           }),
@@ -259,6 +266,8 @@ export function FeedbackFlow({ business, slug, demo: isDemo = false }: { busines
             rating={rating}
             selectedSubOptions={selectedSubOptions}
             toggleSubOption={toggleSubOption}
+            specialMention={specialMention}
+            onSpecialMentionChange={setSpecialMention}
             onContinue={handleMCQContinue}
             onBack={() => setStep("language")}
             submitting={submitting}
@@ -277,10 +286,12 @@ export function FeedbackFlow({ business, slug, demo: isDemo = false }: { busines
             onPostToGoogle={handlePostToGoogle}
             onBack={() => { setStep("mcq"); setCustomerReview("") }}
             businessName={business.name}
+            promptTopics={business.promptTopics || []}
             language={language}
             rating={rating}
             customerReview={customerReview}
             onReviewChange={setCustomerReview}
+            businessSlug={slug || business.slug}
           />
         )}
         {step === "done" && <DoneStep business={business} demo={isDemo} />}
@@ -466,17 +477,18 @@ function LanguageStep({ business, language, setLanguage, onContinue, onBack }: {
 }
 
 function MCQStep({
-  business, rating, selectedSubOptions, toggleSubOption, onContinue, onBack, submitting,
+  business, rating, selectedSubOptions, toggleSubOption, specialMention, onSpecialMentionChange, onContinue, onBack, submitting,
 }: {
-  business: any; rating: number; selectedSubOptions: string[]; toggleSubOption: (id: string) => void; onContinue: () => void; onBack: () => void; submitting: boolean
+  business: any; rating: number; selectedSubOptions: string[]; toggleSubOption: (id: string) => void; specialMention: string; onSpecialMentionChange: (v: string) => void; onContinue: () => void; onBack: () => void; submitting: boolean
 }) {
   const moodKey = getMoodKey(rating)
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
+  const [specialDismissed, setSpecialDismissed] = useState(false)
 
   const categories = getCategoriesForIndustry(business.industry)
 
   const allSubLabels = categories.flatMap((c) => c.subOptions).filter((s) => selectedSubOptions.includes(s.id)).map((s) => s.label)
-  const canContinue = selectedSubOptions.length > 0
+  const canContinue = selectedSubOptions.length > 0 || specialMention.trim().length > 0
 
   function toggleCategory(id: string) {
     setExpandedCategories((prev) => {
@@ -584,13 +596,74 @@ function MCQStep({
         })}
       </div>
 
-      <div className="mt-3 flex items-start gap-2 text-xs text-muted-foreground/80 bg-muted/40 border border-border/40 rounded-xl p-3 shadow-sm">
-        <Sparkles className="size-4 text-primary shrink-0 mt-0.5" />
-        <span className="leading-relaxed">
-          {selectedSubOptions.length > 0
-            ? "Perfect! We'll turn this into a great review draft."
-            : "Pick a few options above so our AI can craft a draft for you."}
-        </span>
+      {/* ── SPECIAL MENTION SECTION ── */}
+      <div className="mt-4 border-t border-border/60 pt-4">
+        <div className="mb-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <PenLine className="size-4 text-muted-foreground" />
+            <span className="text-sm font-semibold text-foreground">
+              Anything else to mention?
+            </span>
+            <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 font-normal uppercase tracking-wider border">
+              Optional
+            </Badge>
+          </div>
+          {!specialDismissed && specialMention.trim().length > 0 && (
+            <span className={cn("text-[10px] font-bold tabular-nums", specialMention.length > 450 ? "text-destructive" : "text-muted-foreground")}>
+              {specialMention.length}/500
+            </span>
+          )}
+        </div>
+
+        {specialDismissed ? (
+          <div className="flex items-center gap-2 rounded-xl border border-dashed border-border/60 bg-muted/20 px-3.5 py-2.5">
+            <Check className="size-3.5 text-muted-foreground/60 shrink-0" />
+            <span className="text-xs text-muted-foreground/60">Nothing else to add</span>
+            <button
+              type="button"
+              onClick={() => setSpecialDismissed(false)}
+              className="ml-auto text-xs font-medium text-primary hover:underline"
+            >
+              Add details
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-muted-foreground/80">
+              {moodKey === "positive"
+                ? "What made your experience special? Share a highlight..."
+                : moodKey === "neutral"
+                  ? "What could have been better or stood out?"
+                  : "What went wrong? Help the business understand and improve..."}
+            </label>
+            <textarea
+              value={specialMention}
+              onChange={(e) => onSpecialMentionChange(e.target.value)}
+              placeholder={
+                moodKey === "positive"
+                  ? "Any specific moments, people, or details that made it great..."
+                  : moodKey === "neutral"
+                    ? "Any specifics that come to mind — good or bad..."
+                    : "Describe what happened so the business can address it..."
+              }
+              className="w-full min-h-[60px] resize-none rounded-xl border-2 border-muted-foreground/30 bg-card p-3 text-xs leading-relaxed transition-all duration-200 focus:border-primary/40 focus:ring-2 focus:ring-primary/20 outline-none"
+              maxLength={500}
+              rows={2}
+            />
+            <div className="flex items-start justify-between gap-4">
+              <p className="text-[10px] text-muted-foreground/70 leading-relaxed">
+                Your own words help the AI craft a more authentic review. Be as specific as you like.
+              </p>
+              <button
+                type="button"
+                onClick={() => { onSpecialMentionChange(""); setSpecialDismissed(true) }}
+                className="shrink-0 text-[10px] font-medium text-muted-foreground/60 hover:text-foreground whitespace-nowrap hover:underline transition-colors"
+              >
+                Nothing else to add
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="mt-auto flex gap-3 pt-6">
@@ -611,7 +684,7 @@ function MCQStep({
 }
 
 function ReviewStep({
-  config, talkingPoints, loadingPoints, combinedInput, rawHighlights, selectedTopics, authenticity, submitting, onPostToGoogle, onBack, businessName, language, rating, customerReview, onReviewChange,
+  config, talkingPoints, loadingPoints, combinedInput, rawHighlights, selectedTopics, authenticity, submitting, onPostToGoogle, onBack, businessName, promptTopics, language, rating, customerReview, onReviewChange, businessSlug,
 }: {
   config: ReturnType<typeof getReviewStepConfig>
   talkingPoints: string[]
@@ -624,20 +697,42 @@ function ReviewStep({
   onPostToGoogle: (content: string) => void
   onBack: () => void
   businessName: string
+  promptTopics: string[]
   language: string
   rating: number
   customerReview: string
   onReviewChange: (v: string) => void
+  businessSlug?: string
 }) {
   const [generatingReview, setGeneratingReview] = useState(false)
   const [reviewGenerated, setReviewGenerated] = useState(false)
   const [talkingPointsExpanded, setTalkingPointsExpanded] = useState(true)
   const [copiedReview, setCopiedReview] = useState(false)
+  const [buttonCooldown, setButtonCooldown] = useState(0)
+  const cooldownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  // Track last generated input to avoid redundant generations when user goes back and forth
+  const lastGeneratedRef = useRef<string | null>(null)
+  // Track if auto-generation is pending (waiting for talking points)
+  const autoGenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Clean up timers on unmount
+  useEffect(() => {
+    return () => {
+      if (cooldownTimerRef.current) clearInterval(cooldownTimerRef.current)
+      if (autoGenTimerRef.current) clearTimeout(autoGenTimerRef.current)
+    }
+  }, [])
 
   const hasReminders = talkingPoints.length > 0
 
-  async function generateReview() {
+  /** Build a stable fingerprint of the current input for change detection */
+  function inputFingerprint() {
+    return `${rawHighlights || combinedInput}|${selectedTopics.sort().join(",")}|${rating}|${language}`
+  }
+
+  /** Core fetch logic — shared between auto-gen and manual click */
+  async function performGenerateReview() {
     if (!combinedInput && !hasReminders && !rawHighlights) return
     setGeneratingReview(true)
     try {
@@ -648,9 +743,11 @@ function ReviewStep({
           highlights: rawHighlights || combinedInput,
           selectedTopics,
           businessName,
+          promptTopics,
           rating,
           language,
           talkingPoints,
+          businessSlug,
         }),
       })
       if (!res.ok) throw new Error("API error")
@@ -658,6 +755,7 @@ function ReviewStep({
       if (data.review) {
         onReviewChange(data.review)
         setReviewGenerated(true)
+        lastGeneratedRef.current = inputFingerprint()
       }
     } catch (err) {
       handleAiError(err)
@@ -666,14 +764,46 @@ function ReviewStep({
     }
   }
 
+  /** Manual button click — includes a 10s client-side cooldown */
+  async function handleGenerateClick() {
+    if (buttonCooldown > 0 || generatingReview) return
+    setButtonCooldown(10)
+    cooldownTimerRef.current = setInterval(() => {
+      setButtonCooldown((prev) => {
+        if (prev <= 1) {
+          if (cooldownTimerRef.current) clearInterval(cooldownTimerRef.current)
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+    await performGenerateReview()
+  }
+
+  // Auto-generate review on mount only if input has actually changed
   useEffect(() => {
-    if (!reviewGenerated && !customerReview && (combinedInput || hasReminders)) {
-      const timer = setTimeout(() => {
-        generateReview()
-      }, 400)
-      return () => clearTimeout(timer)
+    const fp = inputFingerprint()
+    // If we already generated for this exact input, skip auto-generation
+    if (lastGeneratedRef.current === fp) return
+    // If user already typed something, don't overwrite
+    if (customerReview) return
+
+    if (combinedInput || hasReminders) {
+      // If talking points are still loading, wait up to 3s for them
+      if (loadingPoints) {
+        autoGenTimerRef.current = setTimeout(() => {
+          performGenerateReview()
+        }, 3000)
+      } else {
+        autoGenTimerRef.current = setTimeout(() => {
+          performGenerateReview()
+        }, 400)
+      }
+      return () => {
+        if (autoGenTimerRef.current) clearTimeout(autoGenTimerRef.current)
+      }
     }
-  }, [])
+  }, [combinedInput, selectedTopics, rating, language, loadingPoints])
 
   function copyReviewText() {
     if (!customerReview.trim()) return
@@ -773,23 +903,25 @@ function ReviewStep({
             type="button"
             variant={hasContent ? "outline" : "default"}
             size="sm"
-            onClick={generateReview}
-            disabled={generatingReview || (!combinedInput && !hasReminders)}
+            onClick={handleGenerateClick}
+            disabled={generatingReview || (!combinedInput && !hasReminders) || buttonCooldown > 0}
             className={cn(
               "rounded-lg text-xs h-9 px-3 transition-all",
-              !hasContent && !generatingReview && "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-sm hover:shadow-md"
+              !hasContent && !generatingReview && buttonCooldown === 0 && "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-sm hover:shadow-md"
             )}
           >
             {generatingReview ? (
               <Loader2 className="size-3.5 animate-spin mr-1.5" />
             ) : (
-              <RefreshCw className={cn("size-3.5 mr-1.5", !hasContent && !generatingReview && "text-primary-foreground")} />
+              <RefreshCw className={cn("size-3.5 mr-1.5", !hasContent && !generatingReview && buttonCooldown === 0 && "text-primary-foreground")} />
             )}
             {generatingReview
               ? "Generating..."
-              : hasContent
-                ? "Regenerate with AI"
-                : "Generate with AI"}
+              : buttonCooldown > 0
+                ? `Wait ${buttonCooldown}s...`
+                : hasContent
+                  ? "Regenerate with AI"
+                  : "Generate with AI"}
           </Button>
 
           {authenticity && authenticity.warnings.length > 0 && (

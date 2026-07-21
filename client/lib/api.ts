@@ -364,6 +364,15 @@ export const api = {
         request<{ total: number; needsReply: number; replied: number; averageRating: number | null; ratingDistribution: { rating: number; count: number }[] }>(`/v2/gbp/stats/${businessId}`),
     },
   },
+  consent: {
+    status: () =>
+      request<{ consents: { id: string; userId: string; type: string; granted: boolean; context: string | null; createdAt: string }[] }>("/auth/consent-status"),
+    save: (consents: { type: string; granted: boolean; context?: string }[]) =>
+      request<{ consents: any[] }>("/auth/consent", {
+        method: "POST",
+        body: JSON.stringify({ consents }),
+      }),
+  },
   payments: {
     plans: () =>
       request<{ plans: any[] }>("/payments/plans"),

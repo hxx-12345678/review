@@ -32,6 +32,7 @@ export function MarketingFooter() {
             title="Trust & Compliance"
             links={[
               { label: "Privacy policy", href: "/privacy" },
+              { label: "Cookie preferences", href: "#", onClick: () => window.dispatchEvent(new CustomEvent("beyondvyu:open-cookie-preferences")) },
               { label: "Terms of service", href: "/terms" },
               { label: "Refund policy", href: "/refund" },
               { label: "Compliance", href: "/#compliance" },
@@ -74,19 +75,28 @@ export function MarketingFooter() {
   )
 }
 
-function FooterCol({ title, links }: { title: string; links: { label: string; href: string }[] }) {
+function FooterCol({ title, links }: { title: string; links: ({ label: string; href?: string; onClick?: () => void })[] }) {
   return (
     <div>
       <h3 className="text-sm font-bold text-foreground">{title}</h3>
       <ul className="mt-4 space-y-2.5">
         {links.map((l) => (
           <li key={l.label}>
-            <Link
-              href={l.href}
-              className="text-sm text-muted-foreground transition-colors duration-200 hover:text-foreground"
-            >
-              {l.label}
-            </Link>
+            {l.href ? (
+              <Link
+                href={l.href}
+                className="text-sm text-muted-foreground transition-colors duration-200 hover:text-foreground"
+              >
+                {l.label}
+              </Link>
+            ) : (
+              <button
+                onClick={l.onClick}
+                className="text-sm text-muted-foreground transition-colors duration-200 hover:text-foreground"
+              >
+                {l.label}
+              </button>
+            )}
           </li>
         ))}
       </ul>

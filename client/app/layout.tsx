@@ -5,6 +5,7 @@ import { Providers } from '@/lib/providers'
 import { PWARegister } from '@/components/pwa-register'
 import { GlobalInstallCapture } from '@/components/install-capture'
 import { GlobalInstallModal } from '@/components/global-install-modal'
+import { CookieConsentBanner } from '@/components/consent/cookie-consent-banner'
 import './globals.css'
 
 const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] })
@@ -28,15 +29,16 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL("https://beyondvyu.com"),
   title: {
-    default: "BEYONDVYU — Turn happy customers into authentic Google reviews",
-    template: "%s | BEYONDVYU",
+    default: "BEYONDVYU — Collect authentic Google reviews with QR codes & AI",
+    template: "%s | BEYONDVYU — Google review management platform",
   },
   description:
-    "BEYONDVYU helps local businesses collect more authentic Google reviews with QR codes and an AI assistant that jogs your customers\u2019 memory — fully compliant with Google and FTC policy.",
+    "Collect authentic Google reviews in 60 seconds with QR codes. AI-powered sentiment analysis, weekly WhatsApp insights, and 100% Google & FTC compliant. Trusted by 2,000+ businesses.",
   keywords: [
     "Google reviews",
     "review management",
     "QR code reviews",
+    "collect Google reviews",
     "business reviews",
     "FTC compliant reviews",
     "review generation",
@@ -51,27 +53,30 @@ export const metadata: Metadata = {
     "GEO",
     "generative engine optimization",
     "answer engine optimization",
-    "Google review QR code generator",
     "AI sentiment analysis",
     "WhatsApp review alerts",
-    "Google review link",
-    "collect Google reviews",
     "review compliance",
-    "Google review policy",
     "reputation management SaaS",
     "small business review tool",
     "multi-location review management",
-    "Google Places API reviews",
     "customer feedback platform",
     "automated review requests",
+    "how to get more Google reviews",
+    "Google review link generator",
+    "business reputation tool",
   ],
+  authors: [{ name: "BEYONDVYU" }],
+  publisher: "BEYONDVYU",
+  creator: "BEYONDVYU",
   verification: {
     google: "YOUR_GOOGLE_SEARCH_CONSOLE_VERIFICATION_CODE",
   },
   other: {
     "google-site-verification": "YOUR_GOOGLE_SEARCH_CONSOLE_VERIFICATION_CODE",
+    "og:locale:alternate": "en_IN",
   },
   category: "business",
+  classification: "Review Management Software",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -84,30 +89,41 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     siteName: "BEYONDVYU",
-    title: "BEYONDVYU — Turn happy customers into authentic Google reviews",
+    title: "BEYONDVYU — Collect authentic Google reviews with QR codes & AI",
     description:
-      "BEYONDVYU helps local businesses collect more authentic Google reviews with QR codes and an AI assistant.",
+      "Collect authentic Google reviews in 60 seconds with QR codes. AI sentiment analysis, weekly WhatsApp reports, and full Google & FTC compliance. Trusted by 2,000+ businesses.",
     url: "https://beyondvyu.com",
     locale: "en_US",
+    countryName: "India",
     images: [
       {
-        url: "/icon-512x512.png",
-        width: 512,
-        height: 512,
-        alt: "BEYONDVYU — Google review management platform",
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "BEYONDVYU — Google review management platform for local businesses",
+        type: "image/png",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "BEYONDVYU — Turn happy customers into authentic Google reviews",
+    site: "@beyondvyu",
+    creator: "@beyondvyu",
+    title: "BEYONDVYU — Collect Google reviews with QR codes & AI",
     description:
-      "BEYONDVYU helps local businesses collect more authentic Google reviews with QR codes and an AI assistant.",
-    images: ["/icon-512x512.png"],
+      "Collect authentic Google reviews in 60 seconds. AI sentiment analysis, weekly WhatsApp insights. Fully Google & FTC compliant.",
+    images: ["/og-image.png"],
   },
   robots: {
     index: true,
     follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
   },
   icons: {
     icon: [
@@ -161,6 +177,7 @@ export default function RootLayout({
           <PWARegister />
           <GlobalInstallCapture />
           <GlobalInstallModal />
+          <CookieConsentBanner />
         </Providers>
         <Toaster />
       </body>

@@ -31,6 +31,42 @@
 - frame-src allows api.razorpay.com and *.razorpay.com for potential iframe fallback
 - form-action allows razorpay.com for redirect-based payments
 
+## Infrastructure
+
+### Render PostgreSQL Migration
+
+Two script pairs in `scripts/` for moving between PostgreSQL instances. Choose based on available tools.
+
+#### Option A: Node.js + Prisma (recommended, zero external deps)
+
+- **`scripts/export-db.js`** — Reads all data via Prisma into portable JSON
+  ```bash
+  cd server && node ../scripts/export-db.js "postgresql://user:pass@host:5432/db"
+  ```
+  - No external tools needed (uses `@prisma/client` already in project)
+  - Output: `reviewos-backup-YYYY-MM-DD.json`
+- **`scripts/import-db.js`** — Restores JSON into target DB via Prisma migrations
+  ```bash
+  cd server && node ../scripts/import-db.js ../reviewos-backup-2026-07-20.json "postgresql://user:pass@host:5432/newdb"
+  ```
+  - Drops existing schema, applies all Prisma migrations, inserts data in FK-safe order
+  - Outputs verification table with row counts
+
+#### Option B: pg_dump/pg_restore (advanced, needs PostgreSQL client tools)
+
+- **`scripts/export-db.sh`** — Exports via `pg_dump -Fc --no-owner --no-acl`
+  - Output: `reviewos-backup-YYYYMMDD.dump` (compressed custom format)
+- **`scripts/import-db.sh`** — Restores via `pg_restore -j 4`
+  - Drops existing `public` schema first, parallel restore, row count verification
+- Requires: `pg_dump`, `pg_restore`, `psql`, `pg_isready`
+
+#### Workflow (both options):
+1. Run export pointing at old DB → get dump/JSON file
+2. Transfer file to machine that can reach new DB
+3. Run import with dump/JSON + new DB URL → restores all data
+4. Update `DATABASE_URL` env var on Render, restart services
+5. Verify app works, delete old DB
+
 ## Testing
 
 ### Payment flow test

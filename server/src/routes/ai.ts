@@ -3,7 +3,14 @@ import { z } from "zod";
 import { prisma } from "../config/database";
 import { authRequired, AuthRequest } from "../middleware/auth";
 import { requireSubscription, incrementAiCalls } from "../middleware/subscription";
-import { aiLimiter } from "../middleware/rate-limit";
+import {
+  aiBurstLimiter,
+  talkingPointsLimiter,
+  generateReviewLimiter,
+  generateReplyLimiter,
+  insightsLimiter,
+  aiDailyLimiter,
+} from "../middleware/rate-limit";
 import { callGemini, deriveTalkingPoints, buildFallbackReply, buildFallbackReview, generateInsights } from "../utils/gemini";
 import type { ReviewInput } from "../utils/gemini";
 
@@ -23,7 +30,7 @@ function cacheKey(highlights: string, business: string, rating: number, lang: st
 }
 
 // ── T10: AI Reply Generation Route ──────────────────────────────────────────
-router.post("/generate-reply", authRequired, requireSubscription, aiLimiter, async (req: AuthRequest, res: Response) => {
+router.post("/generate-reply", authRequired, requireSubscription, aiBurstLimiter, generateReplyLimiter, aiDailyLimiter, async (req: AuthRequest, res: Response) => {
   try {
     const data = generateReplySchema.parse(req.body);
 
@@ -123,13 +130,20 @@ const talkingPointsSchema = z.object({
   highlights: z.string().max(500).optional().default(""),
   selectedTopics: z.array(z.string()).optional().default([]),
   businessName: z.string().max(100).optional().default("a local business"),
+  promptTopics: z.array(z.string()).optional().default([]),
   rating: z.number().min(1).max(5).optional(),
   language: z.string().max(30).optional().default("english"),
 });
 
-router.post("/talking-points", aiLimiter, async (req: Request, res: Response) => {
+// Review cache for generate-review (in addition to talking-points cache)
+const reviewResultCache = new Map<string, { value: string; expiresAt: number }>();
+function reviewCacheKey(highlights: string, business: string, rating: number, lang: string, topics: string[]) {
+  return `${lang}:${rating}:${business}:${highlights}:${topics.sort().join(",")}`.slice(0, 512);
+}
+
+router.post("/talking-points", aiBurstLimiter, talkingPointsLimiter, aiDailyLimiter, async (req: Request, res: Response) => {
   try {
-    const { highlights, selectedTopics, businessName, rating, language } = talkingPointsSchema.parse(req.body);
+    const { highlights, selectedTopics, businessName, promptTopics, rating, language } = talkingPointsSchema.parse(req.body);
 
     // Cache check: skip Gemini if we've seen this exact input recently
     const key = cacheKey(highlights, businessName, rating ?? 0, language);
@@ -166,9 +180,12 @@ Your goal is to jog the customer's memory so THEY write an authentic review in t
     const topicsLine = selectedTopics.length > 0
       ? `\nTopics they selected: ${selectedTopics.join(", ")}`
       : "";
+    const bizTopicsLine = promptTopics.length > 0
+      ? `\nBusiness's suggested review topics: ${promptTopics.join(", ")}`
+      : "";
     const prompt = `Business: ${businessName}
 Customer's star rating: ${rating ?? "unknown"}/5
-Customer's notes about their visit: "${highlights}"${topicsLine}
+Customer's notes about their visit: "${highlights}"${topicsLine}${bizTopicsLine}
 
 MANDATORY OUTPUT LANGUAGE (apply to every word of every bullet — this overrides everything):
 ${languageInstruction}
@@ -220,14 +237,23 @@ const generateReviewSchema = z.object({
   highlights: z.string().max(500).optional().default(""),
   selectedTopics: z.array(z.string()).optional().default([]),
   businessName: z.string().max(100).optional().default("a local business"),
+  promptTopics: z.array(z.string()).optional().default([]),
   rating: z.number().min(1).max(5).optional(),
   language: z.string().max(30).optional().default("english"),
   talkingPoints: z.array(z.string()).optional().default([]),
+  businessSlug: z.string().optional(),
 });
 
-router.post("/generate-review", aiLimiter, async (req: Request, res: Response) => {
+router.post("/generate-review", aiBurstLimiter, generateReviewLimiter, aiDailyLimiter, async (req: Request, res: Response) => {
   try {
-    const { highlights, selectedTopics, businessName, rating, language, talkingPoints } = generateReviewSchema.parse(req.body);
+    const { highlights, selectedTopics, businessName, promptTopics, rating, language, talkingPoints } = generateReviewSchema.parse(req.body);
+
+    // Cache check: return cached review if we've seen this exact input recently
+    const gKey = reviewCacheKey(highlights, businessName, rating ?? 0, language, selectedTopics);
+    const gCached = reviewResultCache.get(gKey);
+    if (gCached && gCached.expiresAt > Date.now()) {
+      return res.json({ review: gCached.value, cached: true });
+    }
 
     const sentiment = !rating ? "neutral" : rating >= 4 ? "positive" : rating === 3 ? "neutral" : "negative";
 
@@ -271,6 +297,9 @@ Customer's own words: "${highlights || "(none provided)"}"`;
     if (talkingPoints.length > 0) {
       prompt += `\nTalking points to reference:\n${talkingPoints.map((p) => `- ${p}`).join("\n")}`;
     }
+    if (promptTopics.length > 0) {
+      prompt += `\nBusiness's suggested review topics to potentially cover: ${promptTopics.join(", ")}`;
+    }
 
     prompt += `\n\nMANDATORY OUTPUT LANGUAGE (every word must be in this language):
 ${languageInstruction}
@@ -284,6 +313,13 @@ Write a short, natural, authentic-sounding review draft (2-5 sentences) in the e
     } catch (err) {
       console.warn("Gemini review generation failed, falling back to deterministic builder:", err);
       review = buildFallbackReview({ highlights, businessName, rating, talkingPoints, selectedTopics });
+    }
+
+    // Cache result for 300 seconds (5 min) — same input = same review
+    reviewResultCache.set(gKey, { value: review, expiresAt: Date.now() + 300_000 });
+    if (reviewResultCache.size > 1000) {
+      const firstKey = reviewResultCache.keys().next().value;
+      if (firstKey) reviewResultCache.delete(firstKey);
     }
 
     res.json({ review });
@@ -301,7 +337,7 @@ Write a short, natural, authentic-sounding review draft (2-5 sentences) in the e
 const insightsCache = new Map<string, { result: any; expiresAt: number }>();
 const INSIGHTS_CACHE_TTL = 5 * 60 * 1000;
 
-router.get("/insights/:businessId", authRequired, requireSubscription, async (req: AuthRequest, res: Response) => {
+router.get("/insights/:businessId", authRequired, requireSubscription, aiBurstLimiter, insightsLimiter, aiDailyLimiter, async (req: AuthRequest, res: Response) => {
   try {
     const period = (req.query.period as string) || "month";
     const businessId = req.params.businessId as string;

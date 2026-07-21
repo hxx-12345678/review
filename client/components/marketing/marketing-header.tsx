@@ -208,20 +208,22 @@ export function MarketingHeader() {
                 Dashboard
               </Link>
             ) : (
-              <Link
-                href="/signup"
-                className="flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:bg-primary/90"
-                onClick={() => setMobileOpen(false)}
-              >
-                Get started
-              </Link>
-              <Link
-                href="/login"
-                className="mt-2 flex items-center justify-center gap-2 rounded-xl border border-white/20 px-4 py-2.5 text-sm font-medium text-white/80 transition-all duration-200 hover:bg-white/10 hover:text-white"
-                onClick={() => setMobileOpen(false)}
-              >
-                Log in
-              </Link>
+              <div className="flex flex-col gap-2">
+                <Link
+                  href="/signup"
+                  className="flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:bg-primary/90"
+                  onClick={() => setMobileOpen(false)}
+                >
+                  Get started
+                </Link>
+                <Link
+                  href="/login"
+                  className="flex items-center justify-center gap-2 rounded-xl border border-white/20 px-4 py-2.5 text-sm font-medium text-white/80 transition-all duration-200 hover:bg-white/10 hover:text-white"
+                  onClick={() => setMobileOpen(false)}
+                >
+                  Log in
+                </Link>
+              </div>
             )}
           </div>
         </div>

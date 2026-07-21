@@ -50,6 +50,23 @@ model User {
   sessions            Session[]
   activityLogs        ActivityLog[]
   subscriptions       Subscription[]
+  consents            Consent[]
+}
+
+model Consent {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String   // "data_processing" | "privacy_terms" | "marketing"
+  granted   Boolean  @default(true)
+  context   String?  // "signup" | "oauth"
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type])
+  @@index([userId])
 }
 
 model Session {
@@ -156,7 +173,18 @@ model ReviewClick {
   createdAt  DateTime     @default(now())
 
   feedback   Feedback     @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
-  business   Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+}
+
+model AiRequestLog {
+  id         String   @id @default(cuid())
+  ip         String
+  businessId String?
+  endpoint   String
+  createdAt  DateTime @default(now())
+
+  @@index([ip, businessId, endpoint, createdAt])
+  @@index([createdAt])
 }
 
 model GeneratedReply {
