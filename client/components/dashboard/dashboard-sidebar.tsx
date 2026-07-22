@@ -7,10 +7,11 @@ import { Logo } from "@/components/logo"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
+import { useEffect } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { useSidebar } from "@/lib/sidebar-context"
-import { useEffect, useState } from "react"
-import { api } from "@/lib/api"
+import { useBusiness } from "@/lib/business-context"
+import { BusinessSwitcher } from "@/components/dashboard/business-switcher"
 import { isV2Visible } from "@/lib/feature-flags"
 
 const NAV = [
@@ -35,17 +36,7 @@ export function DashboardSidebar() {
   const pathname = usePathname()
   const { user, logout } = useAuth()
   const { mobileOpen, setMobileOpen } = useSidebar()
-  const [businessName, setBusinessName] = useState("")
-  const [businessSlug, setBusinessSlug] = useState("")
-
-  useEffect(() => {
-    api.businesses.list().then((res) => {
-      if (res.businesses[0]) {
-        setBusinessName(res.businesses[0].name)
-        setBusinessSlug(res.businesses[0].slug)
-      }
-    }).catch(() => {})
-  }, [])
+  const { currentBusiness } = useBusiness()
 
   useEffect(() => {
     setMobileOpen(false)
@@ -53,10 +44,11 @@ export function DashboardSidebar() {
 
   const sidebarContent = (
     <>
-      <div className="flex h-16 shrink-0 items-center border-b border-border px-5">
-        <Link href="/" aria-label="BEYONDVYU home">
+      <div className="flex h-16 shrink-0 items-center border-b border-border px-3">
+        <Link href="/" aria-label="BEYONDVYU home" className="shrink-0 mr-2">
           <Logo />
         </Link>
+        <BusinessSwitcher />
       </div>
 
       <nav className="flex-1 min-h-0 space-y-1 overflow-y-auto p-3" aria-label="Dashboard">
@@ -108,7 +100,7 @@ export function DashboardSidebar() {
 
       <div className="shrink-0 p-3">
         <Link
-          href={businessSlug ? `/r/${businessSlug}?demo=true` : "/r/brightsmile?demo=true"}
+          href={currentBusiness?.slug ? `/r/${currentBusiness.slug}?demo=true` : "/r/brightsmile?demo=true"}
           target="_blank"
           className="flex items-center gap-3 rounded-lg border border-border bg-card px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
@@ -126,11 +118,11 @@ export function DashboardSidebar() {
         <div className="flex items-center gap-3 rounded-lg px-2 py-1.5">
           <Avatar className="size-8">
             <AvatarFallback className="bg-primary/10 text-primary">
-              {(businessName || user?.name || "R").charAt(0)}
+              {(currentBusiness?.name || user?.name || "R").charAt(0)}
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-foreground">{businessName || user?.name || "BEYONDVYU"}</p>
+            <p className="truncate text-sm font-medium text-foreground">{currentBusiness?.name || user?.name || "BEYONDVYU"}</p>
             <p className="truncate text-xs text-muted-foreground">{user?.email || ""}</p>
           </div>
           <Button variant="ghost" size="icon-xs" onClick={logout} aria-label="Log out">
@@ -155,8 +147,11 @@ export function DashboardSidebar() {
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <div className="flex h-14 shrink-0 items-center justify-between border-b border-border px-4">
-          <Logo />
+        <div className="flex h-14 shrink-0 items-center justify-between border-b border-border px-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <Logo />
+            <BusinessSwitcher />
+          </div>
           <Button variant="ghost" size="icon" onClick={() => setMobileOpen(false)} aria-label="Close menu">
             <X className="size-5" />
           </Button>
@@ -207,7 +202,7 @@ export function DashboardSidebar() {
         </nav>
         <div className="shrink-0 p-3 border-t border-border">
           <Link
-            href={businessSlug ? `/r/${businessSlug}?demo=true` : "/r/brightsmile?demo=true"}
+            href={currentBusiness?.slug ? `/r/${currentBusiness.slug}?demo=true` : "/r/brightsmile?demo=true"}
             target="_blank"
             className="flex items-center gap-3 rounded-lg border border-border bg-card px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
@@ -224,11 +219,11 @@ export function DashboardSidebar() {
           <div className="flex items-center gap-3 rounded-lg px-2 py-1.5">
             <Avatar className="size-8">
               <AvatarFallback className="bg-primary/10 text-primary">
-                {(businessName || user?.name || "R").charAt(0)}
+                {(currentBusiness?.name || user?.name || "R").charAt(0)}
               </AvatarFallback>
             </Avatar>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-foreground">{businessName || user?.name || "BEYONDVYU"}</p>
+              <p className="truncate text-sm font-medium text-foreground">{currentBusiness?.name || user?.name || "BEYONDVYU"}</p>
               <p className="truncate text-xs text-muted-foreground">{user?.email || ""}</p>
             </div>
             <Button variant="ghost" size="icon-xs" onClick={logout} aria-label="Log out">

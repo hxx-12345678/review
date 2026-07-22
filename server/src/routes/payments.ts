@@ -521,6 +521,15 @@ router.post("/update-subscription", authRequired, async (req: AuthRequest, res: 
     const isUpgrade = newPlan.price >= currentSub.plan.price;
     const razorpay = getRazorpay();
 
+    if (!isUpgrade) {
+      const businessCount = await prisma.business.count({ where: { userId: req.userId } });
+      if (businessCount > newPlan.businessLimit) {
+        return res.status(400).json({
+          error: `You have ${businessCount} businesses but the ${newPlan.name} plan only allows ${newPlan.businessLimit}. Please delete ${businessCount - newPlan.businessLimit} business(es) first to downgrade.`,
+        });
+      }
+    }
+
     if (isUpgrade) {
       // Upgrade: change plan immediately with proration
       let subscription = currentSub;

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Sparkles, TrendingUp, TrendingDown, Minus, Star, ThumbsUp, ThumbsDown, AlertCircle, Download, ChevronDown, ChevronUp } from "lucide-react"
 import { Card } from "@/components/ui/card"
@@ -10,6 +10,7 @@ import { PageHeader } from "@/components/dashboard/page-header"
 import { api } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
 import { cn } from "@/lib/utils"
+import { useBusiness } from "@/lib/business-context"
 
 type Period = "week" | "month" | "all"
 
@@ -43,8 +44,8 @@ const SENTIMENT_COLORS = {
 
 export default function InsightsPage() {
   const { user, loading: authLoading } = useAuth()
+  const { currentBusiness, isLoading: bizLoading } = useBusiness()
   const router = useRouter()
-  const [business, setBusiness] = useState<any>(null)
   const [period, setPeriod] = useState<Period>("month")
   const [data, setData] = useState<InsightsData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -52,36 +53,7 @@ export default function InsightsPage() {
   const [showAllPraises, setShowAllPraises] = useState(false)
   const [showAllComplaints, setShowAllComplaints] = useState(false)
 
-  useEffect(() => {
-    if (!user || authLoading) return
-    let cancelled = false
-
-    async function load() {
-      try {
-        const bizRes = await api.businesses.list()
-        const biz = bizRes.businesses[0]
-        if (cancelled || !biz) return
-        setBusiness(biz)
-        loadInsights(biz.id, period)
-      } catch {
-        if (!cancelled) setError(true)
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-
-    load()
-    return () => { cancelled = true }
-  }, [user, authLoading])
-
-  useEffect(() => {
-    if (business) {
-      setLoading(true)
-      loadInsights(business.id, period)
-    }
-  }, [period, business?.id])
-
-  async function loadInsights(businessId: string, p: Period) {
+  const loadInsights = useCallback(async (businessId: string, p: Period) => {
     try {
       const res = await api.ai.getInsights(businessId, p)
       setData(res)
@@ -91,7 +63,16 @@ export default function InsightsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    if (!user || authLoading || bizLoading) return
+
+    if (currentBusiness) {
+      setLoading(true)
+      loadInsights(currentBusiness.id, period)
+    }
+  }, [user, authLoading, bizLoading, currentBusiness, period, loadInsights])
 
   if (authLoading || loading) {
     return <InsightsSkeleton />

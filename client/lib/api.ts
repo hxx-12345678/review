@@ -93,6 +93,10 @@ export const api = {
         method: "PATCH",
         body: JSON.stringify(data),
       }),
+    delete: (id: string) =>
+      request<{ success: boolean }>(`/businesses/${id}`, {
+        method: "DELETE",
+      }),
   },
   feedback: {
     submit: (data: {

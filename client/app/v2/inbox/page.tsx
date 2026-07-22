@@ -3,28 +3,20 @@
 import { useState, useEffect } from "react"
 import { UnifiedInbox } from "@/components/v2/inbox/unified-inbox"
 import { Loader2, Inbox } from "lucide-react"
+import { useBusiness } from "@/lib/business-context"
 import { api } from "@/lib/api"
 
 export default function V2InboxPage() {
-  const [business, setBusiness] = useState<{ id: string } | null>(null)
-  const [loading, setLoading] = useState(true)
+  const { currentBusiness, isLoading } = useBusiness()
   const [stats, setStats] = useState<{ total: number; unread: number; byPlatform: any[] } | null>(null)
 
   useEffect(() => {
-    api.auth.me().then(async (res) => {
-      const b = res.businesses?.[0]
-      if (b) {
-        setBusiness(b)
-        try {
-          const s = await api.v2.inbox.stats(b.id)
-          setStats(s)
-        } catch {}
-      }
-    }).finally(() => setLoading(false))
-  }, [])
+    if (!currentBusiness) return
+    api.v2.inbox.stats(currentBusiness.id).then(setStats).catch(() => {})
+  }, [currentBusiness])
 
-  if (loading) return <div className="flex items-center justify-center min-h-[60vh]"><Loader2 className="size-6 animate-spin" /></div>
-  if (!business) return <div className="p-8 text-center text-muted-foreground">Create a business to get started.</div>
+  if (isLoading) return <div className="flex items-center justify-center min-h-[60vh]"><Loader2 className="size-6 animate-spin" /></div>
+  if (!currentBusiness) return <div className="p-8 text-center text-muted-foreground">Create a business to get started.</div>
 
   return (
     <div className="p-4 sm:p-8">
@@ -48,7 +40,7 @@ export default function V2InboxPage() {
         </div>
       </div>
       <div className="h-[70vh]">
-        <UnifiedInbox businessId={business.id} />
+        <UnifiedInbox businessId={currentBusiness.id} />
       </div>
     </div>
   )

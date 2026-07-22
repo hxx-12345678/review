@@ -12,11 +12,12 @@ import { TrendChart } from "@/components/dashboard/trend-chart";
 import { RatingBreakdown, RecentActivity, ComplianceCard } from "@/components/dashboard/overview-panels";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
+import { useBusiness } from "@/lib/business-context";
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
+  const { currentBusiness, isLoading: bizLoading } = useBusiness();
   const router = useRouter();
-  const [business, setBusiness] = useState<any>(null);
   const [stats, setStats] = useState<any>(null);
   const [feedback, setFeedback] = useState<any[]>([]);
   const [googleReviews, setGoogleReviews] = useState<any[]>([]);
@@ -24,18 +25,16 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user || authLoading) return;
+    if (!user || authLoading || bizLoading) return;
     let cancelled = false;
     async function load() {
       try {
-        const bizRes = await api.businesses.list();
-        const biz = bizRes.businesses[0];
+        const biz = currentBusiness;
         if (cancelled) return;
         if (!biz) {
           router.replace("/onboarding");
           return;
         }
-        setBusiness(biz);
 
         if (biz) {
           const [statsRes, feedbackRes, trendRes, googleRes] = await Promise.all([
@@ -58,9 +57,9 @@ export default function DashboardPage() {
     }
     load();
     return () => { cancelled = true; };
-  }, [user, authLoading]);
+  }, [user, authLoading, bizLoading, currentBusiness]);
 
-  if (authLoading || loading) {
+  if (authLoading || bizLoading || loading) {
     return (
       <div className="p-4 sm:p-6 lg:p-8">
         <div className="h-8 w-48 animate-pulse rounded bg-muted" />
@@ -86,7 +85,7 @@ export default function DashboardPage() {
     <>
       <PageHeader
         title="Overview"
-        description={`Welcome back — here's how ${business?.name || "your business"} is doing.`}
+        description={`Welcome back — here's how ${currentBusiness?.name || "your business"} is doing.`}
       >
         <Button render={<Link href="/dashboard/qr" />} nativeButton={false}>
           <QrCode className="size-4" />

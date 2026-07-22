@@ -1,22 +1,14 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import { ReviewTasks } from "@/components/v2/tasks/review-tasks"
 import { Loader2, ListChecks } from "lucide-react"
-import { api } from "@/lib/api"
+import { useBusiness } from "@/lib/business-context"
 
 export default function V2TasksPage() {
-  const [business, setBusiness] = useState<{ id: string } | null>(null)
-  const [loading, setLoading] = useState(true)
+  const { currentBusiness, isLoading } = useBusiness()
 
-  useEffect(() => {
-    api.auth.me().then((res) => {
-      if (res.businesses?.[0]) setBusiness(res.businesses[0])
-    }).finally(() => setLoading(false))
-  }, [])
-
-  if (loading) return <div className="flex items-center justify-center min-h-[60vh]"><Loader2 className="size-6 animate-spin" /></div>
-  if (!business) return <div className="p-8 text-center text-muted-foreground">Create a business to get started.</div>
+  if (isLoading) return <div className="flex items-center justify-center min-h-[60vh]"><Loader2 className="size-6 animate-spin" /></div>
+  if (!currentBusiness) return <div className="p-8 text-center text-muted-foreground">Create a business to get started.</div>
 
   return (
     <div className="p-4 sm:p-8 max-w-3xl mx-auto">
@@ -29,7 +21,7 @@ export default function V2TasksPage() {
           Tasks auto-created from negative reviews, pending replies, and overdue actions.
         </p>
       </div>
-      <ReviewTasks businessId={business.id} />
+      <ReviewTasks businessId={currentBusiness.id} />
     </div>
   )
 }

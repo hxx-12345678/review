@@ -1,38 +1,42 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ShieldCheck, ExternalLink, LogOut } from "lucide-react";
+import { ShieldCheck, ExternalLink, LogOut, Building2, Plus, Trash2, Pencil, ArrowUpCircle, AlertCircle, Check } from "lucide-react";
 import { SettingsForm } from "@/components/dashboard/settings-form"
 import { WhatsAppReportCard } from "@/components/dashboard/whatsapp-report-card"
 import { PageHeader } from "@/components/dashboard/page-header"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
+import { OnboardingDialog } from "@/components/onboarding/onboarding-dialog";
 import { api } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
+import { useBusiness } from "@/lib/business-context"
 import { toast } from "sonner"
 
 export default function SettingsPage() {
   const { user, logout } = useAuth();
-  const [business, setBusiness] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const { currentBusiness, businesses, businessLimit, refreshBusinesses, isLoading } = useBusiness();
+  const router = useRouter();
+
+  const [tab, setTab] = useState("profile");
+  const [deleteDialog, setDeleteDialog] = useState<any>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [editingBusiness, setEditingBusiness] = useState<any>(null);
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
 
   useEffect(() => {
-    async function load() {
-      try {
-        const bizRes = await api.businesses.list();
-        setBusiness(bizRes.businesses[0]);
-      } catch {
-        // handle
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-
-    // Show toast after OAuth redirect
     const params = new URLSearchParams(window.location.search);
+    if (params.get("tab") === "businesses") {
+      setTab("businesses");
+      window.history.replaceState({}, "", window.location.pathname);
+    }
     if (params.get("google") === "connected") {
       toast.success("Google account connected successfully!");
       window.history.replaceState({}, "", window.location.pathname);
@@ -42,7 +46,22 @@ export default function SettingsPage() {
     }
   }, []);
 
-  if (loading) {
+  const handleDelete = useCallback(async () => {
+    if (!deleteDialog) return;
+    setDeleting(true);
+    try {
+      await api.businesses.delete(deleteDialog.id);
+      toast.success(`"${deleteDialog.name}" deleted`);
+      setDeleteDialog(null);
+      await refreshBusinesses();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete business");
+    } finally {
+      setDeleting(false);
+    }
+  }, [deleteDialog, refreshBusinesses]);
+
+  if (isLoading) {
     return (
       <div className="p-4 sm:p-6 lg:p-8">
         <div className="h-8 w-48 animate-pulse rounded bg-muted" />
@@ -55,26 +74,26 @@ export default function SettingsPage() {
     <div className="space-y-6 sm:space-y-8">
       <PageHeader
         title="Settings"
-        description="Manage your business profile, review link, and compliance guardrails."
+        description="Manage your profile, businesses, and subscription."
       />
 
-      {/* Mobile-only: Account & quick actions (replaces sidebar bottom on mobile) */}
+      {/* Mobile-only: Account & quick actions */}
       <div className="md:hidden px-4">
         <Card className="p-4 space-y-4">
           <div className="flex items-center gap-3">
             <Avatar className="size-10">
               <AvatarFallback className="bg-primary/10 text-primary">
-                {(business?.name || user?.name || "R").charAt(0)}
+                {(currentBusiness?.name || user?.name || "R").charAt(0)}
               </AvatarFallback>
             </Avatar>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-foreground">{business?.name || user?.name || "BEYONDVYU"}</p>
+              <p className="truncate text-sm font-medium text-foreground">{currentBusiness?.name || user?.name || "BEYONDVYU"}</p>
               <p className="truncate text-xs text-muted-foreground">{user?.email || ""}</p>
             </div>
           </div>
           <div className="flex flex-col gap-2">
             <Link
-              href={business?.slug ? `/r/${business.slug}?demo=true` : "/r/brightsmile?demo=true"}
+              href={currentBusiness?.slug ? `/r/${currentBusiness.slug}?demo=true` : "/r/brightsmile?demo=true"}
               target="_blank"
               className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
             >
@@ -93,13 +112,205 @@ export default function SettingsPage() {
         </Card>
       </div>
 
-      <SettingsForm business={business} />
+      <div className="px-4 sm:px-6 lg:px-8">
+        <Tabs value={tab} onValueChange={setTab}>
+          <TabsList>
+            <TabsTrigger value="profile">Profile</TabsTrigger>
+            <TabsTrigger value="businesses">Businesses</TabsTrigger>
+            <TabsTrigger value="billing" onClick={() => router.push("/dashboard/billing")}>Billing</TabsTrigger>
+          </TabsList>
 
-      {business && (
-        <div className="px-4 sm:px-6 lg:px-8">
-          <WhatsAppReportCard businessId={business.id} />
+          <TabsContent value="profile" className="mt-6 space-y-6">
+            {currentBusiness && <SettingsForm business={currentBusiness} />}
+            {currentBusiness && (
+              <div>
+                <WhatsAppReportCard businessId={currentBusiness.id} />
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="businesses" className="mt-6">
+            <BusinessList
+              businesses={businesses}
+              businessLimit={businessLimit}
+              currentBusinessId={currentBusiness?.id}
+              onDelete={(biz) => setDeleteDialog(biz)}
+              onEdit={(biz) => setEditingBusiness(biz)}
+              onAdd={() => {
+                if (businesses.length < businessLimit) {
+                  setAddDialogOpen(true);
+                } else {
+                  router.push("/dashboard/billing");
+                }
+              }}
+            />
+          </TabsContent>
+        </Tabs>
+      </div>
+
+      {/* Add business dialog */}
+      <OnboardingDialog open={addDialogOpen} onOpenChange={setAddDialogOpen} />
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={!!deleteDialog} onOpenChange={(open) => !open && setDeleteDialog(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete business</DialogTitle>
+            <DialogDescription>
+              This will permanently delete all feedback, QR codes, reviews, and Google connections for <strong>{deleteDialog?.name}</strong>. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setDeleteDialog(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+              {deleting ? "Deleting..." : "Delete permanently"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Inline edit modal for business name/location */}
+      {editingBusiness && (
+        <BusinessEditDialog
+          business={editingBusiness}
+          onClose={() => setEditingBusiness(null)}
+          onSaved={() => {
+            setEditingBusiness(null);
+            refreshBusinesses();
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+function BusinessList({
+  businesses,
+  businessLimit,
+  currentBusinessId,
+  onDelete,
+  onEdit,
+  onAdd,
+}: {
+  businesses: any[];
+  businessLimit: number;
+  currentBusinessId?: string;
+  onDelete: (biz: any) => void;
+  onEdit: (biz: any) => void;
+  onAdd: () => void;
+}) {
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold">My Businesses</h3>
+          <p className="text-sm text-muted-foreground">
+            {businesses.length} of {businessLimit} businesses used
+          </p>
+        </div>
+        <Button onClick={onAdd} size="sm">
+          <Plus className="size-4 mr-1.5" />
+          Add business
+        </Button>
+      </div>
+
+      {/* Usage bar */}
+      <div className="h-2 w-full rounded-full bg-secondary">
+        <div
+          className="h-2 rounded-full bg-primary transition-all"
+          style={{ width: `${Math.min((businesses.length / businessLimit) * 100, 100)}%` }}
+        />
+      </div>
+
+      {businesses.length === 0 ? (
+        <Card className="p-8 text-center">
+          <Building2 className="mx-auto size-8 text-muted-foreground" />
+          <p className="mt-2 text-sm text-muted-foreground">No businesses yet. Create your first one.</p>
+        </Card>
+      ) : (
+        <div className="space-y-2">
+          {businesses.map((biz) => (
+            <Card key={biz.id} className={`p-4 ${biz.id === currentBusinessId ? "ring-1 ring-primary" : ""}`}>
+              <div className="flex items-center gap-3">
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <Building2 className="size-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium text-foreground truncate">{biz.name}</p>
+                    {biz.id === currentBusinessId && (
+                      <span className="text-[10px] font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded">Active</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {biz.industry} {biz.location ? `· ${biz.location}` : ""}
+                  </p>
+                  {biz._count && (
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {biz._count.feedback || 0} reviews · {biz._count.qrCodes || 0} QR codes
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button variant="ghost" size="icon-xs" onClick={() => onEdit(biz)} aria-label="Edit business">
+                    <Pencil className="size-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    onClick={() => onDelete(biz)}
+                    disabled={businesses.length <= 1}
+                    aria-label="Delete business"
+                    className="text-destructive hover:text-destructive"
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          ))}
         </div>
       )}
     </div>
+  )
+}
+
+function BusinessEditDialog({ business, onClose, onSaved }: { business: any; onClose: () => void; onSaved: () => void }) {
+  const [name, setName] = useState(business.name);
+  const [saving, setSaving] = useState(false);
+
+  async function handleSave() {
+    if (!name.trim()) return;
+    setSaving(true);
+    try {
+      await api.businesses.update(business.id, { name: name.trim() });
+      toast.success("Business updated");
+      onSaved();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edit business</DialogTitle>
+          <DialogDescription>Update the name of your business.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-2">
+          <Label htmlFor="edit-biz-name">Business name</Label>
+          <Input id="edit-biz-name" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+        </div>
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={handleSave} disabled={saving || !name.trim()}>
+            {saving ? "Saving..." : "Save"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

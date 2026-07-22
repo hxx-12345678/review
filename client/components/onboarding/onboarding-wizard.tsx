@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select"
 import { toast } from "sonner"
 import { api } from "@/lib/api"
+import { cn } from "@/lib/utils"
 
 const INDUSTRIES: { value: string; label: string; topics: string[] }[] = [
   { value: "DENTAL", label: "Dental practice", topics: ["Your dentist or hygienist", "Office cleanliness", "Wait time", "How treatment felt"] },
@@ -41,7 +42,10 @@ type SearchResult = {
   totalRatings: number | null
 }
 
-export function OnboardingWizard() {
+export function OnboardingWizard({ embedded, onComplete }: {
+  embedded?: boolean;
+  onComplete?: () => void;
+}) {
   const router = useRouter()
   const [step, setStep] = useState(0)
   const [name, setName] = useState("")
@@ -135,23 +139,29 @@ export function OnboardingWizard() {
         location: location.trim() || undefined,
         promptTopics: topics,
       });
-      toast.success("Your BEYONDVYU workspace is ready");
-      router.push("/dashboard");
+      toast.success("Business added");
+      if (onComplete) {
+        onComplete();
+      } else {
+        router.push("/dashboard");
+      }
     } catch (err: any) {
       toast.error(err.message || "Failed to create business");
     }
   }
 
   return (
-    <div className="mx-auto flex min-h-screen min-w-0 w-full max-w-xl flex-col overflow-hidden px-4 py-8 sm:px-6">
-      <div className="flex items-center justify-between">
-        <Link href="/" aria-label="BEYONDVYU home">
-          <Logo />
-        </Link>
-        <Link href="/dashboard" className="text-sm text-muted-foreground hover:text-foreground">
-          Skip for now
-        </Link>
-      </div>
+    <div className={cn("mx-auto flex min-w-0 w-full max-w-xl flex-col overflow-hidden", embedded ? "py-2" : "min-h-screen px-4 py-8 sm:px-6")}>
+      {!embedded && (
+        <div className="flex items-center justify-between">
+          <Link href="/" aria-label="BEYONDVYU home">
+            <Logo />
+          </Link>
+          <Link href="/dashboard" className="text-sm text-muted-foreground hover:text-foreground">
+            Skip for now
+          </Link>
+        </div>
+      )}
 
       <div className="mt-8">
         <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -446,7 +456,7 @@ export function OnboardingWizard() {
         )}
       </div>
 
-      <div className="mt-8 flex items-center justify-between">
+      <div className={cn("flex items-center justify-between", embedded ? "mt-6" : "mt-8")}>
         <Button
           variant="ghost"
           onClick={() => setStep((s) => Math.max(0, s - 1))}
@@ -463,7 +473,7 @@ export function OnboardingWizard() {
           </Button>
         ) : (
           <Button onClick={finish}>
-            Go to dashboard
+            {embedded ? "Add business" : "Go to dashboard"}
             <ArrowRight className="size-4" />
           </Button>
         )}

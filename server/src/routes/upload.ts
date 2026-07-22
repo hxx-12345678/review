@@ -111,14 +111,19 @@ router.post(
         return res.status(400).json({ error: "No file uploaded" });
       }
 
-      const user = await prisma.user.findUnique({
-        where: { id: req.userId! },
-        include: { businesses: { select: { id: true, logoUrl: true } } },
-      });
-      if (!user?.businesses.length) {
-        return res.status(404).json({ error: "No business found for this account" });
+      const { businessId: rawBusinessId } = req.body || {};
+      const businessId = rawBusinessId || req.query.businessId;
+      if (!businessId) {
+        return res.status(400).json({ error: "businessId is required" });
       }
-      const business = user.businesses[0];
+
+      const business = await prisma.business.findFirst({
+        where: { id: businessId as string, userId: req.userId! },
+        select: { id: true, logoUrl: true },
+      });
+      if (!business) {
+        return res.status(404).json({ error: "Business not found" });
+      }
 
       // Ensure directory still exists (safety net for ephemeral filesystems)
       ensureUploadsDir();

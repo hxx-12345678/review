@@ -2,13 +2,14 @@
 
 import { Suspense, useEffect, useState, useMemo, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Check, Receipt, Loader2, AlertCircle, IndianRupee, Download, ArrowUpDown, XCircle, Calendar } from "lucide-react";
+import { Check, Receipt, Loader2, AlertCircle, IndianRupee, Download, ArrowUpDown, XCircle, Calendar, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
+import { useBusiness } from "@/lib/business-context";
 import { cn } from "@/lib/utils";
 import { SubscribeConfirmDialog } from "@/components/billing/subscribe-confirm-dialog";
 import {
@@ -105,6 +106,7 @@ function BillingSkeleton() {
 
 function BillingPage() {
   const { user, loading: authLoading } = useAuth();
+  const { businesses } = useBusiness();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -456,9 +458,23 @@ function BillingPage() {
                     />
                   </div>
                 </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Business limit</span>
-                  <span className="font-medium">{subscription.businessLimit}</span>
+                <div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="flex items-center gap-1.5 text-muted-foreground">
+                      <Building2 className="size-3.5" />
+                      Businesses
+                    </span>
+                    <span className="font-medium">{businesses.length} / {subscription.businessLimit}</span>
+                  </div>
+                  <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-muted">
+                    <div
+                      className={cn(
+                        "h-full rounded-full transition-all",
+                        businesses.length >= subscription.businessLimit ? "bg-red-500" : "bg-primary"
+                      )}
+                      style={{ width: `${Math.min(100, Math.round((businesses.length / subscription.businessLimit) * 100))}%` }}
+                    />
+                  </div>
                 </div>
                 {subscription.currentPeriodEnd && (
                   <div className="flex items-center justify-between text-sm">

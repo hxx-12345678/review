@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useBusiness } from "@/lib/business-context"
 import { PageHeader } from "@/components/dashboard/page-header"
 import { QrGenerator } from "@/components/dashboard/qr-generator"
-import { api } from "@/lib/api"
+import { useAuth } from "@/lib/auth-context"
+import { AlertCircle, Building2 } from "lucide-react"
+import Link from "next/link"
+import { Button } from "@/components/ui/button"
 import {
   Select,
   SelectContent,
@@ -11,40 +14,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Building2, AlertCircle } from "lucide-react"
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
 
 export default function QrPage() {
-  const [businesses, setBusinesses] = useState<any[]>([]);
-  const [selectedBusinessId, setSelectedBusinessId] = useState<string>("");
-  const [loading, setLoading] = useState(true);
+  const { user, loading: authLoading } = useAuth()
+  const { businesses, currentBusiness, switchBusiness, isLoading } = useBusiness()
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const bizRes = await api.businesses.list();
-        const bizList = bizRes.businesses || [];
-        setBusinesses(bizList);
-        if (bizList.length > 0) {
-          setSelectedBusinessId(bizList[0].id);
-        }
-      } catch {
-        // handle
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, []);
-
-  const selectedBusiness = businesses.find((b) => b.id === selectedBusinessId) || businesses[0];
-
-  const handleBusinessChange = useCallback((value: string) => {
-    setSelectedBusinessId(value);
-  }, []);
-
-  if (loading) {
+  if (authLoading || isLoading) {
     return (
       <div className="p-4 sm:p-6 lg:p-8">
         <div className="h-8 w-48 animate-pulse rounded bg-muted" />
@@ -76,6 +51,8 @@ export default function QrPage() {
     );
   }
 
+  const selectedBusiness = currentBusiness || businesses[0];
+
   return (
     <>
       <PageHeader
@@ -85,7 +62,7 @@ export default function QrPage() {
         {businesses.length > 1 && (
           <div className="flex w-full items-center gap-2 sm:w-auto">
             <Building2 className="size-4 shrink-0 text-muted-foreground" />
-            <Select value={selectedBusinessId} onValueChange={(v) => v && handleBusinessChange(v)}>
+            <Select value={selectedBusiness.id} onValueChange={(v) => v && switchBusiness(v)}>
               <SelectTrigger className="w-full min-w-0 sm:w-fit sm:min-w-[180px]">
                 <SelectValue placeholder="Select business" />
               </SelectTrigger>
