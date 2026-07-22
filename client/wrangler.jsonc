@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "main": ".open-next/worker.js",
-  "name": "beyondvyu",
+  "name": "review",
   "compatibility_date": "2026-07-19",
   "compatibility_flags": [
     "nodejs_compat"
