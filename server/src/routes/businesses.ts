@@ -7,7 +7,7 @@ const router = Router();
 
 async function getEffectiveBusinessLimit(userId: string): Promise<number> {
   const sub = await prisma.subscription.findFirst({
-    where: { userId, status: { in: ["active", "created"] } },
+    where: { userId, status: { in: ["authenticated", "active", "created"] } },
     orderBy: { createdAt: "desc" },
   });
 

@@ -120,6 +120,12 @@ export function FeedbackFlow({ business, slug, demo: isDemo = false }: { busines
 
   const [redirectContent, setRedirectContent] = useState("")
 
+  function getGoogleReviewUrl(): string | null {
+    const raw = (business.googleReviewUrl || "").trim()
+    if (!raw) return null
+    return /^https?:\/\//i.test(raw) ? raw : `https://${raw}`
+  }
+
   function handlePostToGoogle(content: string) {
     if (content.trim()) {
       navigator.clipboard.writeText(content.trim())
@@ -127,33 +133,35 @@ export function FeedbackFlow({ business, slug, demo: isDemo = false }: { busines
     setRedirectContent(content)
     setShowRedirectPopup(true)
     setRedirectCountdown(3)
+
+    // Open URL synchronously during the user click gesture to bypass popup blockers
+    const url = getGoogleReviewUrl()
+    if (url && !isDemo) {
+      const opened = window.open(url, "_blank", "noopener,noreferrer")
+      if (!opened) {
+        window.location.href = url
+      }
+    } else if (!url && !isDemo) {
+      const searchUrl = `https://www.google.com/maps/search/${encodeURIComponent(business.name)}`
+      const opened = window.open(searchUrl, "_blank", "noopener,noreferrer")
+      if (!opened) {
+        window.location.href = searchUrl
+      }
+    }
   }
 
   async function confirmGooglePost() {
-    // Fetch the latest business data to ensure googleReviewUrl is fresh
-    // (the SSR prop may be stale due to next.revalidate caching)
+    // Fire-and-forget: fetch fresh URL for trackClick logging only
     const freshSlug = slug || business.slug
-    let targetUrl: string | null = null
+    let freshUrl: string | null = null
     try {
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api"
       const res = await fetch(`${baseUrl}/feedback/public/${freshSlug}`, { cache: "no-store" })
       if (res.ok) {
         const data = await res.json()
-        targetUrl = (data.business?.googleReviewUrl || "").trim() || null
+        freshUrl = ((data.business?.googleReviewUrl || "").trim()) || null
       }
     } catch {}
-    if (!targetUrl) {
-      targetUrl = (business.googleReviewUrl || "").trim() || null
-    }
-
-    if (targetUrl) {
-      if (!/^https?:\/\//i.test(targetUrl)) {
-        targetUrl = `https://${targetUrl}`
-      }
-      if (!isDemo) {
-        window.open(targetUrl, "_blank", "noopener,noreferrer")
-      }
-    }
 
     setShowRedirectPopup(false)
     setStep("done")

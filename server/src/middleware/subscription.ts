@@ -23,7 +23,7 @@ export async function requireSubscription(req: AuthRequest, res: Response, next:
     if (!userId) return res.status(401).json({ error: "Authentication required" });
 
     let sub = await prisma.subscription.findFirst({
-      where: { userId, status: { in: ["active", "created"] } },
+      where: { userId, status: { in: ["authenticated", "active", "created"] } },
       orderBy: { createdAt: "desc" },
     });
 
