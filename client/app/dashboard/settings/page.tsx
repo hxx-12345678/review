@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ShieldCheck, ExternalLink, LogOut, Building2, Plus, Trash2, Pencil, ArrowUpCircle, CreditCard, Check, Calendar, ArrowUpDown, Receipt } from "lucide-react";
 import { SettingsForm } from "@/components/dashboard/settings-form"
-import { WhatsAppReportCard } from "@/components/dashboard/whatsapp-report-card"
+// import { WhatsAppReportCard } from "@/components/dashboard/whatsapp-report-card"
 import { PageHeader } from "@/components/dashboard/page-header"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -132,7 +132,8 @@ export default function SettingsPage() {
 
           <TabsContent value="profile" className="mt-6 space-y-6">
             {currentBusiness && <SettingsForm business={currentBusiness} />}
-            {currentBusiness && <WhatsAppReportCard businessId={currentBusiness.id} />}
+            {/* WhatsAppReportCard — add back when delivery API is ready */}
+            {/* {currentBusiness && <WhatsAppReportCard businessId={currentBusiness.id} />} */}
           </TabsContent>
 
           <TabsContent value="businesses" className="mt-6">

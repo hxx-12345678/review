@@ -2,16 +2,24 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, QrCode, Settings, ShieldCheck, ExternalLink, LogOut, CreditCard, BarChart3, MessageSquare, Inbox, ListChecks, AtSign, Globe, X } from "lucide-react"
+import { LayoutDashboard, QrCode, Settings, ShieldCheck, ExternalLink, LogOut, CreditCard, BarChart3, MessageSquare, Inbox, ListChecks, AtSign, Globe, X, ChevronUp } from "lucide-react"
 import { Logo } from "@/components/logo"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { useEffect } from "react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { useEffect, useState } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { useSidebar } from "@/lib/sidebar-context"
 import { useBusiness } from "@/lib/business-context"
-import { BusinessSwitcher } from "@/components/dashboard/business-switcher"
+import { OnboardingDialog } from "@/components/onboarding/onboarding-dialog"
+import { api } from "@/lib/api"
 import { isV2Visible } from "@/lib/feature-flags"
 
 const NAV = [
@@ -34,9 +42,10 @@ const V2_NAV = [
 
 export function DashboardSidebar() {
   const pathname = usePathname()
-  const { user, logout } = useAuth()
+  const { user } = useAuth()
   const { mobileOpen, setMobileOpen } = useSidebar()
-  const { currentBusiness } = useBusiness()
+  const { businesses, currentBusiness, switchBusiness, canAddBusiness, businessLimit } = useBusiness()
+  const [addDialogOpen, setAddDialogOpen] = useState(false)
 
   useEffect(() => {
     setMobileOpen(false)
@@ -44,13 +53,10 @@ export function DashboardSidebar() {
 
   const sidebarContent = (
     <>
-      <div className="flex h-16 shrink-0 items-center gap-2 border-b border-border px-3">
-        <Link href="/" aria-label="BEYONDVYU home" className="shrink-0">
+      <div className="flex h-16 shrink-0 items-center border-b border-border px-3">
+        <Link href="/" aria-label="BEYONDVYU home">
           <Logo />
         </Link>
-        <div className="min-w-0 flex-1">
-          <BusinessSwitcher />
-        </div>
       </div>
 
       <nav className="flex-1 min-h-0 space-y-1 overflow-y-auto p-3" aria-label="Dashboard">
@@ -117,21 +123,56 @@ export function DashboardSidebar() {
       </div>
 
       <div className="shrink-0 border-t border-border p-3">
-        <div className="flex items-center gap-3 rounded-lg px-2 py-1.5">
-          <Avatar className="size-8">
-            <AvatarFallback className="bg-primary/10 text-primary">
-              {(currentBusiness?.name || user?.name || "R").charAt(0)}
-            </AvatarFallback>
-          </Avatar>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-foreground">{currentBusiness?.name || user?.name || "BEYONDVYU"}</p>
-            <p className="truncate text-xs text-muted-foreground">{user?.email || ""}</p>
-          </div>
-          <Button variant="ghost" size="icon-xs" onClick={logout} aria-label="Log out">
-            <LogOut className="size-4" />
-          </Button>
-        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger className="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-accent transition-colors">
+            <Avatar className="size-8">
+              <AvatarFallback className="bg-primary/10 text-primary">
+                {(currentBusiness?.name || user?.name || "R").charAt(0)}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 flex-1 text-left">
+              <p className="truncate text-sm font-medium text-foreground">{currentBusiness?.name || user?.name || "BEYONDVYU"}</p>
+              <p className="truncate text-xs text-muted-foreground">{user?.email || ""}</p>
+            </div>
+            <ChevronUp className="size-4 shrink-0 text-muted-foreground" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-64" align="start" side="top">
+            {businesses.map((biz) => (
+              <DropdownMenuItem key={biz.id} onSelect={() => switchBusiness(biz.id)}>
+                <Avatar className="size-6 mr-2">
+                  <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                    {(biz.name || "B").charAt(0)}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="flex-1 truncate">{biz.name}</span>
+                {biz.id === currentBusiness?.id && (
+                  <span className="text-[10px] font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded">Active</span>
+                )}
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => {
+              if (canAddBusiness) {
+                setAddDialogOpen(true)
+              } else {
+                window.location.href = "/dashboard/billing"
+              }
+            }}>
+              {canAddBusiness ? "Add business" : `Upgrade (${businesses.length}/${businessLimit} used)`}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => {
+              api.auth.logout().catch(() => {});
+              localStorage.removeItem("beyondvyu_token");
+              window.location.href = "/";
+            }} className="text-destructive">
+              <LogOut className="size-4 mr-2" />
+              Log out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
+      <OnboardingDialog open={addDialogOpen} onOpenChange={setAddDialogOpen} />
     </>
   )
 
@@ -149,11 +190,8 @@ export function DashboardSidebar() {
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <div className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-3">
+        <div className="flex h-14 shrink-0 items-center justify-between border-b border-border px-3">
           <Logo />
-          <div className="min-w-0 flex-1">
-            <BusinessSwitcher />
-          </div>
           <Button variant="ghost" size="icon" onClick={() => setMobileOpen(false)} aria-label="Close menu">
             <X className="size-5" />
           </Button>
@@ -218,20 +256,54 @@ export function DashboardSidebar() {
           </div>
         </div>
         <div className="shrink-0 border-t border-border p-3">
-          <div className="flex items-center gap-3 rounded-lg px-2 py-1.5">
-            <Avatar className="size-8">
-              <AvatarFallback className="bg-primary/10 text-primary">
-                {(currentBusiness?.name || user?.name || "R").charAt(0)}
-              </AvatarFallback>
-            </Avatar>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-foreground">{currentBusiness?.name || user?.name || "BEYONDVYU"}</p>
-              <p className="truncate text-xs text-muted-foreground">{user?.email || ""}</p>
-            </div>
-            <Button variant="ghost" size="icon-xs" onClick={logout} aria-label="Log out">
-              <LogOut className="size-4" />
-            </Button>
-          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger className="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-accent transition-colors">
+              <Avatar className="size-8">
+                <AvatarFallback className="bg-primary/10 text-primary">
+                  {(currentBusiness?.name || user?.name || "R").charAt(0)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="min-w-0 flex-1 text-left">
+                <p className="truncate text-sm font-medium text-foreground">{currentBusiness?.name || user?.name || "BEYONDVYU"}</p>
+                <p className="truncate text-xs text-muted-foreground">{user?.email || ""}</p>
+              </div>
+              <ChevronUp className="size-4 shrink-0 text-muted-foreground" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-64" align="start" side="top">
+              {businesses.map((biz) => (
+                <DropdownMenuItem key={biz.id} onSelect={() => switchBusiness(biz.id)}>
+                  <Avatar className="size-6 mr-2">
+                    <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                      {(biz.name || "B").charAt(0)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="flex-1 truncate">{biz.name}</span>
+                  {biz.id === currentBusiness?.id && (
+                    <span className="text-[10px] font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded">Active</span>
+                  )}
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={() => {
+                if (canAddBusiness) {
+                  setAddDialogOpen(true)
+                } else {
+                  window.location.href = "/dashboard/billing"
+                }
+              }}>
+                {canAddBusiness ? "Add business" : `Upgrade (${businesses.length}/${businessLimit} used)`}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={() => {
+                api.auth.logout().catch(() => {});
+                localStorage.removeItem("beyondvyu_token");
+                window.location.href = "/";
+              }} className="text-destructive">
+                <LogOut className="size-4 mr-2" />
+                Log out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </aside>
 
