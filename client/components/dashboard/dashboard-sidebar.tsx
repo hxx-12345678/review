@@ -42,7 +42,7 @@ const V2_NAV = [
 
 export function DashboardSidebar() {
   const pathname = usePathname()
-  const { user } = useAuth()
+  const { user, logout } = useAuth()
   const { mobileOpen, setMobileOpen } = useSidebar()
   const { businesses, currentBusiness, switchBusiness, canAddBusiness, businessLimit } = useBusiness()
   const [addDialogOpen, setAddDialogOpen] = useState(false)
@@ -161,11 +161,7 @@ export function DashboardSidebar() {
               {canAddBusiness ? "Add business" : `Upgrade (${businesses.length}/${businessLimit} used)`}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => {
-              api.auth.logout().catch(() => {});
-              localStorage.removeItem("beyondvyu_token");
-              window.location.href = "/";
-            }} className="text-destructive">
+            <DropdownMenuItem onSelect={() => setTimeout(() => logout(), 50)} className="text-destructive">
               <LogOut className="size-4 mr-2" />
               Log out
             </DropdownMenuItem>
@@ -294,11 +290,7 @@ export function DashboardSidebar() {
                 {canAddBusiness ? "Add business" : `Upgrade (${businesses.length}/${businessLimit} used)`}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={() => {
-                api.auth.logout().catch(() => {});
-                localStorage.removeItem("beyondvyu_token");
-                window.location.href = "/";
-              }} className="text-destructive">
+              <DropdownMenuItem onSelect={() => setTimeout(() => logout(), 50)} className="text-destructive">
                 <LogOut className="size-4 mr-2" />
                 Log out
               </DropdownMenuItem>
