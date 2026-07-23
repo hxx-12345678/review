@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState, useMemo, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Check, Receipt, Loader2, AlertCircle, IndianRupee, Download, ArrowUpDown, XCircle, Calendar, Building2 } from "lucide-react";
+import { Check, Receipt, Loader2, AlertCircle, IndianRupee, Download, ArrowUpDown, XCircle, Calendar, Building2, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -106,7 +106,7 @@ function BillingSkeleton() {
 
 function BillingPage() {
   const { user, loading: authLoading } = useAuth();
-  const { businesses } = useBusiness();
+  const { businesses, refreshBusinesses } = useBusiness();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -257,6 +257,8 @@ function BillingPage() {
 
       if (res.subscription.status === "active") {
         await loadData();
+        await refreshBusinesses();
+        setSuccessMsg("Plan activated! Go to Settings → Businesses tab to add more businesses.");
         return;
       }
 
@@ -270,6 +272,7 @@ function BillingPage() {
       await openRazorpayCheckout(res.razorpaySubscriptionId, res.keyId, planName);
 
       await loadData();
+      await refreshBusinesses();
     } catch (err: any) {
       const message = err.status === 503
         ? "Subscription payments are temporarily unavailable. Please ensure Razorpay keys are configured in your server environment."
@@ -310,6 +313,7 @@ function BillingPage() {
         scheduledDate: res.scheduledDate,
       });
       await loadData();
+      await refreshBusinesses();
     } catch (err: any) {
       setError(err.message || "Failed to change plan");
     } finally {
@@ -372,6 +376,10 @@ function BillingPage() {
               <Download className="size-3.5" />
               Download Receipt
             </a>
+            <p className="mt-3 flex items-center gap-1.5 text-green-700 border-t border-green-200 pt-3">
+              <ArrowUpDown className="size-4 shrink-0" />
+              Next step: Go to <strong>Settings → Businesses</strong> to add more businesses.
+            </p>
           </div>
         )}
 
@@ -393,6 +401,12 @@ function BillingPage() {
             {!changePlanResult.immediate && changePlanResult.scheduledDate && (
               <p className="mt-1 opacity-80">
                 Scheduled for {new Date(changePlanResult.scheduledDate).toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" })}
+              </p>
+            )}
+            {changePlanResult.upgrade && (
+              <p className="mt-2 flex items-center gap-1.5 text-green-700 border-t border-green-200 pt-2">
+                <ArrowUpDown className="size-4 shrink-0" />
+                Next step: Go to <strong>Settings → Businesses</strong> to add more businesses.
               </p>
             )}
             <button
@@ -542,6 +556,25 @@ function BillingPage() {
                 )}
               </div>
             </CardFooter>
+          </Card>
+        )}
+
+        {(subscription?.businessLimit || 1) > 1 && businesses.length < (subscription?.businessLimit || 2) && (
+          <Card className="border-primary/20 bg-primary/[0.03]">
+            <CardContent className="p-4 sm:p-5">
+              <div className="flex items-start gap-3">
+                <Building2 className="size-5 shrink-0 text-primary mt-0.5" />
+                <div>
+                  <p className="font-medium text-foreground">Add another business</p>
+                  <p className="mt-0.5 text-sm text-muted-foreground">
+                    Your plan supports up to {subscription?.businessLimit || 1} businesses. You&apos;ve used {businesses.length}.
+                  </p>
+                  <Button variant="outline" size="sm" className="mt-3" onClick={() => router.push("/dashboard/settings?tab=businesses")}>
+                    Go to Settings → Businesses
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
           </Card>
         )}
 
