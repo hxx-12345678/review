@@ -19,6 +19,7 @@ import {
 import { toast } from "sonner"
 import { api } from "@/lib/api"
 import { cn } from "@/lib/utils"
+import { useBusiness } from "@/lib/business-context"
 
 const INDUSTRIES: { value: string; label: string; topics: string[] }[] = [
   { value: "DENTAL", label: "Dental practice", topics: ["Your dentist or hygienist", "Office cleanliness", "Wait time", "How treatment felt"] },
@@ -47,6 +48,7 @@ export function OnboardingWizard({ embedded, onComplete }: {
   onComplete?: () => void;
 }) {
   const router = useRouter()
+  const { businesses, canAddBusiness, businessLimit } = useBusiness()
   const [step, setStep] = useState(0)
   const [name, setName] = useState("")
   const [location, setLocation] = useState("")
@@ -148,6 +150,37 @@ export function OnboardingWizard({ embedded, onComplete }: {
     } catch (err: any) {
       toast.error(err.message || "Failed to create business");
     }
+  }
+
+  if (!canAddBusiness && businesses.length > 0) {
+    return (
+      <div className={cn("mx-auto flex min-w-0 w-full max-w-xl flex-col overflow-hidden", embedded ? "py-2" : "min-h-screen px-4 py-8 sm:px-6")}>
+        {!embedded && (
+          <div className="flex items-center justify-between">
+            <Link href="/" aria-label="BEYONDVYU home">
+              <Logo />
+            </Link>
+          </div>
+        )}
+        <div className="mt-16 flex flex-col items-center text-center">
+          <div className="flex size-14 items-center justify-center rounded-full bg-amber-500/10 text-amber-600">
+            <AlertCircle className="size-7" />
+          </div>
+          <h1 className="mt-5 text-2xl font-semibold tracking-tight">Plan limit reached</h1>
+          <p className="mt-2 text-muted-foreground">
+            Your current plan allows {businessLimit} business{businessLimit !== 1 ? "es" : ""}. You&apos;ve used all {businessLimit}.
+          </p>
+          <div className="mt-8 flex gap-3">
+            <Link href="/dashboard">
+              <Button variant="outline">Go to dashboard</Button>
+            </Link>
+            <Link href="/dashboard/billing">
+              <Button>Upgrade plan</Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (

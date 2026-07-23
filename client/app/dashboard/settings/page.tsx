@@ -3,15 +3,16 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ShieldCheck, ExternalLink, LogOut, Building2, Plus, Trash2, Pencil, ArrowUpCircle, AlertCircle, Check } from "lucide-react";
+import { ShieldCheck, ExternalLink, LogOut, Building2, Plus, Trash2, Pencil, ArrowUpCircle, CreditCard, Check, Calendar, ArrowUpDown, Receipt } from "lucide-react";
 import { SettingsForm } from "@/components/dashboard/settings-form"
 import { WhatsAppReportCard } from "@/components/dashboard/whatsapp-report-card"
 import { PageHeader } from "@/components/dashboard/page-header"
-import { Card } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { OnboardingDialog } from "@/components/onboarding/onboarding-dialog";
@@ -30,6 +31,7 @@ export default function SettingsPage() {
   const [deleting, setDeleting] = useState(false);
   const [editingBusiness, setEditingBusiness] = useState<any>(null);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [subscription, setSubscription] = useState<any>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -45,6 +47,14 @@ export default function SettingsPage() {
       window.history.replaceState({}, "", window.location.pathname);
     }
   }, []);
+
+  useEffect(() => {
+    if (tab === "billing") {
+      api.payments.subscription().then((res) => {
+        if (res?.subscription) setSubscription(res.subscription);
+      }).catch(() => {});
+    }
+  }, [tab]);
 
   const handleDelete = useCallback(async () => {
     if (!deleteDialog) return;
@@ -71,62 +81,58 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6 sm:space-y-8">
+    <>
       <PageHeader
         title="Settings"
         description="Manage your profile, businesses, and subscription."
       />
 
-      {/* Mobile-only: Account & quick actions */}
-      <div className="md:hidden px-4">
-        <Card className="p-4 space-y-4">
-          <div className="flex items-center gap-3">
-            <Avatar className="size-10">
-              <AvatarFallback className="bg-primary/10 text-primary">
-                {(currentBusiness?.name || user?.name || "R").charAt(0)}
-              </AvatarFallback>
-            </Avatar>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-foreground">{currentBusiness?.name || user?.name || "BEYONDVYU"}</p>
-              <p className="truncate text-xs text-muted-foreground">{user?.email || ""}</p>
+      <div className="space-y-6 p-4 sm:p-6 lg:p-8">
+        {/* Mobile-only: Account & quick actions */}
+        <div className="md:hidden">
+          <Card className="p-4 space-y-4">
+            <div className="flex items-center gap-3">
+              <Avatar className="size-10">
+                <AvatarFallback className="bg-primary/10 text-primary">
+                  {(currentBusiness?.name || user?.name || "R").charAt(0)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-foreground">{currentBusiness?.name || user?.name || "BEYONDVYU"}</p>
+                <p className="truncate text-xs text-muted-foreground">{user?.email || ""}</p>
+              </div>
             </div>
-          </div>
-          <div className="flex flex-col gap-2">
-            <Link
-              href={currentBusiness?.slug ? `/r/${currentBusiness.slug}?demo=true` : "/r/brightsmile?demo=true"}
-              target="_blank"
-              className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <ExternalLink className="size-4 shrink-0" />
-              View customer flow
-            </Link>
-            <div className="flex items-center gap-2 rounded-lg bg-primary/5 px-3 py-2.5 text-xs text-primary">
-              <ShieldCheck className="size-4 shrink-0" />
-              Compliant mode active
+            <div className="flex flex-col gap-2">
+              <Link
+                href={currentBusiness?.slug ? `/r/${currentBusiness.slug}?demo=true` : "/r/brightsmile?demo=true"}
+                target="_blank"
+                className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <ExternalLink className="size-4 shrink-0" />
+                View customer flow
+              </Link>
+              <div className="flex items-center gap-2 rounded-lg bg-primary/5 px-3 py-2.5 text-xs text-primary">
+                <ShieldCheck className="size-4 shrink-0" />
+                Compliant mode active
+              </div>
+              <Button variant="ghost" className="justify-start gap-2 text-muted-foreground" onClick={logout}>
+                <LogOut className="size-4" />
+                Log out
+              </Button>
             </div>
-            <Button variant="ghost" className="justify-start gap-2 text-muted-foreground" onClick={logout}>
-              <LogOut className="size-4" />
-              Log out
-            </Button>
-          </div>
-        </Card>
-      </div>
+          </Card>
+        </div>
 
-      <div className="px-4 sm:px-6 lg:px-8">
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList>
             <TabsTrigger value="profile">Profile</TabsTrigger>
             <TabsTrigger value="businesses">Businesses</TabsTrigger>
-            <TabsTrigger value="billing" onClick={() => router.push("/dashboard/billing")}>Billing</TabsTrigger>
+            <TabsTrigger value="billing">Billing</TabsTrigger>
           </TabsList>
 
           <TabsContent value="profile" className="mt-6 space-y-6">
             {currentBusiness && <SettingsForm business={currentBusiness} />}
-            {currentBusiness && (
-              <div>
-                <WhatsAppReportCard businessId={currentBusiness.id} />
-              </div>
-            )}
+            {currentBusiness && <WhatsAppReportCard businessId={currentBusiness.id} />}
           </TabsContent>
 
           <TabsContent value="businesses" className="mt-6">
@@ -143,6 +149,15 @@ export default function SettingsPage() {
                   router.push("/dashboard/billing");
                 }
               }}
+            />
+          </TabsContent>
+
+          <TabsContent value="billing" className="mt-6">
+            <BillingSummary
+              subscription={subscription}
+              businessLimit={businessLimit}
+              businessesCount={businesses.length}
+              onViewBilling={() => router.push("/dashboard/billing")}
             />
           </TabsContent>
         </Tabs>
@@ -180,7 +195,7 @@ export default function SettingsPage() {
           }}
         />
       )}
-    </div>
+    </>
   )
 }
 
@@ -208,10 +223,17 @@ function BusinessList({
             {businesses.length} of {businessLimit} businesses used
           </p>
         </div>
-        <Button onClick={onAdd} size="sm">
-          <Plus className="size-4 mr-1.5" />
-          Add business
-        </Button>
+        {businesses.length >= businessLimit ? (
+          <Button onClick={onAdd} size="sm" variant="outline">
+            <ArrowUpCircle className="size-4 mr-1.5" />
+            Upgrade to add more
+          </Button>
+        ) : (
+          <Button onClick={onAdd} size="sm">
+            <Plus className="size-4 mr-1.5" />
+            Add business
+          </Button>
+        )}
       </div>
 
       {/* Usage bar */}
@@ -273,6 +295,101 @@ function BusinessList({
       )}
     </div>
   )
+}
+
+function BillingSummary({
+  subscription,
+  businessLimit,
+  businessesCount,
+  onViewBilling,
+}: {
+  subscription: any;
+  businessLimit: number;
+  businessesCount: number;
+  onViewBilling: () => void;
+}) {
+  if (!subscription) {
+    return (
+      <Card className="p-6 text-center">
+        <CreditCard className="mx-auto size-8 text-muted-foreground" />
+        <p className="mt-2 text-sm text-muted-foreground">Loading billing info...</p>
+      </Card>
+    );
+  }
+
+  const plan = subscription.plan;
+  const formatPrice = (paise: number) => paise === 0 ? "Free" : `₹${(paise / 100).toLocaleString("en-IN")}`;
+  const usagePercent = subscription.aiCallsLimit > 0
+    ? Math.min(100, Math.round((subscription.aiCallsUsed / subscription.aiCallsLimit) * 100))
+    : 0;
+  const bizPercent = businessLimit > 0
+    ? Math.min(100, Math.round((businessesCount / businessLimit) * 100))
+    : 0;
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                {plan.name}
+                <Badge variant={subscription.status === "active" ? "default" : "secondary"}>
+                  {subscription.status}
+                </Badge>
+              </CardTitle>
+              <CardDescription>
+                {formatPrice(plan.price)}/{plan.interval}
+              </CardDescription>
+            </div>
+            <Button variant="outline" size="sm" onClick={onViewBilling}>
+              <Receipt className="size-4 mr-1.5" />
+              Full billing
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">AI Calls</span>
+              <span className="font-medium">{subscription.aiCallsUsed} / {subscription.aiCallsLimit}</span>
+            </div>
+            <div className="mt-1 h-2 rounded-full bg-muted">
+              <div
+                className="h-2 rounded-full bg-primary transition-all"
+                style={{ width: `${usagePercent}%` }}
+              />
+            </div>
+          </div>
+          <div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="flex items-center gap-1.5 text-muted-foreground">
+                <Building2 className="size-3.5" />
+                Businesses
+              </span>
+              <span className="font-medium">{businessesCount} / {businessLimit}</span>
+            </div>
+            <div className="mt-1 h-2 rounded-full bg-muted">
+              <div
+                className="h-2 rounded-full bg-primary transition-all"
+                style={{ width: `${bizPercent}%` }}
+              />
+            </div>
+          </div>
+          {subscription.currentPeriodEnd && (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">
+                {subscription.cancelledAt ? "Access until" : "Next billing"}
+              </span>
+              <span className="font-medium">
+                {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
+              </span>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
 }
 
 function BusinessEditDialog({ business, onClose, onSaved }: { business: any; onClose: () => void; onSaved: () => void }) {

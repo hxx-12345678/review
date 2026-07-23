@@ -14,18 +14,16 @@ import { useRouter } from "next/navigation"
 import { useState } from "react"
 
 export function BusinessSwitcher() {
-  const { businesses, currentBusiness, switchBusiness, canAddBusiness } = useBusiness()
+  const { businesses, currentBusiness, switchBusiness, canAddBusiness, businessLimit } = useBusiness()
   const router = useRouter()
   const [addDialogOpen, setAddDialogOpen] = useState(false)
-
-  if (businesses.length <= 1) return null
 
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger className="flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground data-pressed:bg-accent data-pressed:text-accent-foreground">
+        <DropdownMenuTrigger className="flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground data-pressed:bg-accent data-pressed:text-accent-foreground">
           <Building2 className="size-4 shrink-0 text-muted-foreground" />
-          <span className="truncate">{currentBusiness?.name || "Select business"}</span>
+          <span className="min-w-0 flex-1 truncate text-left">{currentBusiness?.name || "Select business"}</span>
           <ChevronsUpDown className="size-3 shrink-0 text-muted-foreground" />
         </DropdownMenuTrigger>
         <DropdownMenuContent className="w-64" align="start">
@@ -47,7 +45,7 @@ export function BusinessSwitcher() {
             }
           }}>
             <Plus className="size-4 mr-2 text-muted-foreground" />
-            {canAddBusiness ? "Add business" : "Upgrade to add more"}
+            {canAddBusiness ? "Add business" : `Upgrade (${businesses.length}/${businessLimit} used)`}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
