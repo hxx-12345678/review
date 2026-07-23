@@ -138,7 +138,7 @@ export function DashboardSidebar() {
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-64" align="start" side="top">
             {businesses.map((biz) => (
-              <DropdownMenuItem key={biz.id} onSelect={() => switchBusiness(biz.id)}>
+              <DropdownMenuItem key={biz.id} onClick={() => switchBusiness(biz.id)}>
                 <Avatar className="size-6 mr-2">
                   <AvatarFallback className="bg-primary/10 text-primary text-xs">
                     {(biz.name || "B").charAt(0)}
@@ -151,7 +151,7 @@ export function DashboardSidebar() {
               </DropdownMenuItem>
             ))}
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => {
+            <DropdownMenuItem onClick={() => {
               if (canAddBusiness) {
                 setAddDialogOpen(true)
               } else {
@@ -161,7 +161,7 @@ export function DashboardSidebar() {
               {canAddBusiness ? "Add business" : `Upgrade (${businesses.length}/${businessLimit} used)`}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => setTimeout(() => logout(), 50)} className="text-destructive">
+            <DropdownMenuItem onClick={() => logout()} className="text-destructive">
               <LogOut className="size-4 mr-2" />
               Log out
             </DropdownMenuItem>
@@ -267,7 +267,7 @@ export function DashboardSidebar() {
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-64" align="start" side="top">
               {businesses.map((biz) => (
-                <DropdownMenuItem key={biz.id} onSelect={() => switchBusiness(biz.id)}>
+                <DropdownMenuItem key={biz.id} onClick={() => switchBusiness(biz.id)}>
                   <Avatar className="size-6 mr-2">
                     <AvatarFallback className="bg-primary/10 text-primary text-xs">
                       {(biz.name || "B").charAt(0)}
@@ -280,7 +280,7 @@ export function DashboardSidebar() {
                 </DropdownMenuItem>
               ))}
               <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={() => {
+              <DropdownMenuItem onClick={() => {
                 if (canAddBusiness) {
                   setAddDialogOpen(true)
                 } else {
@@ -290,7 +290,7 @@ export function DashboardSidebar() {
                 {canAddBusiness ? "Add business" : `Upgrade (${businesses.length}/${businessLimit} used)`}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={() => setTimeout(() => logout(), 50)} className="text-destructive">
+              <DropdownMenuItem onClick={() => logout()} className="text-destructive">
                 <LogOut className="size-4 mr-2" />
                 Log out
               </DropdownMenuItem>
