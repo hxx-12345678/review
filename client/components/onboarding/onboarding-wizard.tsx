@@ -170,6 +170,11 @@ export function OnboardingWizard({ embedded, onComplete }: {
           <p className="mt-2 text-muted-foreground">
             Your current plan allows {businessLimit} business{businessLimit !== 1 ? "es" : ""}. You&apos;ve used all {businessLimit}.
           </p>
+          {businesses.length > businessLimit && (
+            <p className="mt-1 text-sm text-muted-foreground">
+              You have {businesses.length} businesses but your plan only covers {businessLimit}. Delete some businesses or upgrade to add more.
+            </p>
+          )}
           <div className="mt-8 flex gap-3">
             <Link href="/dashboard">
               <Button variant="outline">Go to dashboard</Button>

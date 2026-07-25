@@ -13,6 +13,17 @@ async function getEffectiveBusinessLimit(userId: string): Promise<number> {
 
   if (sub?.businessLimit) return sub.businessLimit;
 
+  // If no active subscription, try to find any subscription to use its limit
+  // (e.g., completed subscription that hasn't been replaced yet)
+  const anySub = await prisma.subscription.findFirst({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+    include: { plan: true },
+  });
+
+  if (anySub?.plan?.businessLimit) return anySub.plan.businessLimit;
+  if (anySub?.businessLimit) return anySub.businessLimit;
+
   const freePlan = await prisma.subscriptionPlan.findUnique({ where: { slug: "free" } });
   return freePlan?.businessLimit ?? 1;
 }

@@ -5,14 +5,14 @@ import { useRouter } from "next/navigation";
 import { useBusiness } from "@/lib/business-context";
 
 export function BusinessGuard({ children }: { children: ReactNode }) {
-  const { isLoading, hasBusinesses } = useBusiness();
+  const { isLoading, hasBusinesses, loadError } = useBusiness();
   const router = useRouter();
 
   useEffect(() => {
-    if (!isLoading && !hasBusinesses) {
+    if (!isLoading && !hasBusinesses && !loadError) {
       router.replace("/onboarding");
     }
-  }, [isLoading, hasBusinesses, router]);
+  }, [isLoading, hasBusinesses, loadError, router]);
 
   return <>{children}</>;
 }

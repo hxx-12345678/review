@@ -27,6 +27,7 @@ interface BusinessContextType {
   refreshBusinesses: () => Promise<void>;
   canAddBusiness: boolean;
   hasBusinesses: boolean;
+  loadError: boolean;
 }
 
 const STORAGE_KEY = "beyondvyu_active_business";
@@ -38,8 +39,10 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
   const [currentBusiness, setCurrentBusiness] = useState<Business | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [businessLimit, setBusinessLimit] = useState(1);
+  const [loadError, setLoadError] = useState(false);
 
   const refreshBusinesses = useCallback(async () => {
+    setLoadError(false);
     try {
       const [bizRes, subRes] = await Promise.all([
         api.businesses.list(),
@@ -70,8 +73,9 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem(STORAGE_KEY, list[0].id);
         setCurrentBusiness(list[0]);
       }
-    } catch {
-      // handle silently
+    } catch (err) {
+      console.error("Failed to refresh businesses:", err);
+      setLoadError(true);
     } finally {
       setIsLoading(false);
     }
@@ -102,18 +106,19 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
   const canAddBusiness = businesses.length < businessLimit;
 
   return (
-    <BusinessContext.Provider
-      value={{
-        businesses,
-        currentBusiness,
-        isLoading,
-        businessLimit,
-        switchBusiness,
-        refreshBusinesses,
-        canAddBusiness,
-        hasBusinesses: businesses.length > 0,
-      }}
-    >
+      <BusinessContext.Provider
+        value={{
+          businesses,
+          currentBusiness,
+          isLoading,
+          businessLimit,
+          switchBusiness,
+          refreshBusinesses,
+          canAddBusiness,
+          hasBusinesses: businesses.length > 0,
+          loadError,
+        }}
+      >
       {children}
     </BusinessContext.Provider>
   );

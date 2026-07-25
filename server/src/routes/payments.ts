@@ -67,7 +67,7 @@ router.get("/plans", async (_req, res: Response) => {
 
 router.get("/subscription", authRequired, async (req: AuthRequest, res: Response) => {
   try {
-    const sub = await prisma.subscription.findFirst({
+    let sub = await prisma.subscription.findFirst({
       where: { userId: req.userId, status: { in: ["authenticated", "active", "paused", "past_due"] } },
       include: {
         plan: true,
@@ -75,6 +75,24 @@ router.get("/subscription", authRequired, async (req: AuthRequest, res: Response
       },
       orderBy: { createdAt: "desc" },
     });
+
+    // If no active subscription, return the most recent one so the frontend
+    // knows the user's state (cancelled, completed) and can determine limits
+    if (!sub) {
+      const latest = await prisma.subscription.findFirst({
+        where: { userId: req.userId },
+        orderBy: { createdAt: "desc" },
+        include: {
+          plan: true,
+          invoices: { orderBy: { createdAt: "desc" }, take: 10 },
+        },
+      });
+      // Only return if it's a recently meaningful state
+      if (latest && ["cancelled", "completed", "halted"].includes(latest.status)) {
+        sub = latest;
+      }
+    }
+
     res.json({ subscription: sub || null });
   } catch (err) {
     console.error("Get subscription error:", err);
@@ -648,6 +666,19 @@ router.post("/cancel", authRequired, async (req: AuthRequest, res: Response) => 
       include: { plan: true },
     });
     if (!sub) return res.status(404).json({ error: "No active subscription" });
+
+    // Check business limit before cancelling — user will be downgraded to free plan (limit=1)
+    const businessCount = await prisma.business.count({ where: { userId: req.userId } });
+    const freePlanCheck = await prisma.subscriptionPlan.findUnique({ where: { slug: "free" } });
+    const freeLimit = freePlanCheck?.businessLimit ?? 1;
+    if (businessCount > freeLimit) {
+      return res.status(400).json({
+        error: `You have ${businessCount} businesses but the Free plan only allows ${freeLimit}. Please delete ${businessCount - freeLimit} business(es) first to cancel your subscription.`,
+        code: "BUSINESS_LIMIT_EXCEEDS_FREE",
+        current: businessCount,
+        limit: freeLimit,
+      });
+    }
 
     const razorpay = getRazorpay();
     const daysSinceCreation = (Date.now() - new Date(sub.createdAt).getTime()) / 86400000;
