@@ -400,5 +400,19 @@ export const api = {
       request<{ success: boolean; refunded?: boolean; message?: string }>("/payments/cancel", {
         method: "POST",
       }),
+    creditPacks: () =>
+      request<{ packs: { credits: number; amount: number; label: string }[] }>("/payments/credit-packs"),
+    creditBalance: () =>
+      request<{ balance: any | null }>("/payments/credit-balance"),
+    createTopUp: (credits: number) =>
+      request<{ shortUrl: string; credits: number; amount: number; id: string }>("/payments/create-top-up", {
+        method: "POST",
+        body: JSON.stringify({ credits }),
+      }),
+    autoRecharge: (data: { enabled: boolean; threshold?: number; amount?: number }) =>
+      request<{ autoRechargeEnabled: boolean; autoRechargeThreshold: number; autoRechargeAmount: number }>("/payments/auto-recharge", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
   },
 };

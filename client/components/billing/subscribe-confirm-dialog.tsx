@@ -20,7 +20,7 @@ type Plan = {
   slug: string;
   price: number;
   interval: string;
-  aiCallsLimit: number;
+  creditsLimit: number;
   businessLimit: number;
   features: string[];
   description: string;

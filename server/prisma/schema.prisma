@@ -245,8 +245,9 @@ model SubscriptionPlan {
   description   String?
   price         Int            // in paise (₹)
   interval      String         @default("month")
-  aiCallsLimit  Int            @default(0)
+  creditsLimit  Int            @default(0)
   businessLimit Int            @default(1)
+  teamSeats     Int            @default(1)
   features      String[]
   razorpayPlanId String?
   active        Boolean        @default(true)
@@ -268,9 +269,13 @@ model Subscription {
   currentPeriodStart    DateTime?
   currentPeriodEnd      DateTime?
   trialEnd              DateTime?
-  aiCallsUsed           Int               @default(0)
-  aiCallsLimit          Int               @default(0)
-  aiCallsLastResetAt    DateTime          @default(now())
+  creditsUsed           Int               @default(0)
+  creditsLimit          Int               @default(0)
+  creditsLastResetAt    DateTime          @default(now())
+  creditsTopUpBalance   Int               @default(0)
+  autoRechargeEnabled   Boolean           @default(false)
+  autoRechargeThreshold Int               @default(20)
+  autoRechargeAmount    Int               @default(100)
   businessLimit         Int               @default(1)
   cancelledAt           DateTime?
   pendingPlanId         String?
@@ -282,6 +287,7 @@ model Subscription {
   plan                  SubscriptionPlan  @relation(fields: [planId], references: [id])
   pendingPlan           SubscriptionPlan? @relation("PendingPlan", fields: [pendingPlanId], references: [id])
   invoices              Invoice[]
+  creditTopUps          CreditTopUp[]
 }
 
 model Invoice {
@@ -292,6 +298,19 @@ model Invoice {
   currency          String       @default("INR")
   status            String       @default("created")
   description       String?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  subscription      Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+}
+
+model CreditTopUp {
+  id                String       @id @default(cuid())
+  subscriptionId    String
+  credits           Int
+  amount            Int          // in paise
+  razorpayPaymentId String?      @unique
+  status            String       @default("pending")
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
 

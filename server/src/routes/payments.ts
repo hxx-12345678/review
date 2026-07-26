@@ -140,7 +140,7 @@ router.post("/create-subscription", authRequired, async (req: AuthRequest, res: 
           userId: req.userId!,
           planId: plan.id,
           status: "active",
-          aiCallsLimit: plan.aiCallsLimit,
+          creditsLimit: plan.creditsLimit,
           businessLimit: plan.businessLimit,
           currentPeriodStart: new Date(),
           currentPeriodEnd: new Date(Date.now() + 365 * 86400000),
@@ -182,7 +182,7 @@ router.post("/create-subscription", authRequired, async (req: AuthRequest, res: 
         status: "created",
         razorpaySubscriptionId: rpSub.id,
         razorpayCustomerId: rpSub.customer_id || null,
-        aiCallsLimit: plan.aiCallsLimit,
+        creditsLimit: plan.creditsLimit,
         businessLimit: plan.businessLimit,
         currentPeriodStart: rpSub.current_start ? new Date(rpSub.current_start * 1000) : null,
         currentPeriodEnd: rpSub.current_end ? new Date(rpSub.current_end * 1000) : null,
@@ -587,10 +587,10 @@ router.post("/update-subscription", authRequired, async (req: AuthRequest, res: 
         where: { id: currentSub.id },
         data: {
           planId: newPlan.id,
-          aiCallsLimit: newPlan.aiCallsLimit,
+          creditsLimit: newPlan.creditsLimit,
           businessLimit: newPlan.businessLimit,
-          aiCallsUsed: 0,
-          aiCallsLastResetAt: new Date(),
+          creditsUsed: 0,
+          creditsLastResetAt: new Date(),
           pendingPlanId: null,
           scheduledChangeAt: null,
         },
@@ -722,9 +722,9 @@ router.post("/cancel", authRequired, async (req: AuthRequest, res: Response) => 
             userId: req.userId!,
             planId: freePlan.id,
             status: "active",
-            aiCallsLimit: freePlan.aiCallsLimit,
+            creditsLimit: freePlan.creditsLimit,
             businessLimit: freePlan.businessLimit,
-            aiCallsLastResetAt: new Date(),
+            creditsLastResetAt: new Date(),
             currentPeriodStart: new Date(),
             currentPeriodEnd: new Date(Date.now() + 365 * 86400000),
           },
@@ -749,6 +749,266 @@ router.post("/cancel", authRequired, async (req: AuthRequest, res: Response) => 
     }
   } catch (err) {
     console.error("Cancel subscription error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── Credit Top-Up Endpoints ──────────────────────────────────────────────
+
+const CREDITS_PRICE_PER_UNIT = 99; // 99 paise per credit (₹99 per 100 credits)
+
+function getCreditPacks(): { credits: number; amount: number; label: string }[] {
+  return [
+    { credits: 100, amount: 9900, label: "100 Credits" },
+    { credits: 500, amount: 44900, label: "500 Credits" },
+    { credits: 1000, amount: 79900, label: "1,000 Credits" },
+    { credits: 2500, amount: 179900, label: "2,500 Credits" },
+  ];
+}
+
+router.get("/credit-packs", (_req, res: Response) => {
+  res.json({ packs: getCreditPacks() });
+});
+
+router.post("/create-top-up", authRequired, async (req: AuthRequest, res: Response) => {
+  try {
+    const { credits } = z.object({ credits: z.number().int().min(1).max(100000) }).parse(req.body);
+    const razorpay = getRazorpay();
+    if (!razorpay) {
+      return res.status(503).json({ error: "Payments are not available right now." });
+    }
+
+    const sub = await prisma.subscription.findFirst({
+      where: { userId: req.userId, status: { in: ["authenticated", "active"] } },
+    });
+    if (!sub) return res.status(404).json({ error: "No active subscription" });
+
+    const amount = credits * CREDITS_PRICE_PER_UNIT;
+
+    const env = getEnv();
+    const frontendUrl = env.FRONTEND_URL.split(",")[0].trim() || "http://localhost:3000";
+
+    // Create Razorpay Payment Link for one-time purchase
+    const link = await razorpay.paymentLink.create({
+      amount,
+      currency: "INR",
+      description: `${credits} Credits Top-Up`,
+      customer: { email: (req as any).user?.email || "", contact: "" },
+      notify: { email: true, sms: false },
+      notes: {
+        subscriptionId: sub.id,
+        credits: credits.toString(),
+        type: "credit_topup",
+      },
+      callback_url: `${frontendUrl}/api/payments/top-up-callback?credits=${credits}`,
+      callback_method: "get",
+    } as any);
+
+    if (!link || !link.short_url) {
+      return res.status(500).json({ error: "Failed to create payment link" });
+    }
+
+    // Create pending CreditTopUp record
+    await prisma.creditTopUp.create({
+      data: {
+        subscriptionId: sub.id,
+        credits,
+        amount,
+        status: "pending",
+      },
+    });
+
+    res.json({ shortUrl: link.short_url, credits, amount, id: link.id });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return res.status(400).json({ error: "Invalid input", details: err.errors });
+    }
+    console.error("Create top-up error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.get("/top-up-callback", async (req: Request, res: Response) => {
+  try {
+    const env = getEnv();
+    const frontendUrl = env.FRONTEND_URL.split(",")[0].trim() || "http://localhost:3000";
+    const { razorpay_payment_id, razorpay_payment_link_id, razorpay_signature, credits } = req.query;
+
+    if (!razorpay_payment_id) {
+      return res.redirect(`${frontendUrl}/dashboard/billing?topup=error&reason=missing_payment`);
+    }
+
+    // Verify signature
+    if (env.RAZORPAY_KEY_SECRET && razorpay_signature) {
+      const expected = crypto
+        .createHmac("sha256", env.RAZORPAY_KEY_SECRET)
+        .update(`${razorpay_payment_id}|${razorpay_payment_link_id}`)
+        .digest("hex");
+      if (expected !== razorpay_signature) {
+        console.error("Top-up callback signature mismatch");
+      }
+    }
+
+    // Find and update pending CreditTopUp
+    const topUp = await prisma.creditTopUp.findFirst({
+      where: { razorpayPaymentId: razorpay_payment_id as string },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (topUp && topUp.status === "pending") {
+      await prisma.creditTopUp.update({
+        where: { id: topUp.id },
+        data: {
+          status: "captured",
+          razorpayPaymentId: razorpay_payment_id as string,
+        },
+      });
+      await prisma.subscription.update({
+        where: { id: topUp.subscriptionId },
+        data: { creditsTopUpBalance: { increment: topUp.credits } },
+      });
+    }
+
+    return res.redirect(`${frontendUrl}/dashboard/billing?topup=success&credits=${credits || (topUp?.credits || "")}`);
+  } catch (err) {
+    console.error("Top-up callback error:", err);
+    const env = getEnv();
+    const frontendUrl = env.FRONTEND_URL.split(",")[0].trim() || "http://localhost:3000";
+    return res.redirect(`${frontendUrl}/dashboard/billing?topup=error`);
+  }
+});
+
+// Webhook handler for Payment Link completions (Razorpay sends this)
+router.post("/top-up-webhook", async (req: Request, res: Response) => {
+  try {
+    const env = getEnv();
+    const webhookSecret = env.RAZORPAY_WEBHOOK_SECRET;
+    const signature = req.headers["x-razorpay-signature"] as string;
+
+    if (webhookSecret && signature) {
+      const expected = crypto
+        .createHmac("sha256", webhookSecret)
+        .update(JSON.stringify(req.body))
+        .digest("hex");
+      if (expected !== signature) {
+        return res.status(400).json({ status: "error", message: "Invalid signature" });
+      }
+    }
+
+    const event = req.body;
+    if (event.event === "payment_link.paid") {
+      const paymentLink = event.payload.payment_link?.entity;
+      const paymentEntity = event.payload.payment?.entity;
+      const notes = paymentLink?.notes || {};
+      const credits = parseInt(notes.credits || "0", 10);
+      const subscriptionId = notes.subscriptionId || "";
+      const paymentId = paymentEntity?.id || paymentLink?.id;
+
+      if (credits > 0 && subscriptionId) {
+        // Check if already processed
+        const existing = await prisma.creditTopUp.findFirst({
+          where: { razorpayPaymentId: paymentId },
+        });
+        if (!existing) {
+          await prisma.creditTopUp.create({
+            data: {
+              subscriptionId,
+              credits,
+              amount: paymentEntity?.amount || paymentLink?.amount || 0,
+              razorpayPaymentId: paymentId,
+              status: "captured",
+            },
+          });
+          await prisma.subscription.update({
+            where: { id: subscriptionId },
+            data: { creditsTopUpBalance: { increment: credits } },
+          });
+        }
+      }
+    }
+    res.json({ status: "ok" });
+  } catch (err) {
+    console.error("Top-up webhook error:", err);
+    res.status(500).json({ status: "error" });
+  }
+});
+
+router.get("/credit-balance", authRequired, async (req: AuthRequest, res: Response) => {
+  try {
+    const sub = await prisma.subscription.findFirst({
+      where: { userId: req.userId, status: { in: ["authenticated", "active", "created"] } },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (!sub) {
+      return res.json({ balance: null });
+    }
+
+    // Monthly reset check
+    const daysSinceReset = sub.creditsLastResetAt
+      ? (Date.now() - new Date(sub.creditsLastResetAt).getTime()) / 86400000
+      : 31;
+    let creditsUsed = sub.creditsUsed;
+    let creditsLimit = sub.creditsLimit;
+    let creditsLastResetAt = sub.creditsLastResetAt;
+
+    if (daysSinceReset >= 30) {
+      creditsUsed = 0;
+      creditsLastResetAt = new Date();
+      // Don't update in DB here, just report — the middleware will reset on next request
+    }
+
+    res.json({
+      balance: {
+        creditsUsed,
+        creditsLimit,
+        creditsTopUpBalance: sub.creditsTopUpBalance,
+        creditsLastResetAt,
+        monthlyRemaining: Math.max(0, creditsLimit - creditsUsed),
+        totalRemaining: Math.max(0, creditsLimit - creditsUsed) + sub.creditsTopUpBalance,
+        autoRechargeEnabled: sub.autoRechargeEnabled,
+        autoRechargeThreshold: sub.autoRechargeThreshold,
+        autoRechargeAmount: sub.autoRechargeAmount,
+      },
+    });
+  } catch (err) {
+    console.error("Credit balance error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post("/auto-recharge", authRequired, async (req: AuthRequest, res: Response) => {
+  try {
+    const data = z.object({
+      enabled: z.boolean(),
+      threshold: z.number().int().min(5).max(500).optional().default(20),
+      amount: z.number().int().min(50).max(10000).optional().default(100),
+    }).parse(req.body);
+
+    const sub = await prisma.subscription.findFirst({
+      where: { userId: req.userId, status: { in: ["authenticated", "active"] } },
+    });
+    if (!sub) return res.status(404).json({ error: "No active subscription" });
+
+    const updated = await prisma.subscription.update({
+      where: { id: sub.id },
+      data: {
+        autoRechargeEnabled: data.enabled,
+        autoRechargeThreshold: data.threshold,
+        autoRechargeAmount: data.amount,
+      },
+    });
+
+    res.json({
+      autoRechargeEnabled: updated.autoRechargeEnabled,
+      autoRechargeThreshold: updated.autoRechargeThreshold,
+      autoRechargeAmount: updated.autoRechargeAmount,
+    });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return res.status(400).json({ error: "Invalid input", details: err.errors });
+    }
+    console.error("Auto-recharge error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });

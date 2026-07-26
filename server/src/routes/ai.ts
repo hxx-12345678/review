@@ -2,7 +2,7 @@ import { Router, Response, Request } from "express";
 import { z } from "zod";
 import { prisma } from "../config/database";
 import { authRequired, AuthRequest } from "../middleware/auth";
-import { requireSubscription, incrementAiCalls } from "../middleware/subscription";
+import { requireSubscription, consumeCredits, checkCreditLimit } from "../middleware/subscription";
 import {
   aiBurstLimiter,
   talkingPointsLimiter,
@@ -33,6 +33,11 @@ function cacheKey(highlights: string, business: string, rating: number, lang: st
 router.post("/generate-reply", authRequired, requireSubscription, aiBurstLimiter, generateReplyLimiter, aiDailyLimiter, async (req: AuthRequest, res: Response) => {
   try {
     const data = generateReplySchema.parse(req.body);
+
+    const creditCheck = checkCreditLimit(req.subscription!, 1);
+    if (!creditCheck.allowed) {
+      return res.status(403).json({ error: "Insufficient credits. Please top up or upgrade your plan.", code: "INSUFFICIENT_CREDITS", remaining: 0 });
+    }
 
     const business = await prisma.business.findFirst({
       where: { id: data.businessId, userId: req.userId },
@@ -113,7 +118,7 @@ Write a personal, specific reply from the business owner that references at leas
       },
     });
 
-    await incrementAiCalls(req);
+    await consumeCredits(req, 1);
 
     res.json({ reply: generatedReply });
   } catch (err) {
@@ -339,6 +344,11 @@ const INSIGHTS_CACHE_TTL = 5 * 60 * 1000;
 
 router.get("/insights/:businessId", authRequired, requireSubscription, aiBurstLimiter, insightsLimiter, aiDailyLimiter, async (req: AuthRequest, res: Response) => {
   try {
+    const creditCheck = checkCreditLimit(req.subscription!, 2);
+    if (!creditCheck.allowed) {
+      return res.status(403).json({ error: "Insufficient credits. Please top up or upgrade your plan.", code: "INSUFFICIENT_CREDITS", remaining: 0 });
+    }
+
     const period = (req.query.period as string) || "month";
     const businessId = req.params.businessId as string;
     const userId = req.userId as string;
@@ -430,7 +440,7 @@ router.get("/insights/:businessId", authRequired, requireSubscription, aiBurstLi
       if (firstKey) insightsCache.delete(firstKey);
     }
 
-    await incrementAiCalls(req);
+    await consumeCredits(req, 2);
 
     await prisma.activityLog.create({
       data: {

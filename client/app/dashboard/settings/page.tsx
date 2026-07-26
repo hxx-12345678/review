@@ -320,8 +320,8 @@ function BillingSummary({
 
   const plan = subscription.plan;
   const formatPrice = (paise: number) => paise === 0 ? "Free" : `₹${(paise / 100).toLocaleString("en-IN")}`;
-  const usagePercent = subscription.aiCallsLimit > 0
-    ? Math.min(100, Math.round((subscription.aiCallsUsed / subscription.aiCallsLimit) * 100))
+  const usagePercent = subscription.creditsLimit > 0
+    ? Math.min(100, Math.round((subscription.creditsUsed / subscription.creditsLimit) * 100))
     : 0;
   const bizPercent = businessLimit > 0
     ? Math.min(100, Math.round((businessesCount / businessLimit) * 100))
@@ -352,8 +352,8 @@ function BillingSummary({
         <CardContent className="space-y-4">
           <div>
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">AI Calls</span>
-              <span className="font-medium">{subscription.aiCallsUsed} / {subscription.aiCallsLimit}</span>
+              <span className="text-muted-foreground">Credits</span>
+              <span className="font-medium">{subscription.creditsUsed} / {subscription.creditsLimit}</span>
             </div>
             <div className="mt-1 h-2 rounded-full bg-muted">
               <div

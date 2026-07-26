@@ -70,7 +70,7 @@ export default function AdminSubscriptionsPage() {
                         )}
                       </div>
                     </td>
-                    <td className="p-3 text-zinc-300">{sub.aiCallsUsed}/{sub.aiCallsLimit}</td>
+                    <td className="p-3 text-zinc-300">{sub.creditsUsed}/{sub.creditsLimit}</td>
                     <td className="p-3 text-zinc-300">{sub.currentPeriodStart ? new Date(sub.currentPeriodStart).toLocaleDateString() : "—"} - {sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd).toLocaleDateString() : "—"}</td>
                   </tr>
                 ))}
@@ -96,7 +96,7 @@ export default function AdminSubscriptionsPage() {
                 </div>
                 <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500">
                   <span>Plan: {sub.plan?.name || "—"}</span>
-                  <span>AI: {sub.aiCallsUsed}/{sub.aiCallsLimit}</span>
+                  <span>Credits: {sub.creditsUsed}/{sub.creditsLimit}</span>
                   <span>{sub.currentPeriodStart ? new Date(sub.currentPeriodStart).toLocaleDateString() : "—"} - {sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd).toLocaleDateString() : "—"}</span>
                   {sub.pendingPlan && <span className="text-blue-400">→ {sub.pendingPlan.name}</span>}
                 </div>
@@ -136,7 +136,7 @@ export default function AdminSubscriptionsPage() {
                   <tr key={plan.id} className="border-b border-zinc-800/50">
                     <td className="p-3 text-zinc-100">{plan.name}</td>
                     <td className="p-3 text-zinc-300">₹{(plan.price / 100).toLocaleString()}/mo</td>
-                    <td className="p-3 text-zinc-300">{plan.aiCallsLimit.toLocaleString()}</td>
+                    <td className="p-3 text-zinc-300">{plan.creditsLimit.toLocaleString()}</td>
                     <td className="p-3 text-zinc-300">{plan.businessLimit}</td>
                     <td className="p-3 text-zinc-300">{plan._count?.subscriptions || 0}</td>
                     <td className="p-3">
@@ -156,7 +156,7 @@ export default function AdminSubscriptionsPage() {
                 <div>
                   <p className="text-sm font-medium text-zinc-100">{plan.name}</p>
                   <p className="text-xs text-zinc-500">₹{(plan.price / 100).toLocaleString()}/mo</p>
-                  <p className="text-xs text-zinc-500">AI: {plan.aiCallsLimit.toLocaleString()} | Biz: {plan.businessLimit} | Subs: {plan._count?.subscriptions || 0}</p>
+                  <p className="text-xs text-zinc-500">Credits: {plan.creditsLimit.toLocaleString()} | Biz: {plan.businessLimit} | Subs: {plan._count?.subscriptions || 0}</p>
                 </div>
                 <span className={`rounded-full px-2 py-0.5 text-xs ${plan.active ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>
                   {plan.active ? "Active" : "Inactive"}

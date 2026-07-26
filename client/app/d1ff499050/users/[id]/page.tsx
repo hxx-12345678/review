@@ -192,7 +192,7 @@ export default function AdminUserDetailPage() {
                     </span>
                   </div>
                   <div className="mt-1 space-y-0.5 text-zinc-500">
-                    <div>AI: {sub.aiCallsUsed}/{sub.aiCallsLimit} | Biz limit: {sub.businessLimit} | Created: {new Date(sub.createdAt).toLocaleDateString()}</div>
+                    <div>Credits: {sub.creditsUsed}/{sub.creditsLimit} | Biz limit: {sub.businessLimit} | Created: {new Date(sub.createdAt).toLocaleDateString()}</div>
                     {sub.currentPeriodEnd && (
                       <div>Period end: {new Date(sub.currentPeriodEnd).toLocaleDateString()}</div>
                     )}

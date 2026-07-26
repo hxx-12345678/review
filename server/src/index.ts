@@ -212,10 +212,10 @@ app.post("/api/payments/webhook", express.raw({ type: "application/json" }), asy
                 where: { id: dbSub.id },
                 data: {
                   planId: pendingPlan.id,
-                  aiCallsLimit: pendingPlan.aiCallsLimit,
+                  creditsLimit: pendingPlan.creditsLimit,
                   businessLimit: pendingPlan.businessLimit,
-                  aiCallsUsed: 0,
-                  aiCallsLastResetAt: new Date(),
+                  creditsUsed: 0,
+                  creditsLastResetAt: new Date(),
                   pendingPlanId: null,
                   scheduledChangeAt: null,
                 },
@@ -238,7 +238,7 @@ app.post("/api/payments/webhook", express.raw({ type: "application/json" }), asy
           await prisma.subscription.create({
             data: {
               userId: dbSub.userId, planId: fb.id, status: "active",
-              aiCallsLimit: fb.aiCallsLimit, businessLimit: fb.businessLimit,
+              creditsLimit: fb.creditsLimit, businessLimit: fb.businessLimit,
               currentPeriodStart: new Date(), currentPeriodEnd: new Date(Date.now() + 365 * 86400000),
             },
           });
@@ -256,7 +256,7 @@ app.post("/api/payments/webhook", express.raw({ type: "application/json" }), asy
           await prisma.subscription.create({
             data: {
               userId: dbSub.userId, planId: freePlan.id, status: "active",
-              aiCallsLimit: freePlan.aiCallsLimit, businessLimit: freePlan.businessLimit,
+              creditsLimit: freePlan.creditsLimit, businessLimit: freePlan.businessLimit,
               currentPeriodStart: new Date(), currentPeriodEnd: new Date(Date.now() + 365 * 86400000),
             },
           });
@@ -382,11 +382,13 @@ app.use(errorHandler);
 
 async function seedDefaultPlans() {
   const plans = [
-    { name: "Free", slug: "free", price: 0, interval: "month", sortOrder: 0, aiCallsLimit: 1000, businessLimit: 1, features: ["1 business", "1000 AI calls/mo", "Unlimited QR codes", "Review inbox", "Basic analytics"], description: "For businesses just getting started." },
-    { name: "Starter", slug: "starter", price: 49900, interval: "month", sortOrder: 1, aiCallsLimit: 500, businessLimit: 1, features: ["1 business", "500 AI calls/mo", "AI reply drafting", "Review insights", "SMS & email requests", "Priority support"], description: "For single-location businesses ready to grow." },
-    { name: "Growth", slug: "pro", price: 79900, interval: "month", sortOrder: 2, aiCallsLimit: 999999, businessLimit: 5, features: ["Up to 5 businesses", "Unlimited AI calls", "Everything in Starter", "Google Business Profile sync", "Team roles (3 users)", "Priority support"], description: "For growing businesses — unlimited AI responses." },
-    { name: "Starter Yearly", slug: "starter-yearly", price: 499000, interval: "year", sortOrder: 3, aiCallsLimit: 500, businessLimit: 1, features: ["1 business", "500 AI calls/mo", "AI reply drafting", "Review insights", "SMS & email requests", "Priority support", "Save 2 months free"], description: "Billed annually. Save ₹998 vs monthly." },
-    { name: "Growth Yearly", slug: "pro-yearly", price: 799000, interval: "year", sortOrder: 4, aiCallsLimit: 999999, businessLimit: 5, features: ["Up to 5 businesses", "Unlimited AI calls", "Everything in Starter", "Google Business Profile sync", "Team roles (3 users)", "Priority support", "Save 2 months free"], description: "Billed annually. Save ₹1,598 vs monthly." },
+    { name: "Free", slug: "free", price: 0, interval: "month", sortOrder: 0, creditsLimit: 30, businessLimit: 1, teamSeats: 1, features: ["1 business", "30 Credits/mo", "Review collection (email + QR)", "Review inbox (Google)", "Basic analytics"], description: "For businesses just getting started." },
+    { name: "Starter (Monthly)", slug: "starter", price: 99900, interval: "month", sortOrder: 1, creditsLimit: 300, businessLimit: 1, teamSeats: 2, features: ["1 business", "300 Credits/mo", "AI reply drafting", "Review insights", "SMS & email requests", "Priority support"], description: "For single-location businesses ready to grow." },
+    { name: "Growth (Monthly)", slug: "growth", price: 249900, interval: "month", sortOrder: 2, creditsLimit: 1500, businessLimit: 3, teamSeats: 5, features: ["Up to 3 businesses", "1,500 Credits/mo", "Everything in Starter", "Google Business Profile sync", "Team roles (5 users)", "Priority support"], description: "For growing businesses." },
+    { name: "Pro (Monthly)", slug: "pro", price: 499900, interval: "month", sortOrder: 3, creditsLimit: 5000, businessLimit: 10, teamSeats: 15, features: ["Up to 10 businesses", "5,000 Credits/mo", "Everything in Growth", "WhatsApp review collection", "Google Business Profile sync", "Team roles (15 users)", "Dedicated support"], description: "For multi-location businesses." },
+    { name: "Starter (Yearly)", slug: "starter-yearly", price: 999900, interval: "year", sortOrder: 4, creditsLimit: 300, businessLimit: 1, teamSeats: 2, features: ["1 business", "300 Credits/mo", "AI reply drafting", "Review insights", "SMS & email requests", "Priority support", "Save 2 months free"], description: "Billed annually. Save ₹1,989 vs monthly." },
+    { name: "Growth (Yearly)", slug: "growth-yearly", price: 2499900, interval: "year", sortOrder: 5, creditsLimit: 1500, businessLimit: 3, teamSeats: 5, features: ["Up to 3 businesses", "1,500 Credits/mo", "Everything in Starter", "Google Business Profile sync", "Team roles (5 users)", "Priority support", "Save 2 months free"], description: "Billed annually. Save ₹4,989 vs monthly." },
+    { name: "Pro (Yearly)", slug: "pro-yearly", price: 4999900, interval: "year", sortOrder: 6, creditsLimit: 5000, businessLimit: 10, teamSeats: 15, features: ["Up to 10 businesses", "5,000 Credits/mo", "Everything in Pro monthly", "WhatsApp review collection", "Google Business Profile sync", "Team roles (15 users)", "Dedicated support", "Save 2 months free"], description: "Billed annually. Save ₹9,989 vs monthly." },
   ];
   for (const p of plans) {
     await prisma.subscriptionPlan.upsert({
@@ -395,16 +397,24 @@ async function seedDefaultPlans() {
       update: p,
     });
   }
-  // Also sync aiCallsLimit for all active subscriptions tied to updated plans
-  // so existing users don't hit the old limit after a plan change
+  // Sync creditsLimit for active subscriptions tied to updated plans
+  for (const p of plans) {
+    const updated = await prisma.subscription.updateMany({
+      where: { plan: { slug: p.slug }, status: { in: ["active", "authenticated"] }, creditsLimit: { not: p.creditsLimit } },
+      data: { creditsLimit: p.creditsLimit, businessLimit: p.businessLimit },
+    });
+    if (updated.count > 0) {
+      console.log(`Synced ${updated.count} subs for plan "${p.slug}"`);
+    }
+  }
   const freePlan = await prisma.subscriptionPlan.findUnique({ where: { slug: "free" } });
   if (freePlan) {
     const updated = await prisma.subscription.updateMany({
-      where: { status: "active", planId: freePlan.id, aiCallsLimit: { lt: freePlan.aiCallsLimit } },
-      data: { aiCallsLimit: freePlan.aiCallsLimit },
+      where: { status: "active", planId: freePlan.id, creditsLimit: { lt: freePlan.creditsLimit } },
+      data: { creditsLimit: freePlan.creditsLimit },
     });
     if (updated.count > 0) {
-      console.log(`Synced aiCallsLimit for ${updated.count} active free subscriptions`);
+      console.log(`Synced creditsLimit for ${updated.count} active free subscriptions`);
     }
   }
   console.log("Default subscription plans seeded");

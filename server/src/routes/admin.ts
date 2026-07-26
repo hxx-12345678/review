@@ -86,7 +86,7 @@ router.get("/stats", async (_req: AdminRequest, res: Response) => {
         _sum: { amount: true },
         where: { status: "captured", createdAt: { gte: new Date(Date.now() - 30 * 86400000) } },
       }),
-      prisma.subscription.aggregate({ _sum: { aiCallsUsed: true } }),
+      prisma.subscription.aggregate({ _sum: { creditsUsed: true } }),
       prisma.invoice.aggregate({ _sum: { amount: true }, where: { status: "refunded" } }),
       prisma.subscriptionPlan.findMany({
         orderBy: { sortOrder: "asc" },
@@ -109,14 +109,14 @@ router.get("/stats", async (_req: AdminRequest, res: Response) => {
       totalInvoices,
       totalRevenue: totalRevenue._sum.amount || 0,
       lastMonthRevenue: lastMonthRevenue._sum.amount || 0,
-      totalAiCalls: totalAiCalls._sum.aiCallsUsed || 0,
+      totalAiCalls: totalAiCalls._sum.creditsUsed || 0,
       refundedAmount: refundedAmount._sum.amount || 0,
       plans: plans.map((p) => ({
         id: p.id,
         name: p.name,
         slug: p.slug,
         price: p.price,
-        aiCallsLimit: p.aiCallsLimit,
+        creditsLimit: p.creditsLimit,
         businessLimit: p.businessLimit,
         active: p.active,
         subscriberCount: p._count.subscriptions,
@@ -169,8 +169,8 @@ router.get("/users", async (req: AdminRequest, res: Response) => {
         subscriptionCount: u._count.subscriptions,
         currentPlan: u.subscriptions[0]?.plan?.name || null,
         subscriptionStatus: u.subscriptions[0]?.status || null,
-        aiCallsUsed: u.subscriptions[0]?.aiCallsUsed || 0,
-        aiCallsLimit: u.subscriptions[0]?.aiCallsLimit || 0,
+        creditsUsed: u.subscriptions[0]?.creditsUsed || 0,
+        creditsLimit: u.subscriptions[0]?.creditsLimit || 0,
       })),
       total,
       page,
@@ -318,8 +318,8 @@ router.put("/users/:id/subscription/cancel", async (req: AdminRequest, res: Resp
             await prisma.subscription.create({
               data: {
                 userId, planId: freePlan.id, status: "active",
-                aiCallsLimit: freePlan.aiCallsLimit, businessLimit: freePlan.businessLimit,
-                aiCallsLastResetAt: new Date(),
+                creditsLimit: freePlan.creditsLimit, businessLimit: freePlan.businessLimit,
+                creditsLastResetAt: new Date(),
                 currentPeriodStart: new Date(), currentPeriodEnd: new Date(Date.now() + 365 * 86400000),
               },
             });
@@ -414,10 +414,10 @@ router.put("/users/:id/subscription/update", async (req: AdminRequest, res: Resp
         where: { id: activeSub.id },
         data: {
           planId: newPlan.id,
-          aiCallsLimit: newPlan.aiCallsLimit,
+          creditsLimit: newPlan.creditsLimit,
           businessLimit: newPlan.businessLimit,
-          aiCallsUsed: 0,
-          aiCallsLastResetAt: new Date(),
+          creditsUsed: 0,
+          creditsLastResetAt: new Date(),
           pendingPlanId: null,
           scheduledChangeAt: null,
         },
@@ -608,9 +608,9 @@ router.get("/plans", async (_req: AdminRequest, res: Response) => {
 
 router.post("/plans", async (req: AdminRequest, res: Response) => {
   try {
-    const { name, slug, description, price, interval, aiCallsLimit, businessLimit, features, active, sortOrder, razorpayPlanId } = req.body;
+    const { name, slug, description, price, interval, creditsLimit, businessLimit, features, active, sortOrder, razorpayPlanId } = req.body;
     const plan = await prisma.subscriptionPlan.create({
-      data: { name, slug, description, price, interval, aiCallsLimit, businessLimit, features: features || [], active: active ?? true, sortOrder: sortOrder || 0, razorpayPlanId },
+      data: { name, slug, description, price, interval, creditsLimit, businessLimit, features: features || [], active: active ?? true, sortOrder: sortOrder || 0, razorpayPlanId },
     });
     res.status(201).json({ plan });
   } catch (err) {
@@ -622,10 +622,10 @@ router.post("/plans", async (req: AdminRequest, res: Response) => {
 router.put("/plans/:id", async (req: AdminRequest, res: Response) => {
   try {
     const planId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-    const { name, slug, description, price, interval, aiCallsLimit, businessLimit, features, active, sortOrder, razorpayPlanId } = req.body;
+    const { name, slug, description, price, interval, creditsLimit, businessLimit, features, active, sortOrder, razorpayPlanId } = req.body;
     const plan = await prisma.subscriptionPlan.update({
       where: { id: planId },
-      data: { name, slug, description, price, interval, aiCallsLimit, businessLimit, features, active, sortOrder, razorpayPlanId },
+      data: { name, slug, description, price, interval, creditsLimit, businessLimit, features, active, sortOrder, razorpayPlanId },
     });
     res.json({ plan });
   } catch (err) {

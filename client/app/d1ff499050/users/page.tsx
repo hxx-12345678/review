@@ -103,7 +103,7 @@ export default function AdminUsersPage() {
                         {user.currentPlan || "None"}
                       </span>
                     </td>
-                    <td className="p-3 text-zinc-300">{user.aiCallsUsed}/{user.aiCallsLimit}</td>
+                    <td className="p-3 text-zinc-300">{user.creditsUsed}/{user.creditsLimit}</td>
                     <td className="p-3 text-zinc-300">{user.businessCount}</td>
                     <td className="p-3 text-zinc-300">{new Date(user.createdAt).toLocaleDateString()}</td>
                     <td className="p-3">
@@ -170,7 +170,7 @@ export default function AdminUsersPage() {
                 </div>
                 <p className="mt-1 text-xs text-zinc-500">{user.email}</p>
                 <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500">
-                  <span>AI: {user.aiCallsUsed}/{user.aiCallsLimit}</span>
+                  <span>AI: {user.creditsUsed}/{user.creditsLimit}</span>
                   <span>Biz: {user.businessCount}</span>
                   <span>{new Date(user.createdAt).toLocaleDateString()}</span>
                 </div>
