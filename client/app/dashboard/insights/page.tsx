@@ -74,13 +74,16 @@ export default function InsightsPage() {
     }
   }, [user, authLoading, bizLoading, currentBusiness, period, loadInsights])
 
+  useEffect(() => {
+    if (!user && !authLoading) {
+      router.replace("/login")
+    }
+  }, [user, authLoading, router])
+
+  if (!user) return null
+
   if (authLoading || loading) {
     return <InsightsSkeleton />
-  }
-
-  if (!user) {
-    router.replace("/login")
-    return null
   }
 
   const hasData = data && data.metrics.totalReviews > 0

@@ -25,6 +25,12 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!user && !authLoading) {
+      router.replace("/login");
+    }
+  }, [user, authLoading, router]);
+
+  useEffect(() => {
     if (!user || authLoading || bizLoading) return;
     let cancelled = false;
     async function load() {
@@ -63,6 +69,8 @@ export default function DashboardPage() {
     return () => { cancelled = true; };
   }, [user, authLoading, bizLoading, currentBusiness]);
 
+  if (!user) return null;
+
   if (authLoading || bizLoading || loading) {
     return (
       <div className="p-4 sm:p-6 lg:p-8">
@@ -75,11 +83,6 @@ export default function DashboardPage() {
         <div className="mt-6 h-[260px] animate-pulse rounded-lg bg-muted" />
       </div>
     );
-  }
-
-  if (!user) {
-    router.replace("/login");
-    return null;
   }
 
   const avgRating = stats?.ratingDistribution?.reduce((acc: number, r: any) => acc + r.rating * r.count, 0) /

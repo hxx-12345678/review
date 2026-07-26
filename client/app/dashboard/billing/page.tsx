@@ -135,6 +135,12 @@ function BillingPage() {
   }, []);
 
   useEffect(() => {
+    if (!user && !authLoading) {
+      router.replace("/login");
+    }
+  }, [user, authLoading, router]);
+
+  useEffect(() => {
     if (!user || authLoading) return;
     loadData();
     if (paymentId) {
@@ -343,10 +349,7 @@ function BillingPage() {
     }
   }
 
-  if (!authLoading && !user) {
-    router.replace("/login");
-    return null;
-  }
+  if (!user && !authLoading) return null;
 
   if (authLoading || loading) {
     return (
