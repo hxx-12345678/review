@@ -2,7 +2,14 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { Sparkles, TrendingUp, TrendingDown, Minus, Star, ThumbsUp, ThumbsDown, AlertCircle, Download, ChevronDown, ChevronUp } from "lucide-react"
+import { Building2, Sparkles, TrendingUp, TrendingDown, Minus, Star, ThumbsUp, ThumbsDown, AlertCircle, Download, ChevronDown, ChevronUp } from "lucide-react"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Card } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
@@ -44,7 +51,7 @@ const SENTIMENT_COLORS = {
 
 export default function InsightsPage() {
   const { user, loading: authLoading } = useAuth()
-  const { currentBusiness, isLoading: bizLoading } = useBusiness()
+  const { businesses, currentBusiness, isLoading: bizLoading, switchBusiness } = useBusiness()
   const router = useRouter()
   const [period, setPeriod] = useState<Period>("month")
   const [data, setData] = useState<InsightsData | null>(null)
@@ -93,7 +100,25 @@ export default function InsightsPage() {
       <PageHeader
         title="AI Insights"
         description="Deep analysis of what your customers are saying."
-      />
+      >
+        {businesses.length > 1 && (
+          <div className="flex w-full items-center gap-2 sm:w-auto">
+            <Building2 className="size-4 shrink-0 text-muted-foreground" />
+            <Select value={currentBusiness?.id} onValueChange={(v) => v && switchBusiness(v)}>
+              <SelectTrigger className="w-full min-w-0 sm:w-fit sm:min-w-[180px]">
+                <SelectValue placeholder="Select business" />
+              </SelectTrigger>
+              <SelectContent>
+                {businesses.map((biz) => (
+                  <SelectItem key={biz.id} value={biz.id}>
+                    {biz.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+      </PageHeader>
 
       <div className="space-y-4 sm:space-y-6 px-3 sm:px-6 lg:px-8 pb-24 sm:pb-8">
         {/* Period selector + Export row */}

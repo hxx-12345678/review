@@ -3,20 +3,27 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { QrCode } from "lucide-react";
+import { Building2, QrCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { StatCards } from "@/components/dashboard/stat-cards";
 import { AiCreditsBar } from "@/components/dashboard/ai-credits-bar";
 import { TrendChart } from "@/components/dashboard/trend-chart";
 import { RatingBreakdown, RecentActivity, ComplianceCard } from "@/components/dashboard/overview-panels";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { useBusiness } from "@/lib/business-context";
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
-  const { currentBusiness, isLoading: bizLoading, loadError } = useBusiness();
+  const { businesses, currentBusiness, isLoading: bizLoading, loadError, switchBusiness } = useBusiness();
   const router = useRouter();
   const [stats, setStats] = useState<any>(null);
   const [feedback, setFeedback] = useState<any[]>([]);
@@ -94,6 +101,23 @@ export default function DashboardPage() {
         title="Overview"
         description={`Welcome back — here's how ${currentBusiness?.name || "your business"} is doing.`}
       >
+        {businesses.length > 1 && (
+          <div className="flex w-full items-center gap-2 sm:w-auto">
+            <Building2 className="size-4 shrink-0 text-muted-foreground" />
+            <Select value={currentBusiness?.id} onValueChange={(v) => v && switchBusiness(v)}>
+              <SelectTrigger className="w-full min-w-0 sm:w-fit sm:min-w-[180px]">
+                <SelectValue placeholder="Select business" />
+              </SelectTrigger>
+              <SelectContent>
+                {businesses.map((biz) => (
+                  <SelectItem key={biz.id} value={biz.id}>
+                    {biz.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
         <Button render={<Link href="/dashboard/qr" />} nativeButton={false}>
           <QrCode className="size-4" />
           <span className="hidden sm:inline">Get QR code</span>

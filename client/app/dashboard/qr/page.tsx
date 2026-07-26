@@ -69,10 +69,7 @@ export default function QrPage() {
               <SelectContent>
                 {businesses.map((biz) => (
                   <SelectItem key={biz.id} value={biz.id}>
-                    <span className="flex items-center gap-2">
-                      {biz.name}
-                      <span className="text-[10px] text-muted-foreground">({biz.industry})</span>
-                    </span>
+                    {biz.name}
                   </SelectItem>
                 ))}
               </SelectContent>
