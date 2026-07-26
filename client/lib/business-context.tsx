@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { api } from "./api";
+import { useAuth } from "./auth-context";
 
 interface Business {
   id: string;
@@ -40,6 +41,7 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [businessLimit, setBusinessLimit] = useState(1);
   const [loadError, setLoadError] = useState(false);
+  const { token, loading: authLoading } = useAuth();
 
   const refreshBusinesses = useCallback(async () => {
     setLoadError(false);
@@ -81,9 +83,19 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Don't do anything until AuthProvider has determined auth state
   useEffect(() => {
-    refreshBusinesses();
-  }, [refreshBusinesses]);
+    if (authLoading) return;
+
+    if (token) {
+      setIsLoading(true);
+      refreshBusinesses();
+    } else {
+      setBusinesses([]);
+      setCurrentBusiness(null);
+      setIsLoading(false);
+    }
+  }, [token, refreshBusinesses, authLoading]);
 
   const switchBusiness = useCallback((id: string) => {
     const target = businesses.find((b) => b.id === id);

@@ -16,7 +16,7 @@ import { useBusiness } from "@/lib/business-context";
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
-  const { currentBusiness, isLoading: bizLoading } = useBusiness();
+  const { currentBusiness, isLoading: bizLoading, loadError } = useBusiness();
   const router = useRouter();
   const [stats, setStats] = useState<any>(null);
   const [feedback, setFeedback] = useState<any[]>([]);
@@ -32,7 +32,11 @@ export default function DashboardPage() {
         const biz = currentBusiness;
         if (cancelled) return;
         if (!biz) {
-          router.replace("/onboarding");
+          if (loadError) {
+            setLoading(false);
+          } else {
+            router.replace("/onboarding");
+          }
           return;
         }
 

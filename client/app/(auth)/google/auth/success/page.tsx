@@ -23,7 +23,7 @@ function GoogleAuthSuccessHandler() {
   const completeAuth = useCallback((token: string) => {
     localStorage.setItem("beyondvyu_token", token);
     window.dispatchEvent(new Event("storage"));
-    router.replace("/onboarding");
+    router.replace("/dashboard");
   }, [router]);
 
   const handleConsentGiven = useCallback(async () => {
