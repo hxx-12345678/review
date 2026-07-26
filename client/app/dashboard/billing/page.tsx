@@ -735,6 +735,41 @@ function BillingPage() {
               );
             })}
           </div>
+
+          {/* Enterprise / Contact Sales card */}
+          <Card className="mt-4 border-dashed border-primary/30 bg-gradient-to-br from-primary/[0.02] to-primary/[0.06]">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base">Enterprise</CardTitle>
+                <Badge variant="secondary" className="text-xs">Custom</Badge>
+              </div>
+              <CardDescription>For large teams with custom requirements</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="mb-3 rounded-lg bg-primary/5 px-3 py-2 text-sm">
+                <span className="font-semibold">Unlimited</span>
+                <span className="text-muted-foreground"> credits &amp; businesses</span>
+              </div>
+              <ul className="space-y-2">
+                {["Unlimited credits & businesses", "Dedicated account manager", "Custom AI training on your data", "Custom integrations & API access", "SLA guarantee", "Priority 24/7 phone & email support", "Custom contract & invoicing"].map((f) => (
+                  <li key={f} className="flex items-start gap-2 text-sm text-muted-foreground">
+                    <Check className="mt-0.5 size-4 shrink-0 text-primary" />
+                    {f}
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+            <CardFooter>
+              <Button
+                className="w-full gap-2"
+                variant="outline"
+                onClick={() => window.open("mailto:sales@beyondvyu.com?subject=Enterprise%20Plan%20Inquiry", "_blank")}
+              >
+                <ExternalLink className="size-4" />
+                Contact Sales
+              </Button>
+            </CardFooter>
+          </Card>
         </div>
 
         {/* ── INVOICE HISTORY ── */}
