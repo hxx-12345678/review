@@ -506,7 +506,7 @@ function BillingPage() {
                     <ArrowUpDown className="size-3.5" />
                     Change Plan
                   </Button>
-                  {subscription.invoices?.length > 0 && subscription.invoices[0]?.razorpayPaymentId && (
+                  {subscription?.invoices?.length > 0 && subscription.invoices[0]?.razorpayPaymentId && (
                     <Button variant="outline" size="sm" className="flex-1 gap-1.5"
                       onClick={() => window.open(`/api/payments/receipt/${subscription.invoices[0].razorpayPaymentId}`, "_blank")}>
                       <Receipt className="size-3.5" />
