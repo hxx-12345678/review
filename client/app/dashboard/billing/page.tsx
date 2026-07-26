@@ -343,6 +343,11 @@ function BillingPage() {
     }
   }
 
+  if (!authLoading && !user) {
+    router.replace("/login");
+    return null;
+  }
+
   if (authLoading || loading) {
     return (
       <div className="p-4 sm:p-6 lg:p-8">
@@ -354,11 +359,6 @@ function BillingPage() {
         </div>
       </div>
     );
-  }
-
-  if (!user) {
-    router.replace("/login");
-    return null;
   }
 
   const { monthlyPct, monthlyUsed, monthlyLimit, topUpBalance, totalRemaining } = computeUsage();
