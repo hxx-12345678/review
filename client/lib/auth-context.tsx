@@ -93,7 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem("beyondvyu_token");
     setToken(null);
     setUser(null);
-    router.push("/");
+    router.push("/login");
   }, [router]);
 
   return (
