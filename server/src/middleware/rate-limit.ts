@@ -18,6 +18,7 @@ export const authLimiter = rateLimit({
   message: { error: "Too many auth attempts, please try again later" },
   standardHeaders: true,
   legacyHeaders: false,
+  skipSuccessfulRequests: true,
 });
 
 // ── AI endpoint rate limiters ──

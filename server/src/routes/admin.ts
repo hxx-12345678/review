@@ -116,6 +116,7 @@ router.get("/stats", async (_req: AdminRequest, res: Response) => {
         name: p.name,
         slug: p.slug,
         price: p.price,
+        interval: p.interval,
         creditsLimit: p.creditsLimit,
         businessLimit: p.businessLimit,
         active: p.active,
@@ -160,6 +161,7 @@ router.get("/users", async (req: AdminRequest, res: Response) => {
         email: u.email,
         name: u.name,
         googleId: u.googleId ? true : false,
+        showLitePlan: u.showLitePlan,
         suspended: u.suspended,
         suspendedAt: u.suspendedAt,
         suspendedReason: u.suspendedReason,
@@ -252,6 +254,27 @@ router.delete("/users/:id", async (req: AdminRequest, res: Response) => {
     res.json({ user });
   } catch (err) {
     console.error("Admin delete user error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.put("/users/:id/lite-plan", async (req: AdminRequest, res: Response) => {
+  try {
+    const userId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const { showLitePlan } = req.body;
+    if (typeof showLitePlan !== "boolean") {
+      return res.status(400).json({ error: "showLitePlan must be a boolean" });
+    }
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: { showLitePlan },
+    });
+    await prisma.activityLog.create({
+      data: { userId, businessId: "", action: "admin:toggle_lite_plan", details: { showLitePlan, adminId: req.adminId } },
+    });
+    res.json({ user });
+  } catch (err) {
+    console.error("Admin toggle lite plan error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });

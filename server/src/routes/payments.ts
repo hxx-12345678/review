@@ -4,7 +4,8 @@ import crypto from "crypto";
 import Razorpay from "razorpay";
 import { prisma } from "../config/database";
 import { getEnv } from "../config/env";
-import { authRequired, AuthRequest } from "../middleware/auth";
+import { authRequired, authOptional, AuthRequest } from "../middleware/auth";
+
 
 const router = Router();
 
@@ -52,13 +53,25 @@ async function getOrCreateRazorpayPlan(razorpay: Razorpay, plan: { id: string; n
   }
 }
 
-router.get("/plans", async (_req, res: Response) => {
+router.get("/plans", authOptional, async (req: AuthRequest, res: Response) => {
   try {
-    const plans = await prisma.subscriptionPlan.findMany({
+    const allPlans = await prisma.subscriptionPlan.findMany({
       where: { active: true },
       orderBy: { sortOrder: "asc" },
     });
-    res.json({ plans });
+    const isLitePlan = (p: { slug: string }) => p.slug === "lite" || p.slug === "lite-yearly";
+    const userId = req.userId;
+    if (!userId) {
+      return res.json({ plans: allPlans.filter((p: any) => !isLitePlan(p)) });
+    }
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { showLitePlan: true },
+    });
+    if (user?.showLitePlan) {
+      return res.json({ plans: allPlans });
+    }
+    res.json({ plans: allPlans.filter((p: any) => !isLitePlan(p)) });
   } catch (err) {
     console.error("Get plans error:", err);
     res.status(500).json({ error: "Internal server error" });

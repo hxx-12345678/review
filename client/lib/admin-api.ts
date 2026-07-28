@@ -129,4 +129,10 @@ export const adminApi = {
 
   refundInvoice: (paymentId: string) =>
     request<{ success: boolean; amount: number }>(`/admin/invoices/${paymentId}/refund`, { method: "POST" }),
+
+  toggleLitePlan: (userId: string, showLitePlan: boolean) =>
+    request<{ user: any }>(`/admin/users/${userId}/lite-plan`, {
+      method: "PUT",
+      body: JSON.stringify({ showLitePlan }),
+    }),
 };

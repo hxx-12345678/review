@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
-import { ArrowLeft, Mail, Calendar, Building2, CreditCard, Activity, Ban, CheckCircle, Trash2, RotateCcw, XCircle, ArrowUpDown, RefreshCw } from "lucide-react"
+import { ArrowLeft, Mail, Calendar, Building2, CreditCard, Activity, Ban, CheckCircle, Trash2, RotateCcw, XCircle, ArrowUpDown, RefreshCw, Eye, EyeOff } from "lucide-react"
 import { adminApi } from "@/lib/admin-api"
 import { ADMIN_BASE } from "@/lib/admin-path"
 
@@ -20,6 +20,7 @@ export default function AdminUserDetailPage() {
   const [changeImmediate, setChangeImmediate] = useState(true)
   const [refundOnCancel, setRefundOnCancel] = useState(false)
   const [planActionLoading, setPlanActionLoading] = useState(false)
+  const [litePlanLoading, setLitePlanLoading] = useState(false)
 
   const loadUser = () => {
     setLoading(true)
@@ -52,6 +53,19 @@ export default function AdminUserDetailPage() {
       setActionLoading(null)
       setConfirmAction(null)
       setRefundOnCancel(false)
+    }
+  }
+
+  const handleToggleLitePlan = async () => {
+    if (!data?.user) return
+    setLitePlanLoading(true)
+    try {
+      await adminApi.toggleLitePlan(id as string, !data.user.showLitePlan)
+      loadUser()
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setLitePlanLoading(false)
     }
   }
 
@@ -157,6 +171,18 @@ export default function AdminUserDetailPage() {
                 </button>
               </>
             )}
+            <button
+              onClick={handleToggleLitePlan}
+              disabled={litePlanLoading}
+              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                user.showLitePlan
+                  ? "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
+                  : "bg-zinc-700/50 text-zinc-400 hover:bg-zinc-700"
+              }`}
+            >
+              {user.showLitePlan ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
+              {litePlanLoading ? "..." : user.showLitePlan ? "Lite Plan Visible" : "Lite Plan Hidden"}
+            </button>
             {user.deletedAt ? (
               <button
                 onClick={() => setConfirmAction("restore")}

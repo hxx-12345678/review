@@ -67,7 +67,7 @@ function BillingSkeleton() {
       <div className="p-4 sm:p-6 lg:p-8">
         <div className="h-8 w-48 animate-pulse rounded bg-muted" />
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3].map((i) => (
+          {[1, 2, 3, 4].map((i) => (
             <div key={i} className="h-80 animate-pulse rounded-xl bg-muted" />
           ))}
         </div>
@@ -356,7 +356,7 @@ function BillingPage() {
       <div className="p-4 sm:p-6 lg:p-8">
         <div className="h-8 w-48 animate-pulse rounded bg-muted" />
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3].map((i) => (
+          {[1, 2, 3, 4].map((i) => (
             <div key={i} className="h-80 animate-pulse rounded-xl bg-muted" />
           ))}
         </div>

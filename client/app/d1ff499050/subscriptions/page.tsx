@@ -135,7 +135,7 @@ export default function AdminSubscriptionsPage() {
                 {planData.plans.map((plan: any) => (
                   <tr key={plan.id} className="border-b border-zinc-800/50">
                     <td className="p-3 text-zinc-100">{plan.name}</td>
-                    <td className="p-3 text-zinc-300">₹{(plan.price / 100).toLocaleString()}/mo</td>
+                    <td className="p-3 text-zinc-300">₹{(plan.price / 100).toLocaleString()}/{plan.interval || "mo"}</td>
                     <td className="p-3 text-zinc-300">{plan.creditsLimit.toLocaleString()}</td>
                     <td className="p-3 text-zinc-300">{plan.businessLimit}</td>
                     <td className="p-3 text-zinc-300">{plan._count?.subscriptions || 0}</td>
@@ -155,7 +155,7 @@ export default function AdminSubscriptionsPage() {
               <div key={plan.id} className="flex items-center justify-between px-4 py-3">
                 <div>
                   <p className="text-sm font-medium text-zinc-100">{plan.name}</p>
-                  <p className="text-xs text-zinc-500">₹{(plan.price / 100).toLocaleString()}/mo</p>
+                  <p className="text-xs text-zinc-500">₹{(plan.price / 100).toLocaleString()}/{plan.interval || "mo"}</p>
                   <p className="text-xs text-zinc-500">Credits: {plan.creditsLimit.toLocaleString()} | Biz: {plan.businessLimit} | Subs: {plan._count?.subscriptions || 0}</p>
                 </div>
                 <span className={`rounded-full px-2 py-0.5 text-xs ${plan.active ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>

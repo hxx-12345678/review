@@ -43,6 +43,7 @@ model User {
   suspendedAt         DateTime?
   suspendedReason     String?
   deletedAt           DateTime?
+  showLitePlan        Boolean    @default(false)
   createdAt           DateTime   @default(now())
   updatedAt           DateTime   @updatedAt
 
