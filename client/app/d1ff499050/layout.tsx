@@ -3,12 +3,16 @@
 import { useRouter, usePathname } from "next/navigation"
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { LayoutDashboard, Users, Building2, CreditCard, Receipt, Activity, LogOut, Shield } from "lucide-react"
+import { LayoutDashboard, Users, Building2, CreditCard, Receipt, Activity, LogOut, Shield, Target, BarChart3, TrendingUp, TriangleAlert } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ADMIN_BASE } from "@/lib/admin-path"
 
 const ADMIN_NAV = [
   { href: `/${ADMIN_BASE}`, label: "Overview", icon: LayoutDashboard },
+  { href: `/${ADMIN_BASE}/funnel`, label: "Funnel", icon: Target },
+  { href: `/${ADMIN_BASE}/engagement`, label: "Engagement", icon: BarChart3 },
+  { href: `/${ADMIN_BASE}/cohorts`, label: "Retention", icon: TrendingUp },
+  { href: `/${ADMIN_BASE}/churn`, label: "Churn Risk", icon: TriangleAlert },
   { href: `/${ADMIN_BASE}/users`, label: "Users", icon: Users },
   { href: `/${ADMIN_BASE}/businesses`, label: "Businesses", icon: Building2 },
   { href: `/${ADMIN_BASE}/subscriptions`, label: "Subscriptions", icon: CreditCard },

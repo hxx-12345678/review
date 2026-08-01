@@ -21,6 +21,7 @@ import googlePlacesRoutes from "./routes/google-places";
 import uploadRoutes from "./routes/upload";
 import paymentsRoutes from "./routes/payments";
 import adminRoutes from "./routes/admin";
+import adminAnalyticsRoutes from "./routes/admin-analytics";
 import consentRoutes from "./routes/consent";
 import v2Features from "./features/index";
 
@@ -338,6 +339,7 @@ app.use("/api/upload", uploadRoutes);
 app.use("/api/payments", paymentsRoutes);
 app.use("/api/auth", consentRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/admin", adminAnalyticsRoutes);
 
 // v2 Feature routes (isolated from above — these are the new 6 features)
 app.use("/api/v2", v2Features);

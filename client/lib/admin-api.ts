@@ -95,13 +95,84 @@ export const adminApi = {
     return request<{ invoices: any[]; total: number; page: number; totalPages: number }>(`/admin/invoices${qs ? `?${qs}` : ""}`);
   },
 
-  activity: (params?: { page?: number; limit?: number }) => {
+  activity: (params?: { page?: number; limit?: number; action?: string; search?: string; days?: number }) => {
     const sp = new URLSearchParams();
     if (params?.page) sp.set("page", params.page.toString());
     if (params?.limit) sp.set("limit", params.limit.toString());
+    if (params?.action) sp.set("action", params.action);
+    if (params?.search) sp.set("search", params.search);
+    if (params?.days) sp.set("days", params.days.toString());
     const qs = sp.toString();
-    return request<{ logs: any[]; total: number; page: number; totalPages: number }>(`/admin/activity${qs ? `?${qs}` : ""}`);
+    return request<{ logs: any[]; total: number; totalAll: number; page: number; totalPages: number; actionBreakdown: { action: string; _count: number }[] }>(`/admin/activity${qs ? `?${qs}` : ""}`);
   },
+
+  analyticsOverview: () =>
+    request<{
+      nsm: { value: number; delta: number | null; trend: { month: string; value: number }[] };
+      mrr: { value: number; trend: { month: string; value: number }[] };
+      activationRate: number;
+      stickiness: number;
+      mau: number;
+      avgDau: number;
+      users: { total: number; trend: { day: string; value: number }[] };
+      activeUsers: { trend: { day: string; value: number }[] };
+      reviews: { trend: { day: string; value: number }[] };
+      deltas: {
+        signups: { current: number; previous: number; pct: number | null };
+        active: { current: number; previous: number; pct: number | null };
+        reviews: { current: number; previous: number; pct: number | null };
+      };
+    }>("/admin/analytics/overview"),
+
+  analyticsFunnel: () =>
+    request<{
+      steps: { key: string; label: string; value: number; pctOfPrev: number | null }[];
+      activationRate: number;
+    }>("/admin/analytics/funnel"),
+
+  analyticsEngagement: () =>
+    request<{
+      dau: { day: string; value: number }[];
+      mau: number;
+      wau: number;
+      avgDau: number;
+      stickiness: number;
+      weeklyStickiness: number;
+      weeklyStickinessTrend: { week: string; value: number }[];
+      actionsPerUser: number;
+      actionsTrend: { day: string; value: number }[];
+      featureAdoption: { action: string; count: number; users: number; adoptionRate: number }[];
+      powerUsers: { userId: string; email: string; name: string | null; count: number }[];
+    }>("/admin/analytics/engagement"),
+
+  analyticsCohorts: () =>
+    request<{
+      cohorts: { cohort: string; size: number; activated: number; retention: (number | null)[] }[];
+      activatedRetention: (number | null)[];
+      nonActivatedRetention: (number | null)[];
+    }>("/admin/analytics/cohorts"),
+
+  analyticsChurn: () =>
+    request<{
+      users: {
+        id: string;
+        email: string;
+        name: string | null;
+        showLitePlan: boolean;
+        createdAt: string;
+        score: number;
+        tier: string;
+        drivers: { key: string; label: string; points: number }[];
+        lastSeen: string;
+        daysSilent: number;
+        planName: string;
+        sessions30: number;
+        coreActions30: number;
+      }[];
+      counts: { green: number; yellow: number; red: number; critical: number };
+      total: number;
+      atRisk: number;
+    }>("/admin/analytics/churn"),
 
   suspendUser: (id: string, reason?: string) =>
     request<{ user: any }>(`/admin/users/${id}/suspend`, { method: "PUT", body: JSON.stringify({ reason }) }),

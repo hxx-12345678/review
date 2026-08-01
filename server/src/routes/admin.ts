@@ -689,11 +689,26 @@ router.get("/invoices", async (req: AdminRequest, res: Response) => {
 router.get("/activity", async (req: AdminRequest, res: Response) => {
   try {
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
-    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 20));
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 30));
     const skip = (page - 1) * limit;
+    const action = (req.query.action as string) || "";
+    const search = (req.query.search as string) || "";
+    const days = parseInt(req.query.days as string) || 0;
 
-    const [logs, total] = await Promise.all([
+    const where: any = {};
+    if (action) where.action = action;
+    if (days > 0) where.createdAt = { gte: new Date(Date.now() - days * 86400000) };
+    if (search) {
+      where.OR = [
+        { user: { email: { contains: search, mode: "insensitive" as const } } },
+        { user: { name: { contains: search, mode: "insensitive" as const } } },
+        { business: { name: { contains: search, mode: "insensitive" as const } } },
+      ];
+    }
+
+    const [logs, total, actionBreakdown, totalAll] = await Promise.all([
       prisma.activityLog.findMany({
+        where,
         skip,
         take: limit,
         orderBy: { createdAt: "desc" },
@@ -702,10 +717,18 @@ router.get("/activity", async (req: AdminRequest, res: Response) => {
           business: { select: { id: true, name: true, slug: true } },
         },
       }),
+      prisma.activityLog.count({ where }),
+      prisma.activityLog.groupBy({
+        by: ["action"],
+        _count: true,
+        where: days > 0 ? { createdAt: { gte: new Date(Date.now() - days * 86400000) } } : {},
+        orderBy: { _count: { action: "desc" } },
+        take: 12,
+      }),
       prisma.activityLog.count(),
     ]);
 
-    res.json({ logs, total, page, totalPages: Math.ceil(total / limit) });
+    res.json({ logs, total, totalAll, page, totalPages: Math.ceil(total / limit), actionBreakdown });
   } catch (err) {
     console.error("Admin activity error:", err);
     res.status(500).json({ error: "Internal server error" });
