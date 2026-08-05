@@ -201,9 +201,9 @@ export const adminApi = {
   refundInvoice: (paymentId: string) =>
     request<{ success: boolean; amount: number }>(`/admin/invoices/${paymentId}/refund`, { method: "POST" }),
 
-  toggleLitePlan: (userId: string, showLitePlan: boolean) =>
-    request<{ user: any }>(`/admin/users/${userId}/lite-plan`, {
+  updatePlanVisibility: (userId: string, visiblePlanSlugs: string[]) =>
+    request<{ user: any }>(`/admin/users/${userId}/plan-visibility`, {
       method: "PUT",
-      body: JSON.stringify({ showLitePlan }),
+      body: JSON.stringify({ visiblePlanSlugs }),
     }),
 };

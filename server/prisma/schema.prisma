@@ -46,6 +46,7 @@ model User {
   suspendedReason     String?
   deletedAt           DateTime?
   showLitePlan        Boolean    @default(false)
+  visiblePlanSlugs    Json?       // Base monthly plan slugs visible to this user (e.g. ["lite","starter"]); yearly follows its monthly base. null = default
   createdAt           DateTime   @default(now())
   updatedAt           DateTime   @updatedAt
 

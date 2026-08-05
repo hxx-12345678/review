@@ -1,15 +1,14 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useParams } from "next/navigation"
 import Link from "next/link"
-import { ArrowLeft, Mail, Calendar, Building2, CreditCard, Activity, Ban, CheckCircle, Trash2, RotateCcw, XCircle, ArrowUpDown, RefreshCw, Eye, EyeOff } from "lucide-react"
+import { ArrowLeft, Mail, Calendar, Building2, CreditCard, Activity, Ban, CheckCircle, Trash2, RotateCcw, XCircle, ArrowUpDown, Eye } from "lucide-react"
 import { adminApi } from "@/lib/admin-api"
 import { ADMIN_BASE } from "@/lib/admin-path"
 
 export default function AdminUserDetailPage() {
   const { id } = useParams()
-  const router = useRouter()
   const [data, setData] = useState<any>(null)
   const [plans, setPlans] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -20,7 +19,12 @@ export default function AdminUserDetailPage() {
   const [changeImmediate, setChangeImmediate] = useState(true)
   const [refundOnCancel, setRefundOnCancel] = useState(false)
   const [planActionLoading, setPlanActionLoading] = useState(false)
-  const [litePlanLoading, setLitePlanLoading] = useState(false)
+  const [visibilitySaving, setVisibilitySaving] = useState(false)
+
+  // Monthly paid plans (base slugs). Yearly variants follow their monthly base.
+  const monthlyPlans = plans.filter((p: any) => p.interval === "month" && p.price > 0)
+  // Current visible base slugs for this user; null/empty => all plans visible.
+  const [visiblePlanSlugs, setVisiblePlanSlugs] = useState<string[] | null>([])
 
   const loadUser = () => {
     setLoading(true)
@@ -31,6 +35,10 @@ export default function AdminUserDetailPage() {
       .then(([userData, planData]) => {
         setData(userData)
         setPlans(planData.plans)
+        const slugs = Array.isArray(userData.user?.visiblePlanSlugs)
+          ? userData.user.visiblePlanSlugs
+          : null
+        setVisiblePlanSlugs(slugs)
       })
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -56,16 +64,31 @@ export default function AdminUserDetailPage() {
     }
   }
 
-  const handleToggleLitePlan = async () => {
+  const handleTogglePlan = (slug: string) => {
+    const base = slug.replace("-yearly", "")
+    let next: string[] | null
+    if (visiblePlanSlugs && visiblePlanSlugs.length > 0) {
+      next = visiblePlanSlugs.includes(base)
+        ? visiblePlanSlugs.filter((s) => s !== base)
+        : [...visiblePlanSlugs, base]
+    } else {
+      // Currently unrestricted => all base slugs are visible; hide just this one.
+      const allBases = Array.from(new Set(monthlyPlans.map((p: any) => p.slug)))
+      next = allBases.filter((s) => s !== base)
+    }
+    setVisiblePlanSlugs(next)
+  }
+
+  const handleSaveVisibility = async () => {
     if (!data?.user) return
-    setLitePlanLoading(true)
+    setVisibilitySaving(true)
     try {
-      await adminApi.toggleLitePlan(id as string, !data.user.showLitePlan)
+      await adminApi.updatePlanVisibility(id as string, visiblePlanSlugs || [])
       loadUser()
     } catch (e) {
       console.error(e)
     } finally {
-      setLitePlanLoading(false)
+      setVisibilitySaving(false)
     }
   }
 
@@ -171,18 +194,6 @@ export default function AdminUserDetailPage() {
                 </button>
               </>
             )}
-            <button
-              onClick={handleToggleLitePlan}
-              disabled={litePlanLoading}
-              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                user.showLitePlan
-                  ? "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
-                  : "bg-zinc-700/50 text-zinc-400 hover:bg-zinc-700"
-              }`}
-            >
-              {user.showLitePlan ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
-              {litePlanLoading ? "..." : user.showLitePlan ? "Lite Plan Visible" : "Lite Plan Hidden"}
-            </button>
             {user.deletedAt ? (
               <button
                 onClick={() => setConfirmAction("restore")}
@@ -200,6 +211,51 @@ export default function AdminUserDetailPage() {
             )}
           </>
         )}
+      </div>
+
+      <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-4">
+        <h2 className="mb-1 flex items-center gap-2 font-semibold text-zinc-100"><Eye className="size-4" /> Plan Visibility</h2>
+        <p className="mb-3 text-xs text-zinc-500">
+          Control which paid plans this user sees on their billing page. Toggling a monthly plan also shows its yearly variant. When all are unchecked, all plans are visible.
+        </p>
+        <div className="space-y-2">
+          {monthlyPlans.map((plan: any) => {
+            const base = plan.slug
+            const visible = visiblePlanSlugs === null || visiblePlanSlugs.length === 0 || visiblePlanSlugs.includes(base)
+            return (
+              <label
+                key={plan.id}
+                className={`flex cursor-pointer items-center justify-between rounded-md border p-3 text-sm transition-colors ${
+                  visible ? "border-emerald-500/40 bg-emerald-500/10" : "border-zinc-700 hover:border-zinc-600"
+                }`}
+              >
+                <div>
+                  <span className="font-medium text-zinc-100">{plan.name}</span>
+                  <span className="ml-2 text-zinc-500">₹{(plan.price / 100).toLocaleString()}/mo</span>
+                  <span className="ml-2 text-xs text-zinc-600">+ yearly</span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={visible}
+                  onChange={() => handleTogglePlan(base)}
+                  className="size-4 accent-emerald-500"
+                />
+              </label>
+            )
+          })}
+          {monthlyPlans.length === 0 && (
+            <p className="text-sm text-zinc-500">No paid plans available.</p>
+          )}
+        </div>
+        <div className="mt-4 flex justify-end">
+          <button
+            onClick={handleSaveVisibility}
+            disabled={visibilitySaving}
+            className="rounded-md bg-emerald-500 px-4 py-2 text-sm font-medium text-black hover:bg-emerald-400 transition-colors disabled:opacity-50"
+          >
+            {visibilitySaving ? "Saving..." : "Save Visibility"}
+          </button>
+        </div>
       </div>
 
       {user.subscriptions?.length > 0 && (

@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import Razorpay from "razorpay";
 import crypto from "crypto";
+import { Prisma } from "@prisma/client";
 import { prisma } from "../config/database";
 import { getEnv } from "../config/env";
 import { adminAuthRequired, AdminRequest } from "../middleware/admin";
@@ -162,6 +163,7 @@ router.get("/users", async (req: AdminRequest, res: Response) => {
         name: u.name,
         googleId: u.googleId ? true : false,
         showLitePlan: u.showLitePlan,
+        visiblePlanSlugs: u.visiblePlanSlugs,
         suspended: u.suspended,
         suspendedAt: u.suspendedAt,
         suspendedReason: u.suspendedReason,
@@ -258,23 +260,24 @@ router.delete("/users/:id", async (req: AdminRequest, res: Response) => {
   }
 });
 
-router.put("/users/:id/lite-plan", async (req: AdminRequest, res: Response) => {
+router.put("/users/:id/plan-visibility", async (req: AdminRequest, res: Response) => {
   try {
     const userId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-    const { showLitePlan } = req.body;
-    if (typeof showLitePlan !== "boolean") {
-      return res.status(400).json({ error: "showLitePlan must be a boolean" });
+    const { visiblePlanSlugs } = req.body;
+    if (!Array.isArray(visiblePlanSlugs)) {
+      return res.status(400).json({ error: "visiblePlanSlugs must be an array of base plan slugs" });
     }
+    const unique = Array.from(new Set(visiblePlanSlugs as string[]));
     const user = await prisma.user.update({
       where: { id: userId },
-      data: { showLitePlan },
+      data: { visiblePlanSlugs: unique.length > 0 ? unique : Prisma.DbNull },
     });
     await prisma.activityLog.create({
-      data: { userId, businessId: "", action: "admin:toggle_lite_plan", details: { showLitePlan, adminId: req.adminId } },
+      data: { userId, businessId: "", action: "admin:update_plan_visibility", details: { visiblePlanSlugs: unique, adminId: req.adminId } },
     });
     res.json({ user });
   } catch (err) {
-    console.error("Admin toggle lite plan error:", err);
+    console.error("Admin update plan visibility error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });

@@ -59,19 +59,26 @@ router.get("/plans", authOptional, async (req: AuthRequest, res: Response) => {
       where: { active: true },
       orderBy: { sortOrder: "asc" },
     });
-    const isLitePlan = (p: { slug: string }) => p.slug === "lite" || p.slug === "lite-yearly";
     const userId = req.userId;
     if (!userId) {
-      return res.json({ plans: allPlans.filter((p: any) => !isLitePlan(p)) });
+      return res.json({ plans: allPlans });
     }
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { showLitePlan: true },
+      select: { visiblePlanSlugs: true },
     });
-    if (user?.showLitePlan) {
-      return res.json({ plans: allPlans });
+    const visibleSlugs = Array.isArray(user?.visiblePlanSlugs)
+      ? (user.visiblePlanSlugs as string[])
+      : null;
+    // visiblePlanSlugs is a list of base monthly slugs ("lite", "starter", ...).
+    // A base slug also unlocks its yearly variant. null/empty = no restriction.
+    if (visibleSlugs && visibleSlugs.length > 0) {
+      const visible = allPlans.filter(
+        (p: any) => visibleSlugs.includes(p.slug) || visibleSlugs.includes(p.slug.replace("-yearly", "")),
+      );
+      return res.json({ plans: visible });
     }
-    res.json({ plans: allPlans.filter((p: any) => !isLitePlan(p)) });
+    res.json({ plans: allPlans });
   } catch (err) {
     console.error("Get plans error:", err);
     res.status(500).json({ error: "Internal server error" });
