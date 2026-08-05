@@ -311,20 +311,28 @@ function getFrontendUrl(): string {
 //   4. request host fallback
 function getGoogleAuthRedirectUri(req: AuthRequest): string {
   const env = getEnv();
+  const isProd = env.NODE_ENV === "production";
+  const isRemote = (u: string) => /^https:\/\//.test(u) && !/localhost|127\.0\.0\.1/.test(u);
 
+  // 1. Explicit login-flow URI (recommended — set this in production)
   const explicit = env.GOOGLE_OAUTH_AUTH_REDIRECT_URI.trim();
   if (explicit) return explicit;
 
+  // 2. Backwards-compatible: derive from GOOGLE_OAUTH_REDIRECT_URI, but never
+  //    send a localhost URI in production (the schema default is localhost and
+  //    would otherwise cause Error 400: redirect_uri_mismatch).
   if (env.GOOGLE_OAUTH_REDIRECT_URI) {
     const derived = env.GOOGLE_OAUTH_REDIRECT_URI.replace("/google-reviews/oauth/callback", "/auth/google/callback");
-    if (derived) return derived;
+    if (derived && (!isProd || isRemote(derived))) return derived;
   }
 
+  // 3. Frontend origin
   const frontendUrl = getFrontendUrl();
-  if (frontendUrl) {
+  if (frontendUrl && (!isProd || isRemote(frontendUrl))) {
     return `${frontendUrl}/api/auth/google/callback`;
   }
 
+  // 4. Request host fallback
   return `${req.protocol}://${req.get("host")}/api/auth/google/callback`;
 }
 
