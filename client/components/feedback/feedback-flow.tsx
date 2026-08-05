@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { ExternalLink, Sparkles, Loader2, Check, MessageSquareHeart, ArrowRight, ArrowLeft, Stethoscope, Scissors, Dumbbell, Home, Utensils, Car, ShieldCheck, Lock, Award, Star, ThumbsUp, Meh, Frown, PenLine, RefreshCw, Lightbulb, SmilePlus, ChevronDown, Wrench, Clock, Wine, UserCheck, Users, Building, Calendar, MessageSquare, MapPin, Music } from "lucide-react"
+import { ExternalLink, Sparkles, Loader2, Check, MessageSquareHeart, ArrowRight, ArrowLeft, Stethoscope, Scissors, Dumbbell, Home, Utensils, Car, ShieldCheck, Lock, Award, Star, ThumbsUp, Meh, Frown, PenLine, RefreshCw, Lightbulb, SmilePlus, ChevronDown, Wrench, Clock, Wine, UserCheck, Users, Building, Calendar, MessageSquare, MapPin, Music, Smartphone } from "lucide-react"
 import { getReviewStepConfig, scoreAuthenticity, type AuthenticityResult } from "@/lib/compliance"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { api } from "@/lib/api"
 import { handleAiError } from "@/lib/ai-error-handler"
-import { getCategoriesForIndustry } from "@/lib/industry-categories"
+import { getMCQCategories } from "@/lib/industry-categories"
 
 type Step = "loading" | "rate" | "language" | "mcq" | "review" | "done"
 
@@ -68,7 +68,7 @@ export function FeedbackFlow({ business, slug, demo: isDemo = false }: { busines
   }
 
   async function handleMCQContinue() {
-    const subLabels = getCategoriesForIndustry(business.industry)
+    const subLabels = getMCQCategories(business.industry, business.promptTopics || [])
       .flatMap((c) => c.subOptions)
       .filter((s) => selectedSubOptions.includes(s.id))
       .map((s) => s.label)
@@ -345,12 +345,16 @@ function WelcomeStep({ business, onStart }: { business: any; onStart: () => void
       case "GYM":
       case "FITNESS":
         return { gradient: "from-amber-500 to-red-600 dark:from-amber-600 dark:to-red-700", icon: <Dumbbell className="size-10 text-white" />, tagline: "How was your workout? Help us keep improving!" }
+      case "AUTO":
+        return { gradient: "from-slate-600 to-zinc-800 dark:from-slate-700 dark:to-zinc-900", icon: <Car className="size-10 text-white" />, tagline: "How was your vehicle service today?" }
+      case "AUTO_DEALER":
+        return { gradient: "from-slate-500 to-slate-800 dark:from-slate-600 dark:to-slate-900", icon: <Car className="size-10 text-white" />, tagline: "Thank you for visiting us. How did your experience go?" }
+      case "ELECTRONICS":
+        return { gradient: "from-cyan-500 to-blue-700 dark:from-cyan-600 dark:to-blue-800", icon: <Smartphone className="size-10 text-white" />, tagline: "How was your shopping or service experience? We'd love to know!" }
       case "HOME_SERVICES":
         return { gradient: "from-orange-500 to-amber-600 dark:from-orange-600 dark:to-amber-700", icon: <Home className="size-10 text-white" />, tagline: "We take pride in our work. Share your review!" }
       case "RESTAURANT":
         return { gradient: "from-red-500 to-orange-600 dark:from-red-600 dark:to-orange-700", icon: <Utensils className="size-10 text-white" />, tagline: "Crafted with care. How was your meal?" }
-      case "AUTO":
-        return { gradient: "from-slate-600 to-zinc-800 dark:from-slate-700 dark:to-zinc-900", icon: <Car className="size-10 text-white" />, tagline: "How was your vehicle service today?" }
       default:
         return { gradient: "from-indigo-500 to-purple-600 dark:from-indigo-600 dark:to-purple-700", icon: <Sparkles className="size-10 text-white" />, tagline: "We are committed to excellence. Help us serve you better!" }
     }
@@ -492,7 +496,7 @@ function MCQStep({
   const moodKey = getMoodKey(rating)
   const [specialDismissed, setSpecialDismissed] = useState(false)
 
-  const categories = getCategoriesForIndustry(business.industry)
+  const categories = getMCQCategories(business.industry, business.promptTopics || [])
 
   const allSubLabels = categories.flatMap((c) => c.subOptions).filter((s) => selectedSubOptions.includes(s.id)).map((s) => s.label)
   const canContinue = selectedSubOptions.length > 0 || specialMention.trim().length > 0
@@ -503,7 +507,7 @@ function MCQStep({
     Scissors, UserCheck,
     Wrench, Clock,
     Dumbbell, Music,
-    MapPin, Home, Star,
+    MapPin, Home, Star, Smartphone,
   }
 
   function getIcon(iconName: string) {

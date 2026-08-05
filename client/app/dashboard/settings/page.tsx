@@ -19,6 +19,7 @@ import { OnboardingDialog } from "@/components/onboarding/onboarding-dialog";
 import { api } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
 import { useBusiness } from "@/lib/business-context"
+import { getIndustryLabel } from "@/lib/industry-categories"
 import { toast } from "sonner"
 
 export default function SettingsPage() {
@@ -266,7 +267,7 @@ function BusinessList({
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {biz.industry} {biz.location ? `· ${biz.location}` : ""}
+                    {getIndustryLabel(biz.industry)} {biz.location ? `· ${biz.location}` : ""}
                   </p>
                   {biz._count && (
                     <p className="text-xs text-muted-foreground mt-0.5">

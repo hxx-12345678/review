@@ -20,18 +20,9 @@ import { toast } from "sonner"
 import { api } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import { useBusiness } from "@/lib/business-context"
+import { INDUSTRY_OPTIONS } from "@/lib/industry-categories"
 
-const INDUSTRIES: { value: string; label: string; topics: string[] }[] = [
-  { value: "DENTAL", label: "Dental practice", topics: ["Your dentist or hygienist", "Office cleanliness", "Wait time", "How treatment felt"] },
-  { value: "SALON", label: "Salon / Spa", topics: ["Your stylist", "The result", "Atmosphere", "Booking experience"] },
-  { value: "RESTAURANT", label: "Restaurant", topics: ["A standout dish", "Service & staff", "Atmosphere", "Value"] },
-  { value: "MEDICAL", label: "Medical clinic", topics: ["Your provider", "Front desk staff", "Wait time", "How you were treated"] },
-  { value: "AUTO", label: "Auto services", topics: ["The technician", "Quality of work", "Pricing transparency", "Turnaround time"] },
-  { value: "FITNESS", label: "Gym / Fitness", topics: ["Your trainer or class", "Equipment & facilities", "Cleanliness", "Community"] },
-  { value: "GYM", label: "Gym", topics: ["Equipment", "Classes", "Cleanliness", "Staff"] },
-  { value: "HOME_SERVICES", label: "Home services", topics: ["The technician", "Quality of work", "Punctuality", "Communication"] },
-  { value: "OTHER", label: "Other", topics: ["The staff", "Quality", "Value", "Overall experience"] },
-]
+const INDUSTRIES: { value: string; label: string; topics: string[] }[] = INDUSTRY_OPTIONS
 
 const STEPS = ["Business", "Industry", "Google link", "Done"]
 
@@ -293,6 +284,11 @@ export function OnboardingWizard({ embedded, onComplete }: {
                     </span>
                   ))}
                 </div>
+                {industry === "OTHER" && (
+                  <p className="mt-3 text-xs text-amber-600 dark:text-amber-400">
+                    To get the most out of this, add topics that match your business and the things customers care about most.
+                  </p>
+                )}
                 <div className="mt-3 flex gap-2">
                   <Input
                     placeholder="Add a topic"

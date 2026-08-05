@@ -1,16 +1,24 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Save, ShieldCheck, Lock, MessageSquare, Mail, Palette, Eye, AlertTriangle, CheckCircle2, Upload, X, Loader2, Globe, RefreshCw, Trash2, Search, MapPin, Star } from "lucide-react"
+import { Save, ShieldCheck, Lock, MessageSquare, Mail, Palette, Eye, AlertTriangle, CheckCircle2, Upload, X, Loader2, Globe, RefreshCw, Trash2, Search, MapPin, Star, Plus, ListChecks } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { toast } from "sonner"
 import { api } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
+import { INDUSTRY_OPTIONS, getIndustryLabel } from "@/lib/industry-categories"
 
 /**
  * Extracts a direct image URL from various URL formats.
@@ -99,6 +107,9 @@ function getImageUrlStatus(url: string): { valid: boolean; message: string; extr
 export function SettingsForm({ business }: { business: any }) {
   const { user } = useAuth()
   const [name, setName] = useState(business?.name || "")
+  const [industry, setIndustry] = useState(business?.industry || "OTHER")
+  const [promptTopics, setPromptTopics] = useState<string[]>(business?.promptTopics || [])
+  const [newTopic, setNewTopic] = useState("")
   const [googleUrl, setGoogleUrl] = useState(business?.googleReviewUrl || "")
   const [googlePlaceId, setGooglePlaceId] = useState(business?.googlePlaceId || "")
   const [location, setLocation] = useState(business?.location || "")
@@ -164,6 +175,8 @@ export function SettingsForm({ business }: { business: any }) {
 
       await api.businesses.update(business.id, {
         name,
+        industry,
+        promptTopics,
         googleReviewUrl: finalGoogleUrl || undefined,
         googlePlaceId: googlePlaceId || undefined,
         location: location || undefined,
@@ -398,6 +411,106 @@ export function SettingsForm({ business }: { business: any }) {
           <Button onClick={save} disabled={saving}>
             <Save className="size-4" />
             {saving ? "Saving..." : "Save changes"}
+          </Button>
+        </div>
+      </Card>
+
+      <Card className="p-6">
+        <div className="flex items-center gap-2">
+          <ListChecks className="size-5 text-teal-500" />
+          <h2 className="font-medium text-foreground">Review questions</h2>
+        </div>
+        <p className="mt-1 text-sm text-muted-foreground">
+          These topics show up as question prompts in your review flow, so customers can pick what they want to talk about.
+        </p>
+        <div className="mt-5 space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="settings-industry">Industry</Label>
+            <Select
+              value={industry}
+              onValueChange={(v) => {
+                setIndustry(v)
+                const found = INDUSTRY_OPTIONS.find((i) => i.value === v)
+                if (found) setPromptTopics(found.topics)
+              }}
+            >
+              <SelectTrigger id="settings-industry" className="w-full">
+                <SelectValue placeholder="Select an industry" />
+              </SelectTrigger>
+              <SelectContent>
+                {INDUSTRY_OPTIONS.map((i) => (
+                  <SelectItem key={i.value} value={i.value}>
+                    {i.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {business?.industry !== industry && (
+              <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                Changing the industry will replace your topics with {getIndustryLabel(industry)} defaults. You can edit them below before saving.
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label>Topics customers can choose from</Label>
+            <div className="flex flex-wrap gap-2">
+              {promptTopics.length === 0 && (
+                <span className="text-xs text-muted-foreground">No topics yet — add some below.</span>
+              )}
+              {promptTopics.map((t) => (
+                <span
+                  key={t}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1 text-sm text-secondary-foreground"
+                >
+                  {t}
+                  <button
+                    type="button"
+                    onClick={() => setPromptTopics((prev) => prev.filter((x) => x !== t))}
+                    aria-label={`Remove ${t}`}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                </span>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <Input
+                placeholder="Add a topic"
+                value={newTopic}
+                onChange={(e) => setNewTopic(e.target.value)}
+                onKeyDown={(e) => {
+                  const t = newTopic.trim()
+                  if (e.key === "Enter" && t && !promptTopics.includes(t)) {
+                    e.preventDefault()
+                    setPromptTopics((prev) => [...prev, t])
+                    setNewTopic("")
+                  }
+                }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => {
+                  const t = newTopic.trim()
+                  if (t && !promptTopics.includes(t)) {
+                    setPromptTopics((prev) => [...prev, t])
+                    setNewTopic("")
+                  }
+                }}
+                aria-label="Add topic"
+              >
+                <Plus className="size-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+        <div className="mt-5">
+          <Button onClick={save} disabled={saving}>
+            <Save className="size-4" />
+            {saving ? "Saving..." : "Save review questions"}
           </Button>
         </div>
       </Card>

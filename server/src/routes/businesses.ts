@@ -30,7 +30,7 @@ async function getEffectiveBusinessLimit(userId: string): Promise<number> {
 
 const createBusinessSchema = z.object({
   name: z.string().min(1).max(200),
-  industry: z.enum(["DENTAL", "MEDICAL", "SALON", "GYM", "HOME_SERVICES", "RESTAURANT", "AUTO", "FITNESS", "OTHER"]),
+  industry: z.enum(["DENTAL", "MEDICAL", "SALON", "GYM", "HOME_SERVICES", "RESTAURANT", "AUTO", "AUTO_DEALER", "FITNESS", "ELECTRONICS", "OTHER"]),
   googleReviewUrl: z.string().url().optional().or(z.literal("")),
   googlePlaceId: z.string().max(200).optional().or(z.literal("")),
   location: z.string().max(500).optional().or(z.literal("")),
@@ -41,6 +41,7 @@ const createBusinessSchema = z.object({
 
 const updateBusinessSchema = z.object({
   name: z.string().min(1).max(200).optional(),
+  industry: z.enum(["DENTAL", "MEDICAL", "SALON", "GYM", "HOME_SERVICES", "RESTAURANT", "AUTO", "AUTO_DEALER", "FITNESS", "ELECTRONICS", "OTHER"]).optional(),
   googleReviewUrl: z.string().url().optional().or(z.literal("")),
   googlePlaceId: z.string().max(200).optional().or(z.literal("")),
   location: z.string().max(500).optional().or(z.literal("")),

@@ -17,18 +17,59 @@ export type IndustryKey =
   | "SALON"
   | "MEDICAL"
   | "AUTO"
+  | "AUTO_DEALER"
   | "FITNESS"
-  | "GYM"
+  | "ELECTRONICS"
   | "HOME_SERVICES"
   | "OTHER"
 
 export function normalizeIndustry(industry: string): IndustryKey {
   const upper = industry.toUpperCase().trim()
-  const valid: IndustryKey[] = ["RESTAURANT", "DENTAL", "SALON", "MEDICAL", "AUTO", "FITNESS", "GYM", "HOME_SERVICES", "OTHER"]
+  const valid: IndustryKey[] = ["RESTAURANT", "DENTAL", "SALON", "MEDICAL", "AUTO", "AUTO_DEALER", "FITNESS", "ELECTRONICS", "HOME_SERVICES", "OTHER"]
   if (valid.includes(upper as IndustryKey)) return upper as IndustryKey
   if (upper === "CLINIC") return "MEDICAL"
+  if (upper === "GYM") return "FITNESS"
+  if (upper === "GARAGE" || upper === "MECHANIC" || upper === "CAR_REPAIR") return "AUTO"
+  if (upper === "CAR_DEALER" || upper === "CAR_SHOWROOM" || upper === "AUTOMOBILE") return "AUTO_DEALER"
+  if (upper === "ELECTRONIC" || upper === "ELECTRONICS_STORE" || upper === "ELECTRONIC_SERVICE" || upper === "MOBILE_REPAIR") return "ELECTRONICS"
   return "OTHER"
 }
+
+const INDUSTRY_LABELS: Record<IndustryKey, string> = {
+  RESTAURANT: "Restaurant",
+  DENTAL: "Dental practice",
+  SALON: "Salon / Spa",
+  MEDICAL: "Medical clinic",
+  AUTO: "Auto repair / Garage",
+  AUTO_DEALER: "Automobile showroom / Dealer",
+  FITNESS: "Gym / Fitness",
+  ELECTRONICS: "Electronics store / Service",
+  HOME_SERVICES: "Home services",
+  OTHER: "Other",
+}
+
+export function getIndustryLabel(industry: string): string {
+  return INDUSTRY_LABELS[normalizeIndustry(industry)]
+}
+
+export interface IndustryOption {
+  value: string
+  label: string
+  topics: string[]
+}
+
+export const INDUSTRY_OPTIONS: IndustryOption[] = [
+  { value: "DENTAL", label: "Dental practice", topics: ["Your dentist or hygienist", "Office cleanliness", "Wait time", "How treatment felt"] },
+  { value: "SALON", label: "Salon / Spa", topics: ["Your stylist", "The result", "Atmosphere", "Booking experience"] },
+  { value: "RESTAURANT", label: "Restaurant", topics: ["A standout dish", "Service & staff", "Atmosphere", "Value"] },
+  { value: "MEDICAL", label: "Medical clinic", topics: ["Your provider", "Front desk staff", "Wait time", "How you were treated"] },
+  { value: "AUTO", label: "Auto repair / Garage", topics: ["The technician", "Quality of work", "Pricing transparency", "Turnaround time"] },
+  { value: "AUTO_DEALER", label: "Automobile showroom / Dealer", topics: ["The salesperson", "Test drive", "Vehicle selection", "Deal & pricing"] },
+  { value: "ELECTRONICS", label: "Electronics store / Service", topics: ["Product quality", "Staff knowledge", "Repair service", "After-sales support"] },
+  { value: "FITNESS", label: "Gym / Fitness", topics: ["Your trainer or class", "Equipment & facilities", "Cleanliness", "Community"] },
+  { value: "HOME_SERVICES", label: "Home services", topics: ["The technician", "Quality of work", "Punctuality", "Communication"] },
+  { value: "OTHER", label: "Other", topics: ["The staff", "Quality", "Value", "Overall experience"] },
+]
 
 export const INDUSTRY_CATEGORIES: Record<IndustryKey, Category[]> = {
   RESTAURANT: [
@@ -398,52 +439,114 @@ export const INDUSTRY_CATEGORIES: Record<IndustryKey, Category[]> = {
     },
   ],
 
-  // GYM mirrors FITNESS but with slightly different focus
-  GYM: [
+  // GYM merged into FITNESS (deduplicated 2026-08)
+
+  AUTO_DEALER: [
     {
-      id: "equipment",
-      label: "Equipment",
-      icon: "Dumbbell",
+      id: "sales",
+      label: "Sales Experience",
+      icon: "Car",
       subOptions: [
-        { id: "gym_availability", label: "Availability", keywords: ["available", "crowded", "busy", "wait"] },
-        { id: "gym_condition", label: "Condition", keywords: ["condition", "maintained", "broken", "working"] },
-        { id: "gym_variety", label: "Variety", keywords: ["variety", "range", "selection", "options"] },
+        { id: "dealer_salesperson", label: "Salesperson", keywords: ["salesperson", "salesman", "representative", "consultant", "executive"] },
+        { id: "dealer_no_pressure", label: "No Pressure", keywords: ["pressure", "pushy", "hassle", "rushed", "hard sell"] },
+        { id: "dealer_transparency", label: "Transparency", keywords: ["transparent", "upfront", "honest", "hidden", "clear"] },
+        { id: "dealer_test_drive", label: "Test Drive", keywords: ["test drive", "test ride", "demo", "trial", "drive"] },
       ],
     },
     {
-      id: "classes",
-      label: "Classes",
-      icon: "Users",
+      id: "selection",
+      label: "Vehicle Selection",
+      icon: "Car",
       subOptions: [
-        { id: "gym_instructor", label: "Instructor", keywords: ["instructor", "trainer", "coach", "teacher"] },
-        { id: "gym_schedule", label: "Schedule", keywords: ["schedule", "timing", "time slot"] },
+        { id: "dealer_variety", label: "Variety", keywords: ["variety", "range", "selection", "options", "models"] },
+        { id: "dealer_condition", label: "Condition", keywords: ["condition", "quality", "inspection", "maintained", "showroom"] },
+        { id: "dealer_availability", label: "Availability", keywords: ["available", "in stock", "delivery", "wait", "waiting"] },
       ],
     },
     {
-      id: "cleanliness",
-      label: "Cleanliness",
-      icon: "Sparkles",
+      id: "pricing",
+      label: "Pricing & Financing",
+      icon: "SmilePlus",
       subOptions: [
-        { id: "gym_clean", label: "Gym Floor", keywords: ["clean", "wipes", "equipment clean"] },
-        { id: "gym_locker", label: "Locker Rooms", keywords: ["locker", "shower", "changing"] },
+        { id: "dealer_price_fairness", label: "Price Fairness", keywords: ["price", "fair", "reasonable", "expensive", "cost"] },
+        { id: "dealer_negotiation", label: "Negotiation", keywords: ["negotiate", "deal", "discount", "bargain", "final price"] },
+        { id: "dealer_financing", label: "Financing / EMI", keywords: ["finance", "loan", "emi", "interest", "down payment"] },
+        { id: "dealer_trade_in", label: "Trade-in", keywords: ["trade", "exchange", "old car", "buy back", "resale"] },
+      ],
+    },
+    {
+      id: "process",
+      label: "Process & Delivery",
+      icon: "Calendar",
+      subOptions: [
+        { id: "dealer_paperwork", label: "Paperwork", keywords: ["paperwork", "documentation", "process", "smooth", "easy"] },
+        { id: "dealer_delivery", label: "Delivery", keywords: ["delivery", "handover", "on time", "delayed", "registration"] },
+        { id: "dealer_after_sales", label: "After-Sales", keywords: ["after-sales", "follow-up", "support", "contacted"] },
+      ],
+    },
+    {
+      id: "service",
+      label: "After-Sales Service",
+      icon: "Wrench",
+      subOptions: [
+        { id: "dealer_warranty", label: "Warranty", keywords: ["warranty", "guarantee", "coverage", "claim"] },
+        { id: "dealer_servicing", label: "Servicing", keywords: ["service", "servicing", "maintenance", "repair", "workshop"] },
+        { id: "dealer_responsive", label: "Responsiveness", keywords: ["responsive", "quick", "helpful", "resolved"] },
+      ],
+    },
+  ],
+
+  ELECTRONICS: [
+    {
+      id: "products",
+      label: "Products",
+      icon: "Smartphone",
+      subOptions: [
+        { id: "elec_quality", label: "Product Quality", keywords: ["quality", "genuine", "durable", "works", "brand new"] },
+        { id: "elec_authenticity", label: "Authenticity", keywords: ["genuine", "original", "authentic", "sealed", "counterfeit"] },
+        { id: "elec_selection", label: "Selection", keywords: ["variety", "range", "selection", "models", "brands"] },
+        { id: "elec_availability", label: "Availability", keywords: ["in stock", "available", "out of stock", "ordered"] },
       ],
     },
     {
       id: "staff",
       label: "Staff",
-      icon: "UserCheck",
+      icon: "Users",
       subOptions: [
-        { id: "gym_staff", label: "Staff", keywords: ["staff", "trainer", "front desk"] },
-        { id: "gym_knowledge", label: "Knowledge", keywords: ["knowledgeable", "helpful"] },
+        { id: "elec_knowledge", label: "Product Knowledge", keywords: ["knowledgeable", "expert", "informed", "explained", "advice"] },
+        { id: "elec_helpfulness", label: "Helpfulness", keywords: ["helpful", "assistance", "guided", "patient", "attentive"] },
+        { id: "elec_honesty", label: "Honesty", keywords: ["honest", "transparent", "truthful", "upfront"] },
       ],
     },
     {
-      id: "value",
-      label: "Value",
+      id: "repair",
+      label: "Repair Service",
+      icon: "Wrench",
+      subOptions: [
+        { id: "elec_repair_quality", label: "Repair Quality", keywords: ["repair", "fixed", "working", "done right", "quality work"] },
+        { id: "elec_turnaround", label: "Turnaround Time", keywords: ["turnaround", "quick", "ready", "fast", "took long"] },
+        { id: "elec_diagnostics", label: "Diagnostics", keywords: ["diagnosis", "diagnostic", "found", "identified", "problem"] },
+        { id: "elec_genuine_parts", label: "Genuine Parts", keywords: ["genuine part", "original part", "spare part", "component"] },
+      ],
+    },
+    {
+      id: "pricing",
+      label: "Pricing",
       icon: "SmilePlus",
       subOptions: [
-        { id: "gym_pricing", label: "Membership Pricing", keywords: ["membership", "price", "fee", "cost"] },
-        { id: "gym_amenities", label: "Amenities", keywords: ["amenities", "sauna", "pool", "towels"] },
+        { id: "elec_price_fairness", label: "Price Fairness", keywords: ["price", "fair", "reasonable", "expensive", "competitive"] },
+        { id: "elec_quote", label: "Quote Accuracy", keywords: ["quote", "estimate", "upfront", "final price", "surprise"] },
+        { id: "elec_warranty", label: "Warranty", keywords: ["warranty", "guarantee", "coverage", "claim"] },
+      ],
+    },
+    {
+      id: "after_sales",
+      label: "After-Sales",
+      icon: "MessageSquare",
+      subOptions: [
+        { id: "elec_support", label: "Support", keywords: ["support", "help", "resolved", "responsive"] },
+        { id: "elec_returns", label: "Returns & Exchanges", keywords: ["return", "exchange", "refund", "replacement", "defective"] },
+        { id: "elec_followup", label: "Follow-up", keywords: ["follow-up", "called", "informed", "updated"] },
       ],
     },
   ],
@@ -575,6 +678,36 @@ export const INDUSTRY_CATEGORIES: Record<IndustryKey, Category[]> = {
 export function getCategoriesForIndustry(industry: string): Category[] {
   const key = normalizeIndustry(industry)
   return INDUSTRY_CATEGORIES[key] || INDUSTRY_CATEGORIES.OTHER
+}
+
+/**
+ * Builds the MCQ categories shown to a customer. Starts from the industry
+ * defaults, then appends any custom topics the business owner configured in
+ * onboarding/settings as a dedicated "Other things you'd like to mention"
+ * category so their choices are always reflected in the review flow.
+ */
+export function getMCQCategories(industry: string, promptTopics: string[] = []): Category[] {
+  const base = getCategoriesForIndustry(industry)
+  const existingLabels = new Set(base.flatMap((c) => c.subOptions.map((s) => s.label.toLowerCase())))
+  const custom = promptTopics
+    .map((t) => t.trim())
+    .filter((t) => t.length > 0 && !existingLabels.has(t.toLowerCase()))
+
+  if (custom.length === 0) return base
+
+  return [
+    ...base,
+    {
+      id: "custom_topics",
+      label: "Other things to mention",
+      icon: "Sparkles",
+      subOptions: custom.map((label, i) => ({
+        id: `custom_topic_${i}`,
+        label,
+        keywords: label.toLowerCase().split(/\s+/),
+      })),
+    },
+  ]
 }
 
 export function getAllSubOptionIds(industry: string): string[] {

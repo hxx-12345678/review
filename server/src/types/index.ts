@@ -6,7 +6,9 @@ export const INDUSTRIES = [
   "HOME_SERVICES",
   "RESTAURANT",
   "AUTO",
+  "AUTO_DEALER",
   "FITNESS",
+  "ELECTRONICS",
   "OTHER",
 ] as const;
 
