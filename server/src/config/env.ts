@@ -22,6 +22,9 @@ const envSchema = z.object({
   GOOGLE_OAUTH_CLIENT_ID: z.string().optional().default(""),
   GOOGLE_OAUTH_CLIENT_SECRET: z.string().optional().default(""),
   GOOGLE_OAUTH_REDIRECT_URI: z.string().optional().default("http://localhost:4000/api/google-reviews/oauth/callback"),
+  // Dedicated callback for user login OAuth (distinct from GBP google-reviews flow).
+  // Defaults to <FRONTEND_URL>/api/auth/google/callback when unset.
+  GOOGLE_OAUTH_AUTH_REDIRECT_URI: z.string().optional().default(""),
   TOKEN_ENCRYPTION_KEY: z.string().optional().default(""),
   GOOGLE_PLACES_API_KEY: z.string().optional().default(""),
 

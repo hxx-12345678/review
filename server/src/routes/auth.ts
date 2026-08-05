@@ -167,8 +167,8 @@ router.post("/forgot-password", authLimiter, async (req: AuthRequest, res: Respo
       },
     });
 
-    const frontendUrl = (getEnv().FRONTEND_URL || "http://localhost:3000").split(",")[0].trim();
-    const resetLink = `${frontendUrl}/reset-password?token=${rawToken}`;
+    const frontendUrl = getFrontendUrl();
+    const resetLink = `${frontendUrl}/reset-password?token=${encodeURIComponent(rawToken)}`;
 
     sendPasswordResetEmail(user.email, user.name || "", resetLink).catch((e) => {
       console.error("Password reset email send failure:", e);
@@ -283,6 +283,42 @@ router.post("/change-password", authRequired, async (req: AuthRequest, res: Resp
 
 // ── Google OAuth Sign-In ─────────────────────────────────────────────────────
 
+// Resolve the frontend origin from FRONTEND_URL (comma-separated allowed).
+// Strips any trailing slashes so redirects never produce "//google/auth/success"
+// style broken URLs, and skips localhost entries when running in production.
+function getFrontendUrl(): string {
+  const env = getEnv();
+  const list = (env.FRONTEND_URL || "http://localhost:3000")
+    .split(",")
+    .map((u) => u.trim().replace(/\/+$/, ""))
+    .filter(Boolean);
+
+  if (env.NODE_ENV === "production") {
+    const remote = list.find((u) => /^https:\/\//.test(u) && !/localhost|127\.0\.0\.1/.test(u));
+    if (remote) return remote;
+  }
+
+  return list[0] || "http://localhost:3000";
+}
+
+// The OAuth callback must match EXACTLY what is registered in Google Cloud
+// Console as an authorized redirect URI. We prefer a dedicated env var so the
+// login flow is independent of the google-reviews (GBP) callback, which shares
+// GOOGLE_OAUTH_REDIRECT_URI. When unset, derive from the frontend origin so the
+// Google consent screen shows the BeyondVyu domain, not the Render backend.
+function getGoogleAuthRedirectUri(req: AuthRequest): string {
+  const env = getEnv();
+  const explicit = env.GOOGLE_OAUTH_AUTH_REDIRECT_URI.trim();
+  if (explicit) return explicit;
+
+  const frontendUrl = getFrontendUrl();
+  if (frontendUrl) {
+    return `${frontendUrl}/api/auth/google/callback`;
+  }
+
+  return `${req.protocol}://${req.get("host")}/api/auth/google/callback`;
+}
+
 router.get("/google", (req: AuthRequest, res: Response) => {
   try {
     const env = getEnv();
@@ -291,13 +327,9 @@ router.get("/google", (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: "Google OAuth is not configured" });
     }
 
-    const redirectUri = env.GOOGLE_OAUTH_REDIRECT_URI
-      ? env.GOOGLE_OAUTH_REDIRECT_URI.replace("/google-reviews/oauth/callback", "/auth/google/callback")
-      : "";
+    const finalRedirectUri = getGoogleAuthRedirectUri(req);
 
-    const finalRedirectUri = redirectUri || `${req.protocol}://${req.get("host")}/api/auth/google/callback`;
-
-    console.log("[Google Auth] Using redirect_uri:", finalRedirectUri, "| Env GOOGLE_OAUTH_REDIRECT_URI:", env.GOOGLE_OAUTH_REDIRECT_URI);
+    console.log("[Google Auth] Using redirect_uri:", finalRedirectUri);
 
     const params = new URLSearchParams({
       client_id: clientId,
@@ -319,25 +351,22 @@ router.get("/google", (req: AuthRequest, res: Response) => {
 
 router.get("/google/callback", async (req: AuthRequest, res: Response) => {
   try {
+    const frontendUrl = getFrontendUrl();
     const { code } = req.query;
     if (!code || typeof code !== "string") {
-      return res.redirect(`${(getEnv().FRONTEND_URL || "http://localhost:3000").split(",")[0].trim()}/login?error=google_auth_failed`);
+      return res.redirect(`${frontendUrl}/login?error=google_auth_failed`);
     }
 
     const env = getEnv();
     const clientId = env.GOOGLE_OAUTH_CLIENT_ID;
     const clientSecret = env.GOOGLE_OAUTH_CLIENT_SECRET;
     if (!clientId || !clientSecret) {
-      return res.redirect(`${(env.FRONTEND_URL || "http://localhost:3000").split(",")[0].trim()}/login?error=google_not_configured`);
+      return res.redirect(`${frontendUrl}/login?error=google_not_configured`);
     }
 
-    const redirectUri = env.GOOGLE_OAUTH_REDIRECT_URI
-      ? env.GOOGLE_OAUTH_REDIRECT_URI.replace("/google-reviews/oauth/callback", "/auth/google/callback")
-      : "";
+    const finalRedirectUri = getGoogleAuthRedirectUri(req);
 
-    const finalRedirectUri = redirectUri || `${req.protocol}://${req.get("host")}/api/auth/google/callback`;
-
-    console.log("[Google Callback] Using redirect_uri:", finalRedirectUri, "| Env GOOGLE_OAUTH_REDIRECT_URI:", env.GOOGLE_OAUTH_REDIRECT_URI);
+    console.log("[Google Callback] Using redirect_uri:", finalRedirectUri);
 
     // Exchange authorization code for tokens
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
@@ -355,12 +384,12 @@ router.get("/google/callback", async (req: AuthRequest, res: Response) => {
     if (!tokenRes.ok) {
       const errBody = await tokenRes.text();
       console.error("Google token exchange failed:", errBody);
-      return res.redirect(`${(env.FRONTEND_URL || "http://localhost:3000").split(",")[0].trim()}/login?error=google_auth_failed`);
+      return res.redirect(`${frontendUrl}/login?error=google_auth_failed`);
     }
 
     const tokens: any = await tokenRes.json();
     if (!tokens.id_token) {
-      return res.redirect(`${(env.FRONTEND_URL || "http://localhost:3000").split(",")[0].trim()}/login?error=google_auth_failed`);
+      return res.redirect(`${frontendUrl}/login?error=google_auth_failed`);
     }
 
     // Verify the ID token
@@ -371,7 +400,7 @@ router.get("/google/callback", async (req: AuthRequest, res: Response) => {
     });
     const payload = ticket.getPayload();
     if (!payload || !payload.email) {
-      return res.redirect(`${(env.FRONTEND_URL || "http://localhost:3000").split(",")[0].trim()}/login?error=google_auth_failed`);
+      return res.redirect(`${frontendUrl}/login?error=google_auth_failed`);
     }
 
     // Upsert user: find by googleId first, then by email
@@ -424,12 +453,10 @@ router.get("/google/callback", async (req: AuthRequest, res: Response) => {
     // Issue session JWT
     const token = issueSessionToken(user.id);
 
-    const frontendUrl = (env.FRONTEND_URL || "http://localhost:3000").split(",")[0].trim();
-    res.redirect(`${frontendUrl}/google/auth/success?token=${token}`);
+    res.redirect(`${frontendUrl}/google/auth/success?token=${encodeURIComponent(token)}`);
   } catch (err) {
     console.error("Google OAuth callback error:", err);
-    const frontendUrl = (getEnv().FRONTEND_URL || "http://localhost:3000").split(",")[0].trim();
-    res.redirect(`${frontendUrl}/login?error=google_auth_failed`);
+    res.redirect(`${getFrontendUrl()}/login?error=google_auth_failed`);
   }
 });
 

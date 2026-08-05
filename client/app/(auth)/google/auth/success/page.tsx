@@ -24,6 +24,13 @@ function GoogleAuthSuccessHandler() {
     localStorage.setItem("beyondvyu_token", token);
     window.dispatchEvent(new Event("storage"));
     router.replace("/dashboard");
+    // Fallback: if Next router navigation fails (e.g. edge/route issue), do a
+    // hard navigation so the user is never stuck on this page.
+    window.setTimeout(() => {
+      if (!window.location.pathname.startsWith("/dashboard")) {
+        window.location.assign("/dashboard");
+      }
+    }, 1500);
   }, [router]);
 
   const handleConsentGiven = useCallback(async () => {
@@ -69,10 +76,11 @@ function GoogleAuthSuccessHandler() {
         }
 
         // Need consent — show screen
-        // Decode JWT payload to get user info
+        // Decode JWT payload to get user info (handle base64url encoding)
         try {
-          const payloadBase64 = token.split(".")[1];
-          const payload = JSON.parse(atob(payloadBase64));
+          const payloadBase64 = token.split(".")[1] || "";
+          const base64 = payloadBase64.replace(/-/g, "+").replace(/_/g, "/");
+          const payload = JSON.parse(atob(base64));
           setUserInfo({
             email: payload.email || "your account",
             name: payload.name || null,
