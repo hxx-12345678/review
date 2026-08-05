@@ -314,8 +314,12 @@ function getGoogleAuthRedirectUri(req: AuthRequest): string {
   const isProd = env.NODE_ENV === "production";
   const isRemote = (u: string) => /^https:\/\//.test(u) && !/localhost|127\.0\.0\.1/.test(u);
 
-  // 1. Explicit login-flow URI (recommended — set this in production)
-  const explicit = env.GOOGLE_OAUTH_AUTH_REDIRECT_URI.trim();
+  // 1. Explicit login-flow URI (recommended — set this in production).
+  //    Auto-correct the GBP path if someone mistakenly set the google-reviews
+  //    callback URI here, so the auth code always reaches /api/auth/google/callback.
+  const explicit = env.GOOGLE_OAUTH_AUTH_REDIRECT_URI
+    .trim()
+    .replace("/api/google-reviews/oauth/callback", "/api/auth/google/callback");
   if (explicit) return explicit;
 
   // 2. Backwards-compatible: derive from GOOGLE_OAUTH_REDIRECT_URI, but never
