@@ -301,15 +301,24 @@ function getFrontendUrl(): string {
   return list[0] || "http://localhost:3000";
 }
 
-// The OAuth callback must match EXACTLY what is registered in Google Cloud
-// Console as an authorized redirect URI. We prefer a dedicated env var so the
-// login flow is independent of the google-reviews (GBP) callback, which shares
-// GOOGLE_OAUTH_REDIRECT_URI. When unset, derive from the frontend origin so the
-// Google consent screen shows the BeyondVyu domain, not the Render backend.
+// The OAuth callback MUST match EXACTLY one of the authorized redirect URIs
+// registered in Google Cloud Console (else Error 400: redirect_uri_mismatch).
+// Priority:
+//   1. GOOGLE_OAUTH_AUTH_REDIRECT_URI  (explicit login-flow URI, recommended)
+//   2. GOOGLE_OAUTH_REDIRECT_URI with the GBP path swapped to /auth/google/callback
+//      (backwards-compatible with what was previously registered)
+//   3. <FRONTEND_URL>/api/auth/google/callback
+//   4. request host fallback
 function getGoogleAuthRedirectUri(req: AuthRequest): string {
   const env = getEnv();
+
   const explicit = env.GOOGLE_OAUTH_AUTH_REDIRECT_URI.trim();
   if (explicit) return explicit;
+
+  if (env.GOOGLE_OAUTH_REDIRECT_URI) {
+    const derived = env.GOOGLE_OAUTH_REDIRECT_URI.replace("/google-reviews/oauth/callback", "/auth/google/callback");
+    if (derived) return derived;
+  }
 
   const frontendUrl = getFrontendUrl();
   if (frontendUrl) {
