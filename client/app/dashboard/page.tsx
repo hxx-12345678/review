@@ -23,7 +23,7 @@ import { useBusiness } from "@/lib/business-context";
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
-  const { businesses, currentBusiness, isLoading: bizLoading, loadError, switchBusiness } = useBusiness();
+  const { businesses, currentBusiness, isLoading: bizLoading, loadError, switchBusiness, onboardingDismissed, showOnboarding } = useBusiness();
   const router = useRouter();
   const [stats, setStats] = useState<any>(null);
   const [feedback, setFeedback] = useState<any[]>([]);
@@ -47,8 +47,11 @@ export default function DashboardPage() {
         if (!biz) {
           if (loadError) {
             setLoading(false);
-          } else {
+          } else if (!onboardingDismissed) {
             router.replace("/onboarding");
+          } else {
+            // User dismissed onboarding — show empty state on the dashboard.
+            setLoading(false);
           }
           return;
         }
@@ -74,7 +77,7 @@ export default function DashboardPage() {
     }
     load();
     return () => { cancelled = true; };
-  }, [user, authLoading, bizLoading, currentBusiness]);
+  }, [user, authLoading, bizLoading, currentBusiness, onboardingDismissed]);
 
   if (!user) return null;
 
@@ -88,6 +91,32 @@ export default function DashboardPage() {
           ))}
         </div>
         <div className="mt-6 h-[260px] animate-pulse rounded-lg bg-muted" />
+      </div>
+    );
+  }
+
+  if (businesses.length === 0) {
+    return (
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-6 p-6 text-center">
+        <div className="flex size-16 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <Building2 className="size-8" />
+        </div>
+        <div>
+          <h2 className="text-xl font-semibold tracking-tight">Get started with your first business</h2>
+          <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
+            Add your business to start collecting Google reviews, generating QR codes, and tracking feedback.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <Button render={<Link href="/onboarding" />} nativeButton={false} onClick={showOnboarding}>
+            <Building2 className="size-4" />
+            Add your business
+          </Button>
+          <Button render={<Link href="/dashboard/qr" />} nativeButton={false} variant="outline">
+            <QrCode className="size-4" />
+            Browse QR codes
+          </Button>
+        </div>
       </div>
     );
   }

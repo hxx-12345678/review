@@ -48,7 +48,7 @@ export function OnboardingWizard({ embedded, onComplete }: {
   onComplete?: () => void;
 }) {
   const router = useRouter()
-  const { businesses, canAddBusiness, businessLimit } = useBusiness()
+  const { businesses, canAddBusiness, businessLimit, dismissOnboarding, showOnboarding } = useBusiness()
   const [step, setStep] = useState(0)
   const [name, setName] = useState("")
   const [location, setLocation] = useState("")
@@ -141,6 +141,7 @@ export function OnboardingWizard({ embedded, onComplete }: {
         location: location.trim() || undefined,
         promptTopics: topics,
       });
+      showOnboarding();
       toast.success("Business added");
       if (onComplete) {
         onComplete();
@@ -195,9 +196,16 @@ export function OnboardingWizard({ embedded, onComplete }: {
           <Link href="/" aria-label="BEYONDVYU home">
             <Logo />
           </Link>
-          <Link href="/dashboard" className="text-sm text-muted-foreground hover:text-foreground">
+          <button
+            type="button"
+            onClick={() => {
+              dismissOnboarding();
+              router.push("/dashboard");
+            }}
+            className="text-sm text-muted-foreground hover:text-foreground"
+          >
             Skip for now
-          </Link>
+          </button>
         </div>
       )}
 

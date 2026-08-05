@@ -29,9 +29,13 @@ interface BusinessContextType {
   canAddBusiness: boolean;
   hasBusinesses: boolean;
   loadError: boolean;
+  onboardingDismissed: boolean;
+  dismissOnboarding: () => void;
+  showOnboarding: () => void;
 }
 
 const STORAGE_KEY = "beyondvyu_active_business";
+const ONBOARDING_DISMISSED_KEY = "beyondvyu_onboarding_dismissed";
 
 const BusinessContext = createContext<BusinessContextType | undefined>(undefined);
 
@@ -41,7 +45,49 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [businessLimit, setBusinessLimit] = useState(1);
   const [loadError, setLoadError] = useState(false);
+  const [onboardingDismissed, setOnboardingDismissed] = useState(false);
   const { token, loading: authLoading } = useAuth();
+
+  const dismissOnboarding = useCallback(() => {
+    try {
+      localStorage.setItem(ONBOARDING_DISMISSED_KEY, "1");
+    } catch {
+      /* noop */
+    }
+    setOnboardingDismissed(true);
+  }, []);
+
+  const showOnboarding = useCallback(() => {
+    try {
+      localStorage.removeItem(ONBOARDING_DISMISSED_KEY);
+    } catch {
+      /* noop */
+    }
+    setOnboardingDismissed(false);
+  }, []);
+
+  // Read the dismissed flag once on mount (before auth loads).
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(ONBOARDING_DISMISSED_KEY) === "1") {
+        setOnboardingDismissed(true);
+      }
+    } catch {
+      /* noop */
+    }
+  }, []);
+
+  // Once a business exists, onboarding is never needed — clear the flag.
+  useEffect(() => {
+    if (businesses.length > 0 && onboardingDismissed) {
+      try {
+        localStorage.removeItem(ONBOARDING_DISMISSED_KEY);
+      } catch {
+        /* noop */
+      }
+      setOnboardingDismissed(false);
+    }
+  }, [businesses.length, onboardingDismissed]);
 
   const refreshBusinesses = useCallback(async () => {
     setLoadError(false);
@@ -129,6 +175,9 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
           canAddBusiness,
           hasBusinesses: businesses.length > 0,
           loadError,
+          onboardingDismissed,
+          dismissOnboarding,
+          showOnboarding,
         }}
       >
       {children}

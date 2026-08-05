@@ -358,7 +358,8 @@ router.get("/google", (req: AuthRequest, res: Response) => {
       response_type: "code",
       scope: "openid email profile",
       access_type: "offline",
-      prompt: "consent",
+      // No prompt=consent: Google remembers previously granted consent, so the
+      // consent screen is only shown on the FIRST sign-in, not every time.
     });
 
     res.json({
