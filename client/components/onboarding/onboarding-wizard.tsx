@@ -39,7 +39,7 @@ export function OnboardingWizard({ embedded, onComplete }: {
   onComplete?: () => void;
 }) {
   const router = useRouter()
-  const { businesses, canAddBusiness, businessLimit, dismissOnboarding, showOnboarding } = useBusiness()
+  const { businesses, canAddBusiness, businessLimit, dismissOnboarding, refreshBusinesses } = useBusiness()
   const [step, setStep] = useState(0)
   const [name, setName] = useState("")
   const [location, setLocation] = useState("")
@@ -132,11 +132,11 @@ export function OnboardingWizard({ embedded, onComplete }: {
         location: location.trim() || undefined,
         promptTopics: topics,
       });
-      showOnboarding();
       toast.success("Business added");
       if (onComplete) {
         onComplete();
       } else {
+        await refreshBusinesses();
         router.push("/dashboard");
       }
     } catch (err: any) {
