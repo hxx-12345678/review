@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { FeedbackFlow } from "@/components/feedback/feedback-flow"
+import { NoReviewsScreen } from "@/components/feedback/no-reviews-screen"
 
 async function getBusinessBySlug(slug: string) {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api"
@@ -20,7 +21,7 @@ export async function generateMetadata({
   params,
 }: {
   params: Promise<{ slug: string }>
-}): Promise<Metadata> {
+}) {
   const { slug } = await params
   const business = await getBusinessBySlug(slug)
 
@@ -56,6 +57,25 @@ export default async function FeedbackPage({
 
   if (!business) {
     notFound()
+  }
+
+  const subscription = business.subscription
+
+  const hasActivePlan =
+    subscription &&
+    ["active", "authenticated"].includes(subscription.status) &&
+    subscription.creditsTopUpBalance > 0
+
+  if (!hasActivePlan) {
+    return (
+      <main className="flex min-h-dvh min-w-0 flex-col overflow-hidden bg-muted/40">
+        <NoReviewsScreen
+          business={business}
+          googleReviewUrl={business.googleReviewUrl || `https://www.google.com/maps/search/${encodeURIComponent(business.name)}`}
+          demo={isDemo}
+        />
+      </main>
+    )
   }
 
   return (

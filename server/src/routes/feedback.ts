@@ -153,7 +153,13 @@ router.get("/public/:slug", async (req: AuthRequest, res: Response) => {
       ? `https://search.google.com/local/writereview?placeid=${business.googlePlaceId}`
       : business.googleReviewUrl;
 
-    res.json({ business: { ...business, googleReviewUrl } });
+    // Check subscription status for the business owner
+    const sub = await prisma.subscription.findFirst({
+      where: { userId: business.userId },
+      orderBy: { createdAt: "desc" },
+    });
+
+    res.json({ business: { ...business, googleReviewUrl, subscription: sub } });
   } catch (err) {
     console.error("Get public business error:", err);
     res.status(500).json({ error: "Internal server error" });
