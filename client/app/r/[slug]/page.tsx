@@ -61,10 +61,15 @@ export default async function FeedbackPage({
 
   const subscription = business.subscription
 
+  // Demo mode bypasses subscription check to allow previewing the flow
+  // Real check: active/authenticated status AND remaining credits (monthly + top-up) > 0
   const hasActivePlan =
-    subscription &&
-    ["active", "authenticated"].includes(subscription.status) &&
-    subscription.creditsTopUpBalance > 0
+    isDemo ||
+    (subscription &&
+      ["active", "authenticated"].includes(subscription.status) &&
+      (Math.max(0, (subscription.creditsLimit ?? 0) - (subscription.creditsUsed ?? 0)) +
+        (subscription.creditsTopUpBalance ?? 0) >
+        0))
 
   if (!hasActivePlan) {
     return (

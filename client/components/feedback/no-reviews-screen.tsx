@@ -1,10 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Mail, Phone } from "lucide-react"
+import { Mail, Phone, Star } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
 
 interface NoReviewsScreenProps {
@@ -97,7 +96,9 @@ export function NoReviewsScreen({ business, googleReviewUrl, demo }: NoReviewsSc
               </h3>
               <div className="space-y-3">
                 <Button
-                  onClick={() => navigator.clerk?.click?.tel?.(business.phoneNumber)}
+                  onClick={() => {
+                    if (business.phoneNumber) window.open(`tel:${business.phoneNumber}`, "_self")
+                  }}
                   className="w-full bg-primary text-primary-foreground py-3 rounded-xl font-medium hover:shadow-lg transition-all"
                 >
                   <Phone className="size-4 mr-3" />

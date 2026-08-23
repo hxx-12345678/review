@@ -128,6 +128,7 @@ router.get("/public/:slug", async (req: AuthRequest, res: Response) => {
       where: { slug },
       select: {
         id: true,
+        userId: true,
         name: true,
         slug: true,
         googleReviewUrl: true,
