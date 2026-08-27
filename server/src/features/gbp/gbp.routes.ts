@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "../../config/database";
 import { getEnv } from "../../config/env";
 import { authRequired, AuthRequest } from "../../middleware/auth";
+import { parseStoredLocation, getDecryptedToken } from "../../services/google-business-api";
 
 const router = Router();
 
@@ -76,23 +77,31 @@ router.post("/reviews/reply", authRequired, async (req: AuthRequest, res: Respon
 
     const env = getEnv();
 
+    // GBP Direct: use encrypted token + correct accountId/locationId
     let gbpSuccess = false;
     try {
       const account = review.googleAccount;
-      if (account?.accessToken) {
-        const locationId = account.googleLocationId || account.googleAccountId;
-        const gbpRes = await fetch(
-          `https://mybusiness.googleapis.com/v4/accounts/${account.googleAccountId}/locations/${locationId}/reviews/${review.googleReviewId}/reply`,
-          {
-            method: "PUT",
-            headers: {
-              Authorization: `Bearer ${account.accessToken}`,
-              "Content-Type": "application/json",
+      if (account) {
+        const token = (() => { try { return getDecryptedToken(account); } catch { return (account as any).accessToken || ""; } })();
+        if (token) {
+          const { accountId, locationId } = parseStoredLocation(account);
+          const gbpRes = await fetch(
+            `https://mybusiness.googleapis.com/v4/accounts/${accountId}/locations/${locationId}/reviews/${review.googleReviewId}/reply`,
+            {
+              method: "PUT",
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ comment: data.replyText }),
             },
-            body: JSON.stringify({ comment: data.replyText }),
-          },
-        );
-        gbpSuccess = gbpRes.ok;
+          );
+          gbpSuccess = gbpRes.ok;
+          if (!gbpRes.ok) {
+            const body = await gbpRes.text().catch(() => "");
+            console.warn(`GBP API reply failed ${gbpRes.status}:`, body);
+          }
+        }
       }
     } catch (apiErr) {
       console.warn("GBP API reply failed, saving locally:", apiErr);
@@ -207,13 +216,16 @@ router.delete("/reviews/:reviewId", authRequired, async (req: AuthRequest, res: 
     if (!business) return res.status(404).json({ error: "Business not found" });
 
     const account = await prisma.googleAccount.findUnique({ where: { id: review.googleAccountId } });
-    if (account?.accessToken && account?.googleAccountId) {
+    if (account?.googleAccountId) {
       try {
-        const locationId = account.googleLocationId || account.googleAccountId;
-        await fetch(
-          `https://mybusiness.googleapis.com/v4/accounts/${account.googleAccountId}/locations/${locationId}/reviews/${review.googleReviewId}/reply`,
-          { method: "DELETE", headers: { Authorization: `Bearer ${account.accessToken}` } },
-        );
+        const token = (() => { try { return getDecryptedToken(account); } catch { return (account as any).accessToken || ""; } })();
+        if (token) {
+          const { accountId, locationId } = parseStoredLocation(account);
+          await fetch(
+            `https://mybusiness.googleapis.com/v4/accounts/${accountId}/locations/${locationId}/reviews/${review.googleReviewId}/reply`,
+            { method: "DELETE", headers: { Authorization: `Bearer ${token}` } },
+          );
+        }
       } catch {
         // Continue even if API delete fails
       }
@@ -246,60 +258,18 @@ router.post("/sync/:businessId", authRequired, async (req: AuthRequest, res: Res
     });
     if (!business) return res.status(404).json({ error: "Business not found" });
 
-    const account = await prisma.googleAccount.findUnique({ where: { businessId } });
-    if (!account?.accessToken) {
-      return res.status(400).json({ error: "Google account not connected" });
-    }
-
-    let synced = 0;
+    // Direct GBP sync via canonical service (handles encrypted token + correct accountId/locationId)
     try {
-      const locationId = account.googleLocationId || account.googleAccountId;
-      const gbpRes = await fetch(
-        `https://mybusiness.googleapis.com/v4/accounts/${account.googleAccountId}/locations/${locationId}/reviews?pageSize=100`,
-        { headers: { Authorization: `Bearer ${account.accessToken}` } },
-      );
-      const gbpData: any = await gbpRes.json();
-
-      if (gbpData.reviews) {
-        for (const gReview of gbpData.reviews) {
-          const existing = await prisma.googleReview.findUnique({
-            where: { googleReviewId: gReview.reviewId },
-          });
-
-          if (!existing) {
-            await prisma.googleReview.create({
-              data: {
-                googleReviewId: gReview.reviewId,
-                googleAccountId: account.id,
-                businessId,
-                reviewerName: gReview.reviewer?.displayName || "Unknown",
-                reviewerPhotoUrl: gReview.reviewer?.profilePhotoUrl || null,
-                starRating: gReview.starRating || 0,
-                comment: gReview.comment || null,
-                createTime: new Date(gReview.createTime || Date.now()),
-                reviewReply: gReview.reviewReply?.comment || null,
-                replyStatus: gReview.reviewReply ? "REPLIED" : "NEEDS_REPLY",
-              },
-            });
-          } else {
-            await prisma.googleReview.update({
-              where: { googleReviewId: gReview.reviewId },
-              data: {
-                starRating: gReview.starRating || existing.starRating,
-                comment: gReview.comment || existing.comment,
-                reviewReply: gReview.reviewReply?.comment || existing.reviewReply,
-                replyStatus: gReview.reviewReply ? "REPLIED" : existing.replyStatus,
-              },
-            });
-          }
-          synced++;
-        }
-      }
-    } catch (apiErr) {
-      console.warn("GBP API sync failed:", apiErr);
+      const { syncGoogleReviews } = await import("../../services/google-business-api");
+      const result = await syncGoogleReviews(businessId);
+      await prisma.activityLog.create({
+        data: { userId: req.userId!, businessId, action: "gbp_reviews_synced", details: { synced: result.synced, total: result.total } },
+      }).catch(() => {});
+      return res.json({ success: true, synced: result.synced, total: result.total });
+    } catch (svcErr: any) {
+      console.warn("GBP direct sync failed, attempting Places fallback hint:", svcErr?.message);
+      return res.status(400).json({ error: svcErr?.message || "GBP sync failed — check Google Business Profile verification and API approval. Places API fallback: set googlePlaceId + GOOGLE_PLACES_API_KEY." });
     }
-
-    res.json({ success: true, synced });
   } catch (err) {
     console.error("GBP sync error:", err);
     res.status(500).json({ error: "Internal server error" });

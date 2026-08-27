@@ -36,7 +36,7 @@ function parseStarRating(raw: string | number | undefined | null): number {
 
 // ── Token Helpers ─────────────────────────────────────────────────────────────
 
-function getDecryptedToken(googleAccount: any): string {
+export function getDecryptedToken(googleAccount: any): string {
   const enc = googleAccount.tokenEncrypted as Record<string, EncryptedData> | null;
   if (enc?.accessToken) {
     return decrypt(enc.accessToken);
@@ -233,11 +233,31 @@ export async function replyToGoogleReview(
   }
 }
 
+// ── Helpers: parse stored account/location ────────────────────────────────
+export function parseStoredLocation(googleAccount: any): { accountId: string; locationId: string } {
+  // googleLocationId is stored as "accounts/{accountId}/locations/{locationId}" (preferred)
+  // googleAccountId historically holds locationId — fallback to it.
+  if (googleAccount.googleLocationId) {
+    const parts = googleAccount.googleLocationId.split("/");
+    // accounts/123/locations/456  -> [accounts,123,locations,456]
+    const accIdx = parts.indexOf("accounts");
+    const locIdx = parts.indexOf("locations");
+    if (accIdx !== -1 && locIdx !== -1 && parts[accIdx+1] && parts[locIdx+1]) {
+      return { accountId: parts[accIdx+1], locationId: parts[locIdx+1] };
+    }
+    // fallback: last segment is locationId, penultimate accounts segment
+    if (parts.length >= 4) return { accountId: parts[1], locationId: parts[3] };
+  }
+  // Legacy: googleAccountId holds locationId, no accountId stored — use "me" alias
+  return { accountId: "me", locationId: googleAccount.googleAccountId };
+}
+
 // ── Sync: GBP OAuth Reviews ───────────────────────────────────────────────────
 
 /**
- * Syncs Google reviews from the GBP OAuth API into the local database.
- * Returns count of new reviews synced.
+ * Syncs Google reviews DIRECTLY via GBP My Business API v4.
+ * Endpoint: GET /v4/accounts/{accountId}/locations/{locationId}/reviews
+ * Direct API — no intermediary BSP. Requires verified GBP + approved project.
  * 
  * NOTE: GBP API is gated. If you get 403/404 errors, your Google Cloud project
  * has not been approved for GBP API access. You must submit the access request at:
@@ -259,9 +279,9 @@ export async function syncGoogleReviews(businessId: string): Promise<{ synced: n
   }
 
   const accessToken = getDecryptedToken(googleAccount);
-  const locationId = googleAccount.googleAccountId;
+  const { accountId, locationId } = parseStoredLocation(googleAccount);
   const reviews = await fetchGoogleReviews(
-    "me",
+    accountId,
     locationId,
     accessToken,
   );
