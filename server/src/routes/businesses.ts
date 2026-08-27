@@ -107,6 +107,58 @@ router.get("/", authRequired, async (req: AuthRequest, res: Response) => {
   }
 });
 
+router.get("/check-duplicate", authRequired, async (req: AuthRequest, res: Response) => {
+  try {
+    const { placeId, name, location } = req.query as { placeId?: string; name?: string; location?: string };
+    if (!placeId && !name) {
+      return res.status(400).json({ error: "placeId or name required" });
+    }
+    const matches: any[] = [];
+    if (placeId) {
+      const byPlace = await prisma.business.findFirst({
+        where: { googlePlaceId: placeId },
+        select: { id: true, name: true, slug: true, location: true, googlePlaceId: true, userId: true, createdAt: true },
+      });
+      if (byPlace) {
+        matches.push({
+          business: byPlace,
+          matchType: "exact_placeid",
+          confidence: 100,
+          isOwnBusiness: byPlace.userId === req.userId,
+        });
+      }
+    }
+    // Fuzzy name+location check only if no exact placeId match found
+    if (matches.length === 0 && name && name.length > 2) {
+      const candidates = await prisma.business.findMany({
+        where: {
+          OR: [
+            { name: { contains: name, mode: "insensitive" as const } },
+            ...(location && location.length > 2 ? [{ location: { contains: location, mode: "insensitive" as const } }] : []),
+          ],
+        },
+        select: { id: true, name: true, slug: true, location: true, googlePlaceId: true, userId: true, createdAt: true },
+        take: 5,
+      });
+      for (const c of candidates) {
+        const nameScore = c.name.toLowerCase() === name.toLowerCase() ? 100 : c.name.toLowerCase().includes(name.toLowerCase()) || name.toLowerCase().includes(c.name.toLowerCase()) ? 80 : 0;
+        if (nameScore >= 80) {
+          // location must also partially match if provided
+          if (location && c.location) {
+            const locMatch = c.location.toLowerCase().includes(location.toLowerCase()) || location.toLowerCase().includes(c.location.toLowerCase());
+            if (!locMatch) continue;
+          }
+          matches.push({ business: c, matchType: "fuzzy_name_address", confidence: nameScore, isOwnBusiness: c.userId === req.userId });
+        }
+      }
+    }
+    res.json({ matches });
+  } catch (err) {
+    console.error("Check duplicate error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 router.get("/:id", authRequired, async (req: AuthRequest, res: Response) => {
   try {
     const businessId = req.params.id as string;
@@ -145,6 +197,46 @@ router.post("/", authRequired, async (req: AuthRequest, res: Response) => {
           new Error(`Your plan covers ${limit} business${limit === 1 ? "" : "es"}. Upgrade to add more.`),
           { statusCode: 403, code: "BUSINESS_LIMIT_REACHED", limit, current: count }
         );
+      }
+
+      // ── Duplicate PlaceID detection (global) — justice for original owner ──
+      // Google allows only ONE verified GBP per PlaceID. First claimant wins.
+      if (data.googlePlaceId) {
+        const placeOwner = await tx.business.findFirst({
+          where: { googlePlaceId: data.googlePlaceId },
+          select: { id: true, userId: true, name: true, slug: true, googlePlaceId: true },
+        });
+        if (placeOwner) {
+          if (placeOwner.userId === req.userId) {
+            throw Object.assign(
+              new Error(`You already have a business "${placeOwner.name}" for this Google location. Use that business instead of creating a duplicate.`),
+              { statusCode: 409, code: "PLACEID_ALREADY_OWNED_BY_YOU", conflictingBusiness: placeOwner }
+            );
+          } else {
+            throw Object.assign(
+              new Error(`This Google location is already registered by another account. If you own this business on Google, connect your Google Business Profile to request ownership.`),
+              { statusCode: 409, code: "PLACEID_ALREADY_CLAIMED", conflictingBusinessId: placeOwner.id }
+            );
+          }
+        }
+        // Also check googleReviewUrl-derived PlaceID for cross-field dupes
+        if (data.googleReviewUrl) {
+          try {
+            const urlPid = new URL(data.googleReviewUrl).searchParams.get("placeid") || new URL(data.googleReviewUrl).searchParams.get("place_id");
+            if (urlPid && urlPid !== data.googlePlaceId) {
+              const urlOwner = await tx.business.findFirst({
+                where: { googlePlaceId: urlPid },
+                select: { id: true, userId: true, name: true },
+              });
+              if (urlOwner) {
+                throw Object.assign(
+                  new Error(`The Place ID in your Google Review URL is already registered. Please correct the URL or request ownership.`),
+                  { statusCode: 409, code: "PLACEID_URL_CONFLICT", conflictingBusiness: urlOwner }
+                );
+              }
+            }
+          } catch {}
+        }
       }
 
       let slug = generateSlug(data.name);
@@ -186,12 +278,14 @@ router.post("/", authRequired, async (req: AuthRequest, res: Response) => {
     if (err instanceof z.ZodError) {
       return res.status(400).json({ error: "Invalid input", details: err.errors });
     }
-    if ((err as any).statusCode === 403) {
-      return res.status(403).json({
+    if ((err as any).statusCode === 403 || (err as any).statusCode === 409) {
+      return res.status((err as any).statusCode).json({
         error: (err as any).message,
         code: (err as any).code,
         limit: (err as any).limit,
         current: (err as any).current,
+        conflictingBusiness: (err as any).conflictingBusiness,
+        conflictingBusinessId: (err as any).conflictingBusinessId,
       });
     }
     console.error("Create business error:", err);
@@ -221,6 +315,21 @@ router.patch("/:id", authRequired, async (req: AuthRequest, res: Response) => {
 
     if (!business) {
       return res.status(404).json({ error: "Business not found" });
+    }
+
+    // ── Guard: prevent updating googlePlaceId to one already owned by another business ──
+    if (cleaned.googlePlaceId) {
+      const owner = await prisma.business.findFirst({
+        where: { googlePlaceId: cleaned.googlePlaceId, id: { not: businessId } },
+        select: { id: true, userId: true, name: true },
+      });
+      if (owner) {
+        if (owner.userId === req.userId) {
+          return res.status(409).json({ error: `You already have a business "${owner.name}" for this Google location.`, code: "PLACEID_ALREADY_OWNED_BY_YOU", conflictingBusiness: owner });
+        } else {
+          return res.status(409).json({ error: `This Google location is already registered by another account.`, code: "PLACEID_ALREADY_CLAIMED", conflictingBusinessId: owner.id });
+        }
+      }
     }
 
     const updated = await prisma.business.update({

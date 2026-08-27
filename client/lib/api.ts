@@ -97,6 +97,13 @@ export const api = {
       request<{ success: boolean }>(`/businesses/${id}`, {
         method: "DELETE",
       }),
+    checkDuplicate: (params: { placeId?: string; name?: string; location?: string }) => {
+      const qs = new URLSearchParams();
+      if (params.placeId) qs.set("placeId", params.placeId);
+      if (params.name) qs.set("name", params.name);
+      if (params.location) qs.set("location", params.location);
+      return request<{ matches: { business: any; matchType: string; confidence: number; isOwnBusiness: boolean }[] }>(`/businesses/check-duplicate?${qs.toString()}`);
+    },
   },
   feedback: {
     submit: (data: {

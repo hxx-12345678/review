@@ -23,7 +23,7 @@ import { useBusiness } from "@/lib/business-context";
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
-  const { businesses, currentBusiness, isLoading: bizLoading, loadError, switchBusiness, onboardingDismissed, showOnboarding } = useBusiness();
+  const { businesses, currentBusiness, isLoading: bizLoading, loadError, switchBusiness, showOnboarding } = useBusiness();
   const router = useRouter();
   const [stats, setStats] = useState<any>(null);
   const [feedback, setFeedback] = useState<any[]>([]);
@@ -44,17 +44,16 @@ export default function DashboardPage() {
       try {
         const biz = currentBusiness;
         if (cancelled) return;
-        if (!biz) {
-          if (loadError) {
-            setLoading(false);
-          } else if (!onboardingDismissed) {
-            router.replace("/onboarding");
-          } else {
-            // User dismissed onboarding — show empty state on the dashboard.
-            setLoading(false);
+if (!biz) {
+            if (loadError) {
+              setLoading(false);
+            } else {
+              // User dismissed onboarding or has no business — show empty state on the dashboard.
+              // BusinessGuard handles the redirect to /onboarding if needed.
+              setLoading(false);
+            }
+            return;
           }
-          return;
-        }
 
         if (biz) {
           const [statsRes, feedbackRes, trendRes, googleRes] = await Promise.all([
@@ -77,7 +76,7 @@ export default function DashboardPage() {
     }
     load();
     return () => { cancelled = true; };
-  }, [user, authLoading, bizLoading, currentBusiness, onboardingDismissed]);
+  }, [user, authLoading, bizLoading, currentBusiness]);
 
   if (!user) return null;
 

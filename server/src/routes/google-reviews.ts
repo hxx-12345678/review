@@ -195,39 +195,133 @@ router.get("/oauth/callback", async (req, res: Response) => {
     }
 
     const accounts = await acctRes.json() as { accounts?: { name: string }[] };
-    const googleAccountName = accounts.accounts?.[0]?.name || ""; // "accounts/123456789"
-    const googleAccountId = googleAccountName.split("/").pop() || "";
+    const accountList = accounts.accounts || [];
+    if (accountList.length === 0) {
+      console.error("No Google Business accounts found for this OAuth user");
+      return res.redirect(`${getEnv().FRONTEND_URL.split(",")[0]}/dashboard/settings?google=error_no_accounts`);
+    }
 
-    // Fetch the locations for this account to get the actual locationId
-    let finalLocationId = googleAccountId;
-    try {
-      const locRes = await fetch(
-        `https://mybusinessbusinessinformation.googleapis.com/v1/${googleAccountName}/locations?readMask=name,title`,
-        { headers: { Authorization: `Bearer ${tokens.access_token}` } }
-      );
-      if (locRes.ok) {
-        const locData = await locRes.json() as { locations?: { name: string }[] };
-        if (locData.locations && locData.locations.length > 0) {
-          const locationName = locData.locations[0].name; // "locations/987654321"
-          finalLocationId = locationName.split("/").pop() || googleAccountId;
+    // Fetch the target business to get its googlePlaceId for auto-matching
+    const targetBusiness = await prisma.business.findUnique({
+      where: { id: businessId },
+      select: { googlePlaceId: true, name: true, location: true },
+    });
+    const targetPlaceId = targetBusiness?.googlePlaceId || null;
+
+    // ── Auto-detect correct Location via PlaceID ────────────────────────
+    // Google Business Profile API: Location.metadata.placeId contains the Place ID
+    // We must iterate all accounts + locations and match by placeId, not just take first.
+    // Docs: https://developers.google.com/my-business/content/location-data
+    // Filter example: metadata.place_id="ChIJ..."
+    // If no placeId on business, we collect all locations and use best match.
+
+    let finalLocationId = "";
+    let finalAccountName = "";
+    let matchedByPlaceId = false;
+    let allLocationsForDebug: any[] = [];
+
+    // Helper to fetch locations for one account with proper readMask including metadata
+    async function fetchLocationsForAccount(accountName: string): Promise<any[]> {
+      // Try v1 Business Information API with full readMask
+      try {
+        const locRes = await fetch(
+          `https://mybusinessbusinessinformation.googleapis.com/v1/${accountName}/locations?readMask=name,title,storefrontAddress,metadata,labels`,
+          { headers: { Authorization: `Bearer ${tokens.access_token}` } }
+        );
+        if (locRes.ok) {
+          const locData = await locRes.json() as { locations?: any[] };
+          return locData.locations || [];
         }
-      } else {
-        // Try legacy v4 locations list if v1 fails
+        // If v1 fails, try with placeId filter (if we have targetPlaceId)
+        if (targetPlaceId) {
+          const filterRes = await fetch(
+            `https://mybusinessbusinessinformation.googleapis.com/v1/${accountName}/locations?readMask=name,title,metadata&filter=metadata.place_id="${targetPlaceId}"`,
+            { headers: { Authorization: `Bearer ${tokens.access_token}` } }
+          );
+          if (filterRes.ok) {
+            const filterData = await filterRes.json() as { locations?: any[] };
+            if (filterData.locations && filterData.locations.length > 0) {
+              return filterData.locations;
+            }
+          }
+        }
+      } catch (e) {
+        console.error(`Failed to fetch v1 locations for ${accountName}:`, e);
+      }
+
+      // Fallback: legacy v4
+      try {
         const locResV4 = await fetch(
-          `https://mybusiness.googleapis.com/v4/${googleAccountName}/locations`,
+          `https://mybusiness.googleapis.com/v4/${accountName}/locations`,
           { headers: { Authorization: `Bearer ${tokens.access_token}` } }
         );
         if (locResV4.ok) {
-          const locDataV4 = await locResV4.json() as { locations?: { name: string }[] };
-          if (locDataV4.locations && locDataV4.locations.length > 0) {
-            const locationName = locDataV4.locations[0].name; // "accounts/123/locations/456"
-            finalLocationId = locationName.split("/").pop() || googleAccountId;
-          }
+          const locDataV4 = await locResV4.json() as { locations?: any[] };
+          return locDataV4.locations || [];
+        }
+      } catch (e) {
+        console.error(`Failed to fetch v4 locations for ${accountName}:`, e);
+      }
+      return [];
+    }
+
+    // Iterate all accounts to find matching location by PlaceID
+    for (const acct of accountList) {
+      const accountName = acct.name; // "accounts/123456789"
+      const locations = await fetchLocationsForAccount(accountName);
+      allLocationsForDebug.push(...locations);
+
+      if (targetPlaceId) {
+        // Exact PlaceID match (priority 1)
+        const matched = locations.find((loc: any) => {
+          const locPlaceId = loc.metadata?.placeId || loc.placeId || loc.location?.placeId || "";
+          return locPlaceId === targetPlaceId;
+        });
+        if (matched) {
+          const locName = matched.name; // "locations/..." or "accounts/.../locations/..."
+          finalLocationId = locName.split("/").pop() || "";
+          finalAccountName = accountName;
+          matchedByPlaceId = true;
+          console.log(`[GBP auto-detect] Matched by PlaceID ${targetPlaceId} → location ${locName} in ${accountName}`);
+          break;
+        }
+        // Also try title + address fuzzy if PlaceID not in metadata (some locations missing)
+        const fuzzyMatch = locations.find((loc: any) => {
+          const title = (loc.title || loc.locationName || "").toLowerCase();
+          const targetName = (targetBusiness?.name || "").toLowerCase();
+          return title && targetName && (title.includes(targetName) || targetName.includes(title));
+        });
+        if (fuzzyMatch && !finalLocationId) {
+          const locName = fuzzyMatch.name;
+          finalLocationId = locName.split("/").pop() || "";
+          finalAccountName = accountName;
+          console.log(`[GBP auto-detect] Fuzzy matched by title: "${fuzzyMatch.title}" for business "${targetBusiness?.name}"`);
+        }
+      } else {
+        // No PlaceID on business: collect first location as fallback
+        if (locations.length > 0 && !finalLocationId) {
+          const locName = locations[0].name;
+          finalLocationId = locName.split("/").pop() || "";
+          finalAccountName = accountName;
         }
       }
-    } catch (e) {
-      console.error("Failed to fetch location ID, using account ID fallback:", e);
     }
+
+    // Fallback if no location matched at all — use first account's first location or accountId
+    if (!finalLocationId) {
+      const fallbackAccount = accountList[0].name;
+      const fallbackLocations = await fetchLocationsForAccount(fallbackAccount);
+      if (fallbackLocations.length > 0) {
+        finalLocationId = fallbackLocations[0].name.split("/").pop() || "";
+        finalAccountName = fallbackAccount;
+      } else {
+        finalLocationId = fallbackAccount.split("/").pop() || "";
+        finalAccountName = fallbackAccount;
+      }
+      console.log(`[GBP auto-detect] No PlaceID match, fallback to ${finalLocationId} (matchedByPlaceId=${matchedByPlaceId})`);
+    }
+
+    const googleAccountId = finalAccountName.split("/").pop() || accountList[0].name.split("/").pop() || "";
 
     // Encrypt tokens at rest
     const encAccess = encrypt(tokens.access_token);
@@ -243,12 +337,71 @@ router.get("/oauth/callback", async (req, res: Response) => {
       tokenEncrypted.refreshToken = encRefresh;
     }
 
-    // Upsert the Google account with the final Location ID
+    // ── Duplicate PlaceID ownership check — justice for original owner ──
+    // Google allows only ONE verified GBP per PlaceID. Reviews migrate to the
+    // newly verified location; duplicates become unpublished.
+    // Our SaaS must protect the original verified owner: second claimant must
+    // go through Google's ownership-request flow, not silently sync same PlaceID.
+    if (targetPlaceId && matchedByPlaceId) {
+      const existingOwner = await prisma.business.findFirst({
+        where: {
+          googlePlaceId: targetPlaceId,
+          id: { not: businessId },
+        },
+        select: { id: true, userId: true, name: true },
+      });
+      if (existingOwner) {
+        const existingVerified = await prisma.googleAccount.findUnique({
+          where: { businessId: existingOwner.id },
+          select: { tokenEncrypted: true },
+        });
+        const isVerified = !!(existingVerified?.tokenEncrypted);
+        // Log conflict for audit & notify (original owner justice)
+        console.warn(`[GBP justice] PlaceID ${targetPlaceId} already ${isVerified ? "VERIFIED" : "claimed"} by business ${existingOwner.id} (user ${existingOwner.userId}). New claimant business ${businessId} attempted OAuth.`);
+        await prisma.activityLog.create({
+          data: {
+            userId: existingOwner.userId,
+            businessId: existingOwner.id,
+            action: "google_place_conflict_attempt",
+            details: {
+              placeId: targetPlaceId,
+              claimantBusinessId: businessId,
+              claimMatchedByPlaceId: matchedByPlaceId,
+              existingVerified: isVerified,
+            },
+          },
+        }).catch(() => {});
+        await prisma.activityLog.create({
+          data: {
+            userId: (await prisma.business.findUnique({ where: { id: businessId }, select: { userId: true } }))?.userId || "unknown",
+            businessId,
+            action: "google_place_conflict_blocked",
+            details: {
+              placeId: targetPlaceId,
+              ownerBusinessId: existingOwner.id,
+              ownerBusinessName: existingOwner.name,
+              isVerified,
+              reason: isVerified ? "Original owner already verified — claimant must use Google ownership request (7-day approval) / contact support" : "Place already claimed — first-come justice, claimant should request ownership via Google Business Profile",
+            },
+          },
+        }).catch(() => {});
+
+        // If original is verified, block new claimant's Google connect and instruct to use ownership request
+        if (isVerified) {
+          const frontendUrl = getEnv().FRONTEND_URL.split(",")[0];
+          return res.redirect(`${frontendUrl}/dashboard/settings?google=place_conflict&placeId=${encodeURIComponent(targetPlaceId)}&ownerBusiness=${encodeURIComponent(existingOwner.name)}`);
+        }
+        // If not verified, allow but flag — first-come still wins until verification
+      }
+    }
+
+    // Upsert the Google account with the final Location ID + Account ID stored separately
     await prisma.googleAccount.upsert({
       where: { businessId },
       create: {
         businessId,
         googleAccountId: finalLocationId,
+        googleLocationId: finalAccountName ? `${finalAccountName}/locations/${finalLocationId}` : null,
         accessToken: "",
         refreshToken: "",
         tokenEncrypted: tokenEncrypted as any,
@@ -256,12 +409,21 @@ router.get("/oauth/callback", async (req, res: Response) => {
       },
       update: {
         googleAccountId: finalLocationId,
+        googleLocationId: finalAccountName ? `${finalAccountName}/locations/${finalLocationId}` : null,
         accessToken: "",
         refreshToken: "",
         tokenEncrypted: tokenEncrypted as any,
         tokenExpiresAt: expiresAt,
       },
     });
+
+    // If we matched via PlaceID, ensure business googlePlaceId is set (covers case where it was null)
+    if (matchedByPlaceId && targetPlaceId) {
+      await prisma.business.update({
+        where: { id: businessId },
+        data: { googlePlaceId: targetPlaceId },
+      }).catch(() => {});
+    }
 
     // Look up the business to get userId for activity log
     const business = await prisma.business.findUnique({

@@ -122,8 +122,27 @@ export function OnboardingWizard({ embedded, onComplete }: {
     clearSelection()
   }
 
+  const [finishing, setFinishing] = useState(false)
+  const [duplicateWarning, setDuplicateWarning] = useState<{ matchType: string; business: any; isOwnBusiness: boolean } | null>(null)
+
   async function finish() {
+    if (finishing) return
+    setFinishing(true)
     try {
+      // Pre-check duplicate via PlaceID to give friendly UX before 409
+      if (googlePlaceId.trim()) {
+        try {
+          const dup = await api.businesses.checkDuplicate({ placeId: googlePlaceId.trim(), name: name.trim(), location: location.trim() })
+          if (dup.matches && dup.matches.length > 0) {
+            const m = dup.matches[0]
+            if (m.matchType === "exact_placeid") {
+              setDuplicateWarning(m)
+              setFinishing(false)
+              return
+            }
+          }
+        } catch {}
+      }
       await api.businesses.create({
         name: name.trim(),
         industry,
@@ -140,7 +159,19 @@ export function OnboardingWizard({ embedded, onComplete }: {
         router.push("/dashboard");
       }
     } catch (err: any) {
-      toast.error(err.message || "Failed to create business");
+      // Handle backend duplicate guard (409 with code)
+      if (err?.code === "PLACEID_ALREADY_OWNED_BY_YOU" || err?.code === "PLACEID_ALREADY_CLAIMED" || err?.status === 409) {
+        toast.error(err.message)
+        // Try to surface which business conflicts
+        try {
+          const dup = await api.businesses.checkDuplicate({ placeId: googlePlaceId.trim() })
+          if (dup.matches?.[0]) setDuplicateWarning(dup.matches[0])
+        } catch {}
+      } else {
+        toast.error(err.message || "Failed to create business");
+      }
+    } finally {
+      setFinishing(false)
     }
   }
 
@@ -514,12 +545,36 @@ export function OnboardingWizard({ embedded, onComplete }: {
             <ArrowRight className="size-4" />
           </Button>
         ) : (
-          <Button onClick={finish}>
-            {embedded ? "Add business" : "Go to dashboard"}
-            <ArrowRight className="size-4" />
+          <Button onClick={finish} disabled={finishing}>
+            {finishing ? <><Loader2 className="size-4 animate-spin" /> Adding...</> : <>{embedded ? "Add business" : "Go to dashboard"} <ArrowRight className="size-4" /></>}
           </Button>
         )}
       </div>
+      {duplicateWarning && (
+        <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="mt-0.5 size-4 shrink-0 text-amber-600" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                {duplicateWarning.isOwnBusiness ? "You already have this business" : "This Google location is already registered"}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {duplicateWarning.isOwnBusiness
+                  ? `You already have "${duplicateWarning.business.name}" with the same Google Place ID. Please use the existing business or change the Google listing.`
+                  : `"${duplicateWarning.business.name}" with this Google Place ID is already registered by another account. If this is your business on Google, connect your Google Business Profile in Settings to request ownership.`}
+              </p>
+              <div className="mt-3 flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => { setDuplicateWarning(null); setSelectedPlace(null); setGooglePlaceId(""); setGoogleUrl("")}}>
+                  Change Google listing
+                </Button>
+                {!duplicateWarning.isOwnBusiness && <Link href="/dashboard/settings"><Button variant="ghost" size="sm">Go to Settings</Button></Link>}
+                {duplicateWarning.isOwnBusiness && <Link href="/dashboard"><Button variant="ghost" size="sm">Go to dashboard</Button></Link>}
+                <button onClick={() => setDuplicateWarning(null)} className="ml-auto text-xs text-muted-foreground hover:text-foreground">Dismiss</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
