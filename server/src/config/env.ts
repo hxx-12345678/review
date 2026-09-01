@@ -107,5 +107,8 @@ export function getEnv(): Env {
   if (!env) {
     return loadEnv();
   }
+  if (process.env.NODE_ENV === "production" && env.DATABASE_URL && !/ap-south-1|central-india/i.test(env.DATABASE_URL)) {
+    console.error("FATAL: DATABASE_URL must be ap-south-1/central-india per RBI Apr-2018 localization");
+  }
   return env;
 }

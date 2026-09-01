@@ -78,6 +78,7 @@ const MODEL_ORDER = [
   'CrossPlatformMessage',
   'Subscription',
   'Invoice',
+  'AiVisibilityCheck',
 ];
 
 // ── Main ─────────────────────────────────────────────────────────────

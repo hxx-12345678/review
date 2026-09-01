@@ -220,6 +220,13 @@ export const api = {
         trend: { date: string; count: number; avgRating: number }[];
       }>(`/ai/insights/${businessId}${period ? `?period=${period}` : ""}`),
   },
+  aiVisibility: {
+    runCheck: (data: { businessId: string; city?: string; website?: string }) =>
+      request<{ check: any }>("/ai/visibility-check", { method: "POST", body: JSON.stringify(data) }),
+    list: (businessId: string) => request<{ checks: any[] }>(`/ai/visibility-check/${businessId}`),
+    share: (shareSlug: string) => fetch(`${API_URL}/ai/visibility-check/share/${shareSlug}`).then((r) => r.json() as Promise<{ check: any }>),
+    fix: (id: string, fixIndex: number) => request<{ check: any }>(`/ai/visibility-check/${id}/fix`, { method: "POST", body: JSON.stringify({ fixIndex }) }),
+  },
   nextAi: {
     generateReply: (data: { reviewText: string; rating: number; businessName: string; tone?: string }) =>
       fetch("/api/generate-reply", {

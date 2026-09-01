@@ -117,12 +117,13 @@ model Business {
   activityLogs    ActivityLog[]
   googleAccount   GoogleAccount?
   googleReviews   GoogleReview[]
-  whatsAppTemplates WhatsAppTemplate[]
-  whatsAppFlows    WhatsAppFlow[]
-  whatsAppFlowResponses WhatsAppFlowResponse[]
-  reviewTasks      ReviewTask[]
-  instagramMentions InstagramMention[]
-  crossPlatformMessages CrossPlatformMessage[]
+   whatsAppTemplates WhatsAppTemplate[]
+   whatsAppFlows    WhatsAppFlow[]
+   whatsAppFlowResponses WhatsAppFlowResponse[]
+   reviewTasks      ReviewTask[]
+   instagramMentions InstagramMention[]
+   crossPlatformMessages CrossPlatformMessage[]
+   aiVisibilityChecks AiVisibilityCheck[]
 }
 
 model QrCode {
@@ -331,6 +332,29 @@ model ActivityLog {
 
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+}
+
+model AiVisibilityCheck {
+  id                 String   @id @default(cuid())
+  businessId         String
+  shareSlug          String   @unique
+  status             String   @default("completed")
+  score              Int
+  subScores          Json
+  customerReputation Int
+  gap                Int
+  queries            Json
+  engineResults      Json
+  competitors        Json
+  customerTruth      Json
+  alignmentTable     Json
+  fixes              Json?
+  reportHtml         String?  @db.Text
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  business           Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  @@index([businessId, createdAt])
+  @@index([shareSlug])
 }
 
 // ---------------------------------------------------------------------------

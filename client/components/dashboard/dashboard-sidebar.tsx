@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, QrCode, Settings, ShieldCheck, ExternalLink, LogOut, CreditCard, BarChart3, MessageSquare, Inbox, ListChecks, AtSign, Globe, X, ChevronUp } from "lucide-react"
+import { LayoutDashboard, QrCode, Settings, ShieldCheck, ExternalLink, LogOut, CreditCard, BarChart3, MessageSquare, Inbox, ListChecks, AtSign, Globe, X, ChevronUp, Sparkles } from "lucide-react"
 import { Logo } from "@/components/logo"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -25,6 +25,7 @@ import { isV2Visible } from "@/lib/feature-flags"
 const NAV = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
   { href: "/dashboard/insights", label: "AI Insights", icon: BarChart3 },
+  { href: "/dashboard/reputation", label: "AI Reputation", icon: Sparkles },
   { href: "/dashboard/qr", label: "QR & links", icon: QrCode },
   { href: "/dashboard/billing", label: "Plan", icon: CreditCard },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
