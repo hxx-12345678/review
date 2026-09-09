@@ -11,7 +11,7 @@ import {
   insightsLimiter,
   aiDailyLimiter,
 } from "../middleware/rate-limit";
-import { deriveTalkingPoints, buildFallbackReply, buildFallbackReview, generateInsights, generateWithFailover, extractTalkingPoints } from "../utils/gemini";
+import { deriveTalkingPoints, buildFallbackReply, buildFallbackReview, generateInsights, generateWithFailover, extractTalkingPoints, estimateCostUsd } from "../utils/gemini";
 import type { ReviewInput } from "../utils/gemini";
 
 const router = Router();
@@ -55,6 +55,8 @@ router.post("/generate-reply", authRequired, requireSubscription, aiBurstLimiter
 
     let reply = "";
     let aiProvider: string = "gemini";
+    let replyUsage: { inputTokens: number; outputTokens: number } | undefined;
+    let replyCost = 0;
     try {
       const toneGuide = data.tone === "friendly"
         ? "Warm, conversational, and personal — like a grateful business owner writing to a valued customer."
@@ -94,6 +96,8 @@ Write a personal, specific reply from the business owner that references at leas
       const generated = await generateWithFailover(prompt, systemInstruction);
       reply = generated.text.trim();
       aiProvider = generated.provider;
+      replyUsage = generated.usage;
+      replyCost = estimateCostUsd(generated.provider, generated.usage);
     } catch (err) {
       console.warn("AI reply generation failed on all providers, falling back to deterministic template:", err);
       reply = buildFallbackReply(feedback.rating, feedback.liked, feedback.improvement, data.tone);
@@ -117,13 +121,13 @@ Write a personal, specific reply from the business owner that references at leas
         userId: req.userId!,
         businessId: data.businessId,
         action: "reply_generated",
-        details: { feedbackId: data.feedbackId, tone: data.tone, provider: aiProvider },
+        details: { feedbackId: data.feedbackId, tone: data.tone, provider: aiProvider, usage: replyUsage ? { inputTokens: replyUsage.inputTokens, outputTokens: replyUsage.outputTokens } : null, costUsd: replyCost },
       },
     });
 
     await consumeCredits(req, 1);
 
-    res.json({ reply: generatedReply, provider: aiProvider });
+    res.json({ reply: generatedReply, provider: aiProvider, usage: replyUsage ?? null, costUsd: replyCost });
   } catch (err) {
     if (err instanceof z.ZodError) {
       return res.status(400).json({ error: "Invalid input", details: err.errors });
@@ -212,6 +216,7 @@ Produce 2-5 short reminder bullets grounded strictly in what the customer wrote 
 
     let talkingPoints: string[] = [];
     let tpProvider = "gemini";
+    let tpUsage: { inputTokens: number; outputTokens: number } | undefined;
     try {
       const generated = await generateWithFailover(prompt, SYSTEM_PROMPT, {
         responseMimeType: "application/json",
@@ -227,6 +232,7 @@ Produce 2-5 short reminder bullets grounded strictly in what the customer wrote 
         },
       });
       tpProvider = generated.provider;
+      tpUsage = generated.usage;
 
       const parsed = JSON.parse(generated.text);
       talkingPoints = extractTalkingPoints(parsed);
@@ -252,7 +258,7 @@ Produce 2-5 short reminder bullets grounded strictly in what the customer wrote 
       if (firstKey) resultCache.delete(firstKey);
     }
 
-    res.json({ talkingPoints, provider: tpProvider });
+    res.json({ talkingPoints, provider: tpProvider, usage: tpUsage ?? null, costUsd: estimateCostUsd(tpProvider.startsWith("openrouter") ? "openrouter" : "gemini", tpUsage) });
   } catch (err) {
     if (err instanceof z.ZodError) {
       return res.status(400).json({ error: "Invalid input", details: err.errors });
@@ -348,10 +354,12 @@ Write a short, natural, authentic-sounding review draft (2-5 sentences) in the e
 
     let review = "";
     let reviewProvider = "gemini";
+    let reviewUsage: { inputTokens: number; outputTokens: number } | undefined;
     try {
       const generated = await generateWithFailover(prompt, SYSTEM_PROMPT);
       review = generated.text.trim().replace(/^["']|["']$/g, "");
       reviewProvider = generated.provider;
+      reviewUsage = generated.usage;
     } catch (err) {
       console.warn("AI review generation failed on all providers, falling back to deterministic builder:", err);
       review = buildFallbackReview({ highlights, businessName, rating, talkingPoints, selectedTopics, language });
@@ -365,7 +373,7 @@ Write a short, natural, authentic-sounding review draft (2-5 sentences) in the e
       if (firstKey) reviewResultCache.delete(firstKey);
     }
 
-    res.json({ review, provider: reviewProvider });
+    res.json({ review, provider: reviewProvider, usage: reviewUsage ?? null, costUsd: estimateCostUsd(reviewProvider === "openrouter" ? "openrouter" : "gemini", reviewUsage) });
   } catch (err) {
     if (err instanceof z.ZodError) {
       return res.status(400).json({ error: "Invalid input", details: err.errors });
@@ -470,9 +478,11 @@ router.get("/insights/:businessId", authRequired, requireSubscription, aiBurstLi
     const reviews = mapReviews(googleReviews, feedbackReviews);
     const previousReviews = mapReviews(prevGoogleReviews, prevFeedbackReviews);
 
-    const result = await generateInsights(reviews, business.name, previousReviews, trendDays);
+    const { data: result, provider, usage } = await generateInsights(reviews, business.name, previousReviews, trendDays);
+    const costUsd = estimateCostUsd(provider === "fallback" ? "gemini" : (provider as "gemini" | "openrouter"), usage);
 
-    insightsCache.set(cacheKey, { result, expiresAt: Date.now() + INSIGHTS_CACHE_TTL });
+    const response = { ...result, provider, usage, costUsd };
+    insightsCache.set(cacheKey, { result: response, expiresAt: Date.now() + INSIGHTS_CACHE_TTL });
     if (insightsCache.size > 500) {
       const firstKey = insightsCache.keys().next().value;
       if (firstKey) insightsCache.delete(firstKey);
@@ -485,11 +495,11 @@ router.get("/insights/:businessId", authRequired, requireSubscription, aiBurstLi
         userId,
         businessId,
         action: "insights_generated",
-        details: { reviewCount: reviews.length, period },
+        details: { reviewCount: reviews.length, period, provider, usage: usage ? { inputTokens: usage.inputTokens, outputTokens: usage.outputTokens } : null, costUsd },
       },
     });
 
-    res.json(result);
+    res.json(response);
   } catch (err) {
     console.error("Insights API error:", err);
     res.status(500).json({ error: "Internal server error" });

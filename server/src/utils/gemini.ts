@@ -435,12 +435,12 @@ export async function generateInsights(
   businessName: string,
   previousReviews?: ReviewInput[],
   trendDays: number = 30
-): Promise<InsightsResult> {
+): Promise<{ data: InsightsResult; provider: string; usage?: TokenUsage }> {
   const env = getEnv();
   const apiKey = env.GOOGLE_GENERATIVE_AI_API_KEY;
 
   if (!apiKey || reviews.length === 0) {
-    return buildFallbackInsights(reviews, businessName, previousReviews, trendDays);
+    return { data: buildFallbackInsights(reviews, businessName, previousReviews, trendDays), provider: "fallback" };
   }
 
   const reviewsJson = JSON.stringify(reviews.slice(0, 20));
@@ -506,15 +506,19 @@ Output ONLY valid JSON — no markdown, no backticks, no labels, no prefixes, no
     const fallback = buildFallbackInsights(reviews, businessName, previousReviews, trendDays);
 
     return {
-      summary: parsed.summary || fallback.summary,
-      metrics: fallback.metrics,
-      topPraises: (parsed.topPraises || praises).slice(0, 4),
-      topComplaints: (parsed.topComplaints || complaints).slice(0, 4),
-      trend: computeTrend(reviews, trendDays),
+      data: {
+        summary: parsed.summary || fallback.summary,
+        metrics: fallback.metrics,
+        topPraises: (parsed.topPraises || praises).slice(0, 4),
+        topComplaints: (parsed.topComplaints || complaints).slice(0, 4),
+        trend: computeTrend(reviews, trendDays),
+      },
+      provider: generated.provider,
+      usage: generated.usage,
     };
   } catch (err) {
     console.warn("AI insights generation failed on all providers, falling back to deterministic analysis:", err);
-    return buildFallbackInsights(reviews, businessName, previousReviews, trendDays);
+    return { data: buildFallbackInsights(reviews, businessName, previousReviews, trendDays), provider: "fallback" };
   }
 }
 
@@ -522,7 +526,7 @@ export async function callGemini(
   prompt: string,
   systemInstruction?: string,
   config?: GeminiConfig
-): Promise<string> {
+): Promise<{ text: string; usage?: TokenUsage }> {
   const env = getEnv();
   const apiKey = env.GOOGLE_GENERATIVE_AI_API_KEY;
 
@@ -584,7 +588,13 @@ export async function callGemini(
     throw new Error("Empty response from Gemini API");
   }
 
-  return text;
+  const um = data.usageMetadata as any;
+  const usage: TokenUsage | undefined =
+    um && (um.promptTokenCount != null || um.candidatesTokenCount != null)
+      ? { inputTokens: Number(um.promptTokenCount || 0), outputTokens: Number(um.candidatesTokenCount || 0) }
+      : undefined;
+
+  return { text, usage };
 }
 
 // ── OpenRouter failover (secondary provider) ────────────────────────────────
@@ -647,6 +657,25 @@ export function extractTalkingPoints(parsed: any): string[] {
 // Reasoning models deliberately avoided (latency + cost on short tasks).
 export type AiProvider = "gemini" | "openrouter";
 
+export interface TokenUsage {
+  inputTokens: number;
+  outputTokens: number;
+}
+
+// Published per-1M-token rates used ONLY for internal cost telemetry (not billing).
+// deepseek-chat via OpenRouter (~$0.27 in / $0.41 out); gemini-2.5-flash paid tier
+// ($0.15 in / $0.60 out text; output rate is an estimate — verify on dashboards).
+const COST_PER_M: Record<string, { in: number; out: number }> = {
+  openrouter: { in: 0.27, out: 0.41 },
+  gemini: { in: 0.15, out: 0.6 },
+};
+
+export function estimateCostUsd(provider: AiProvider, usage?: TokenUsage): number {
+  if (!usage) return 0;
+  const r = COST_PER_M[provider];
+  return Math.round(((usage.inputTokens / 1e6) * r.in + (usage.outputTokens / 1e6) * r.out) * 1e6) / 1e6;
+}
+
 export function isQuotaError(err: any): boolean {
   const msg = `${err?.message ?? err}`.toLowerCase();
   return (
@@ -659,7 +688,7 @@ export async function callOpenRouter(
   prompt: string,
   systemInstruction?: string,
   config?: GeminiConfig
-): Promise<string> {
+): Promise<{ text: string; usage?: TokenUsage }> {
   const cfg = getOpenRouterConfig();
   if (!cfg.apiKey) {
     throw new Error("OPENROUTER_API_KEY is not defined in server environment (paste it in server/.env, no restart needed)");
@@ -702,7 +731,12 @@ export async function callOpenRouter(
   if (!text) throw new Error("Empty response from OpenRouter API");
   // Strip code fences some models wrap JSON in
   text = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
-  return text;
+  const u = data.usage as any;
+  const usage: TokenUsage | undefined =
+    u && (u.prompt_tokens != null || u.completion_tokens != null)
+      ? { inputTokens: Number(u.prompt_tokens || 0), outputTokens: Number(u.completion_tokens || 0) }
+      : undefined;
+  return { text, usage };
 }
 
 // Failover chain: Gemini → OpenRouter → throw (callers use deterministic offline builders).
@@ -711,14 +745,15 @@ export async function generateWithFailover(
   prompt: string,
   systemInstruction?: string,
   config?: GeminiConfig
-): Promise<{ text: string; provider: AiProvider }> {
+): Promise<{ text: string; provider: AiProvider; usage?: TokenUsage }> {
   try {
-    return { text: await callGemini(prompt, systemInstruction, config), provider: "gemini" };
+    const g = await callGemini(prompt, systemInstruction, config);
+    return { text: g.text, provider: "gemini", usage: g.usage };
   } catch (geminiErr: any) {
     const cfg = getOpenRouterConfig();
     if (!cfg.apiKey) throw geminiErr;
     console.warn(`Gemini failed (${geminiErr?.message?.slice(0, 120)}), failing over to OpenRouter ${cfg.model}`);
-    const text = await callOpenRouter(prompt, systemInstruction, config);
-    return { text, provider: "openrouter" };
+    const o = await callOpenRouter(prompt, systemInstruction, config);
+    return { text: o.text, provider: "openrouter", usage: o.usage };
   }
 }
