@@ -57,6 +57,8 @@ export function buildFallbackReview(opts: {
   // Offline fallback must still respect the customer's chosen language/script.
   // Minimal native templates: their own words + a short neutral frame. No generic marketing phrases.
   const frames: Record<string, { open: (n: string) => string; closePos: string; closeNeu: string; closeNeg: string; mixed: string; hope: string }> = {
+    hinglish: { open: (n) => `${n} mein mera experience aisa raha.`, closePos: "Overall kaafi santusht hoon.", closeNeu: "Theek-thaak raha, thoda aur behtar ho sakta tha.", closeNeg: "Umeed se kam raha, sudhaar ki zaroorat hai.", mixed: "Kuch achha, kuch theek nahi — imaandaari se bata raha hoon.", hope: "Umeed hai yeh kisi ke kaam aaye." },
+    gujlish: { open: (n) => `${n} ma maro experience aavo rahyo.`, closePos: "Overall ghano santusht chhu.", closeNeu: "Theek hatu, thodu saaru thai shakat.", closeNeg: "Apeksha karta ochhu rahyu, sudharo jaruri chhe.", mixed: "Kaink saaru, kaink theek nahi — pramanikpane kahu chhu.", hope: "Koi ne kaam aave evi aasha." },
     hindi: { open: (n) => `${n} में मेरा अनुभव ऐसा रहा।`, closePos: "कुल मिलाकर संतुष्ट हूँ।", closeNeu: "ठीक-ठाक रहा, कुछ बेहतर हो सकता था।", closeNeg: "उम्मीद से कम रहा, सुधार की ज़रूरत है।", mixed: "कुछ अच्छा, कुछ ठीक नहीं — ईमानदारी से बता रहा हूँ।", hope: "उम्मीद है यह किसी के काम आए।" },
     marathi: { open: (n) => `${n} मधला माझा अनुभव असा होता।`, closePos: "एकूण समाधानी आहे।", closeNeu: "ठीक होता, काही सुधारणा होऊ शकते।", closeNeg: "अपेक्षेपेक्षा कमी पडलं, सुधारणा हवी।", mixed: "काही चांगलं, काही ठीक नाही — प्रामाणिकपणे सांगतोय।", hope: "कुणाला तरी उपयोगी पडेल अशी आशा।" },
     gujarati: { open: (n) => `${n} માં મારો અનુભવ આવો રહ્યો।`, closePos: "એકંદરે સંતુષ્ટ છું।", closeNeu: "ઠીક હતું, થોડું સારું થઈ શકત।", closeNeg: "અપેક્ષા કરતાં ઓછું રહ્યું, સુધારો જરૂરી છે।", mixed: "કંઈક સારું, કંઈક ઠીક નહીં — પ્રામાણિકપણે કહું છું।", hope: "કોઈને કામ આવે એવી આશા।" },
@@ -586,10 +588,63 @@ export async function callGemini(
 }
 
 // ── OpenRouter failover (secondary provider) ────────────────────────────────
+// OpenRouter json_object mode does NOT enforce key names (unlike Gemini's
+// responseSchema): models have returned {"response": "• ..."}, {"bullets": [...]},
+// even digit strings. Accept all known shapes incl. bullet-separated strings;
+// never silently []. Items are cleaned of bullet markers.
+export function extractTalkingPoints(parsed: any): string[] {
+  const cleanItems = (arr: any[]): string[] =>
+    arr
+      .filter((x) => typeof x === "string")
+      .map((s: string) => s.replace(/^[\s•\-\*▪︎◦>]+/, "").replace(/^\d+[.)]\s*/, "").trim())
+      .filter(Boolean)
+      .slice(0, 5);
+  const splitBullets = (s: string): string[] =>
+    cleanItems(s.split(/\r?\n|(?<=.)(?=•)/).flatMap((line) => line.split(/•/)));
+  if (typeof parsed === "string") {
+    const viaSplit = splitBullets(parsed);
+    return viaSplit.length > 0 ? viaSplit : [];
+  }
+  if (!parsed || typeof parsed !== "object") return [];
+  if (Array.isArray(parsed)) {
+    const items = cleanItems(parsed);
+    if (items.length > 0) return items;
+  }
+  const candidates = [
+    parsed.talkingPoints,
+    parsed.bullets,
+    parsed.reminders,
+    parsed.reminder_bullets,
+    parsed.reminders_list,
+    parsed.key_points,
+    parsed.summary_points,
+    parsed.points,
+    parsed.items,
+    parsed.talking_points,
+    parsed.response,
+    parsed.text,
+    parsed.content,
+    parsed.result,
+    parsed.draft,
+  ];
+  for (const c of candidates) {
+    if (Array.isArray(c)) {
+      const items = cleanItems(c);
+      if (items.length > 0) return items;
+    } else if (typeof c === "string" && c.trim()) {
+      const viaSplit = splitBullets(c);
+      if (viaSplit.length > 0) return viaSplit;
+      return [c.trim().slice(0, 140)];
+    }
+  }
+  return [];
+}
+// ── OpenRouter failover (secondary provider) ────────────────────────────────
 // OpenAI-compatible chat API: https://openrouter.ai/api/v1/chat/completions
-// Default model qwen/qwen3-30b-a3b (~$0.13 in/$0.52 out per 1M, 131K ctx, JSON mode,
-// strong multilingual). Short tasks cost ~$0.0001/request — no quality loss vs Gemini
-// for talking-points/drafts/replies; heavy reasoning models deliberately avoided.
+// Default deepseek/deepseek-chat (~$0.27 in/$0.41 out per 1M ≈ $0.0002/draft):
+// live-tested Sep 2026 for Hinglish drafts + JSON talking-points. Qwen3-30b
+// rejected as default (unreliable JSON, ignores language instruction).
+// Reasoning models deliberately avoided (latency + cost on short tasks).
 export type AiProvider = "gemini" | "openrouter";
 
 export function isQuotaError(err: any): boolean {

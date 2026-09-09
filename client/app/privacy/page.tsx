@@ -135,9 +135,9 @@ export default function PrivacyPage() {
               or connect Google Business Profile (subject to Google&apos;s own terms and privacy policy)
             </li>
             <li>
-              <strong>AI providers (Google Gemini, with OpenRouter-routed Qwen failover)</strong> — customer feedback text you choose to process with AI features
+              <strong>AI providers (Google Gemini, with OpenRouter-routed DeepSeek failover)</strong> — customer feedback text you choose to process with AI features
               is transmitted for inference only to generate talking points, drafts, replies and insights. Primary inference is Google Gemini;
-              if it is rate-limited or unreachable, requests fail over to Qwen (qwen/qwen3-30b-a3b) via OpenRouter — inference only in both cases.
+              if it is rate-limited or unreachable, requests fail over to DeepSeek via OpenRouter — inference only in both cases.
               We do not authorize use of your data to train models. See Terms §9 for details, retention, and your deletion rights.
             </li>
             <li>

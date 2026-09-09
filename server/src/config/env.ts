@@ -22,11 +22,16 @@ const envSchema = z.object({
   GEMINI_API_KEY_1: z.string().optional().default(""),
   GOOGLE_GENERATIVE_AI_API_KEY: z.string().optional().default(""),
   // OpenRouter failover (secondary AI provider when Gemini is rate-limited/down).
-  // Default model chosen Sep 2026 after cost/quality research: qwen/qwen3-30b-a3b
-  // (~$0.13 in / $0.52 out per 1M tokens, 131K context, JSON mode, strong multilingual incl. Hindi).
-  // Free ":free" variants exist but are rate-capped (20/min, ~50-200/day) and less reliable — paid cheap model is the default.
+  // Default model chosen Sep 2026 after live quality testing (Hinglish drafts,
+  // JSON talking-points, key-shape tolerance): deepseek/deepseek-chat
+  // (~$0.27 in / $0.41 out per 1M tokens, ≈ $0.0002 per draft).
+  // qwen/qwen3-30b-a3b was tested and REJECTED as default: unreliable JSON
+  // (empty arrays, error strings), ignores Hinglish instruction, uses
+  // blocklisted generic phrases. Usable only as a budget tertiary option.
+  // Free ":free" variants exist but are rate-capped (20/min, ~50-200/day) and
+  // less reliable — paid cheap model is the default.
   OPENROUTER_API_KEY: z.string().optional().default(""),
-  OPENROUTER_MODEL: z.string().default("qwen/qwen3-30b-a3b"),
+  OPENROUTER_MODEL: z.string().default("deepseek/deepseek-chat"),
   OPENROUTER_BASE_URL: z.string().default("https://openrouter.ai/api/v1"),
   OPENROUTER_TIMEOUT_MS: z.coerce.number().default(20000),
   OPENROUTER_APP_URL: z.string().default("https://beyondvyu.com"),

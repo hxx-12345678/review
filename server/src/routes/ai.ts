@@ -11,7 +11,7 @@ import {
   insightsLimiter,
   aiDailyLimiter,
 } from "../middleware/rate-limit";
-import { deriveTalkingPoints, buildFallbackReply, buildFallbackReview, generateInsights, generateWithFailover } from "../utils/gemini";
+import { deriveTalkingPoints, buildFallbackReply, buildFallbackReview, generateInsights, generateWithFailover, extractTalkingPoints } from "../utils/gemini";
 import type { ReviewInput } from "../utils/gemini";
 
 const router = Router();
@@ -208,7 +208,7 @@ Customer's notes about their visit: "${highlights}"${topicsLine}${bizTopicsLine}
 MANDATORY OUTPUT LANGUAGE (apply to every word of every bullet — this overrides everything):
 ${languageInstruction}
 
-Produce 2-5 short reminder bullets grounded strictly in what the customer wrote above. If the customer notes above are non-empty, return at least 2 bullets — never an empty list. Every single word must be in the language stated in the MANDATORY OUTPUT LANGUAGE section.`;
+Produce 2-5 short reminder bullets grounded strictly in what the customer wrote above. If the customer notes above are non-empty, return at least 2 bullets — never an empty list. Respond with this exact JSON shape: {"talkingPoints": ["first reminder", "second reminder"]}. Every single word must be in the language stated in the MANDATORY OUTPUT LANGUAGE section.`;
 
     let talkingPoints: string[] = [];
     let tpProvider = "gemini";
@@ -229,7 +229,10 @@ Produce 2-5 short reminder bullets grounded strictly in what the customer wrote 
       tpProvider = generated.provider;
 
       const parsed = JSON.parse(generated.text);
-      talkingPoints = parsed.talkingPoints || [];
+      talkingPoints = extractTalkingPoints(parsed);
+      if (talkingPoints.length === 0) {
+        console.warn(`AI talking points: unrecognized JSON shape from ${tpProvider}: ${generated.text.slice(0, 200)}`);
+      }
     } catch (err) {
       console.warn("AI talking points generation failed on all providers, falling back to deterministic parser:", err);
       talkingPoints = deriveTalkingPoints(highlights, selectedTopics);

@@ -173,13 +173,13 @@ export default function TermsPage() {
           <p>
             The Service includes AI-powered features such as talking point generation, review draft creation,
             owner-reply drafting, and insights. Primary inference is Google Gemini with automatic failover to
-            Qwen (qwen/qwen3-30b-a3b) via OpenRouter when Gemini is rate-limited or unreachable; offline deterministic
+            DeepSeek (deepseek/deepseek-chat) via OpenRouter when Gemini is rate-limited or unreachable; offline deterministic
             fallbacks apply when both are unreachable (drafts then follow your selected language from built-in templates).
           </p>
           <ul className="list-disc space-y-2 pl-6">
             <li>AI-generated content is provided as a suggestion only, in your selected language (or the script you typed, if you accept the switch suggestion)</li>
             <li>You and your customers are solely responsible for reviewing, editing, and approving any content before posting</li>
-            <li>Relevant feedback text you submit to AI features is transmitted to Google (primary) or, on failover, to Qwen via OpenRouter for inference only; we do not authorize training use. Deletion requests are propagated per processor terms.</li>
+            <li>Relevant feedback text you submit to AI features is transmitted to Google (primary) or, on failover, to DeepSeek via OpenRouter for inference only; we do not authorize training use. Deletion requests are propagated per processor terms.</li>
             <li>Keyword-based fallback analytics work best in English/Hinglish; native-script coverage improves as volume grows</li>
             <li>We make no warranty as to the accuracy, appropriateness, or completeness of AI-generated content</li>
             <li>The AI never posts content to Google or any third-party platform on behalf of any user</li>
