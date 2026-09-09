@@ -1,4 +1,4 @@
-import { getEnv } from "../config/env";
+import { getEnv, getOpenRouterConfig } from "../config/env";
 
 function detectSentimentConflict(highlights?: string, selectedTopics?: string[]): "aligned" | "mixed" {
   if (!highlights || highlights.trim().length < 3) return "aligned";
@@ -464,7 +464,7 @@ Return a JSON object with these exact fields:
 Output ONLY valid JSON — no markdown, no backticks, no labels, no prefixes, no extra text.`;
 
   try {
-    const text = await callGemini(prompt, systemInstruction, {
+    const generated = await generateWithFailover(prompt, systemInstruction, {
       responseMimeType: "application/json",
       responseSchema: {
         type: "OBJECT",
@@ -496,6 +496,7 @@ Output ONLY valid JSON — no markdown, no backticks, no labels, no prefixes, no
         required: ["summary", "topPraises", "topComplaints"],
       },
     });
+    const text = generated.text;
 
     const parsed = JSON.parse(text);
     const { praises, complaints } = extractCommonPhrases(reviews, 4, 2);
@@ -510,7 +511,7 @@ Output ONLY valid JSON — no markdown, no backticks, no labels, no prefixes, no
       trend: computeTrend(reviews, trendDays),
     };
   } catch (err) {
-    console.warn("Gemini insights generation failed, falling back to deterministic analysis:", err);
+    console.warn("AI insights generation failed on all providers, falling back to deterministic analysis:", err);
     return buildFallbackInsights(reviews, businessName, previousReviews, trendDays);
   }
 }
@@ -582,4 +583,87 @@ export async function callGemini(
   }
 
   return text;
+}
+
+// ── OpenRouter failover (secondary provider) ────────────────────────────────
+// OpenAI-compatible chat API: https://openrouter.ai/api/v1/chat/completions
+// Default model qwen/qwen3-30b-a3b (~$0.13 in/$0.52 out per 1M, 131K ctx, JSON mode,
+// strong multilingual). Short tasks cost ~$0.0001/request — no quality loss vs Gemini
+// for talking-points/drafts/replies; heavy reasoning models deliberately avoided.
+export type AiProvider = "gemini" | "openrouter";
+
+export function isQuotaError(err: any): boolean {
+  const msg = `${err?.message ?? err}`.toLowerCase();
+  return (
+    err?.status === 429 ||
+    /429|rate.?limit|quota|quota.?exceeded|resource.?exhausted|overloaded|too many requests|insufficient.?credits|402/.test(msg)
+  );
+}
+
+export async function callOpenRouter(
+  prompt: string,
+  systemInstruction?: string,
+  config?: GeminiConfig
+): Promise<string> {
+  const cfg = getOpenRouterConfig();
+  if (!cfg.apiKey) {
+    throw new Error("OPENROUTER_API_KEY is not defined in server environment (paste it in server/.env, no restart needed)");
+  }
+  const messages: any[] = [];
+  if (systemInstruction) messages.push({ role: "system", content: systemInstruction });
+  messages.push({ role: "user", content: prompt });
+
+  const body: any = {
+    model: cfg.model,
+    messages,
+    temperature: 0.7,
+    max_tokens: 600,
+  };
+  if (config?.responseMimeType === "application/json") {
+    body.response_format = { type: "json_object" };
+  }
+
+  const res = await fetch(`${cfg.baseUrl}/chat/completions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${cfg.apiKey}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": cfg.appUrl,
+      "X-Title": cfg.appName,
+    },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(cfg.timeoutMs),
+  });
+
+  if (!res.ok) {
+    const errorBody = await res.text();
+    const err: any = new Error(`OpenRouter API call failed with status ${res.status}: ${errorBody}`);
+    err.status = res.status;
+    throw err;
+  }
+
+  const data: any = await res.json();
+  let text: string | undefined = data.choices?.[0]?.message?.content;
+  if (!text) throw new Error("Empty response from OpenRouter API");
+  // Strip code fences some models wrap JSON in
+  text = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+  return text;
+}
+
+// Failover chain: Gemini → OpenRouter → throw (callers use deterministic offline builders).
+// Returns which provider succeeded so routes can report cost/quality telemetry.
+export async function generateWithFailover(
+  prompt: string,
+  systemInstruction?: string,
+  config?: GeminiConfig
+): Promise<{ text: string; provider: AiProvider }> {
+  try {
+    return { text: await callGemini(prompt, systemInstruction, config), provider: "gemini" };
+  } catch (geminiErr: any) {
+    const cfg = getOpenRouterConfig();
+    if (!cfg.apiKey) throw geminiErr;
+    console.warn(`Gemini failed (${geminiErr?.message?.slice(0, 120)}), failing over to OpenRouter ${cfg.model}`);
+    const text = await callOpenRouter(prompt, systemInstruction, config);
+    return { text, provider: "openrouter" };
+  }
 }

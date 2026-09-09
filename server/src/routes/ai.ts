@@ -11,7 +11,7 @@ import {
   insightsLimiter,
   aiDailyLimiter,
 } from "../middleware/rate-limit";
-import { callGemini, deriveTalkingPoints, buildFallbackReply, buildFallbackReview, generateInsights } from "../utils/gemini";
+import { deriveTalkingPoints, buildFallbackReply, buildFallbackReview, generateInsights, generateWithFailover } from "../utils/gemini";
 import type { ReviewInput } from "../utils/gemini";
 
 const router = Router();
@@ -54,6 +54,7 @@ router.post("/generate-reply", authRequired, requireSubscription, aiBurstLimiter
     }
 
     let reply = "";
+    let aiProvider: string = "gemini";
     try {
       const toneGuide = data.tone === "friendly"
         ? "Warm, conversational, and personal — like a grateful business owner writing to a valued customer."
@@ -90,11 +91,13 @@ DETECT the language of the customer's text above and write your ENTIRE reply in 
 
 Write a personal, specific reply from the business owner that references at least one specific detail from the customer's feedback. Sound like a real person, not a template.`;
 
-      reply = await callGemini(prompt, systemInstruction);
-      reply = reply.trim();
+      const generated = await generateWithFailover(prompt, systemInstruction);
+      reply = generated.text.trim();
+      aiProvider = generated.provider;
     } catch (err) {
-      console.warn("Gemini reply generation failed, falling back to deterministic template:", err);
+      console.warn("AI reply generation failed on all providers, falling back to deterministic template:", err);
       reply = buildFallbackReply(feedback.rating, feedback.liked, feedback.improvement, data.tone);
+      aiProvider = "fallback";
     }
 
     const generatedReply = await prisma.generatedReply.upsert({
@@ -114,13 +117,13 @@ Write a personal, specific reply from the business owner that references at leas
         userId: req.userId!,
         businessId: data.businessId,
         action: "reply_generated",
-        details: { feedbackId: data.feedbackId, tone: data.tone },
+        details: { feedbackId: data.feedbackId, tone: data.tone, provider: aiProvider },
       },
     });
 
     await consumeCredits(req, 1);
 
-    res.json({ reply: generatedReply });
+    res.json({ reply: generatedReply, provider: aiProvider });
   } catch (err) {
     if (err instanceof z.ZodError) {
       return res.status(400).json({ error: "Invalid input", details: err.errors });
@@ -205,11 +208,12 @@ Customer's notes about their visit: "${highlights}"${topicsLine}${bizTopicsLine}
 MANDATORY OUTPUT LANGUAGE (apply to every word of every bullet — this overrides everything):
 ${languageInstruction}
 
-Produce 2-5 short reminder bullets grounded strictly in what the customer wrote above. Every single word must be in the language stated in the MANDATORY OUTPUT LANGUAGE section.`;
+Produce 2-5 short reminder bullets grounded strictly in what the customer wrote above. If the customer notes above are non-empty, return at least 2 bullets — never an empty list. Every single word must be in the language stated in the MANDATORY OUTPUT LANGUAGE section.`;
 
     let talkingPoints: string[] = [];
+    let tpProvider = "gemini";
     try {
-      const responseText = await callGemini(prompt, SYSTEM_PROMPT, {
+      const generated = await generateWithFailover(prompt, SYSTEM_PROMPT, {
         responseMimeType: "application/json",
         responseSchema: {
           type: "OBJECT",
@@ -222,12 +226,20 @@ Produce 2-5 short reminder bullets grounded strictly in what the customer wrote 
           required: ["talkingPoints"],
         },
       });
+      tpProvider = generated.provider;
 
-      const parsed = JSON.parse(responseText);
+      const parsed = JSON.parse(generated.text);
       talkingPoints = parsed.talkingPoints || [];
     } catch (err) {
-      console.warn("Gemini talking points generation failed, falling back to deterministic parser:", err);
+      console.warn("AI talking points generation failed on all providers, falling back to deterministic parser:", err);
       talkingPoints = deriveTalkingPoints(highlights, selectedTopics);
+      tpProvider = "fallback";
+    }
+    // Empty AI output for non-empty input is a quality miss, not a valid answer:
+    // fill deterministically from the customer's own words (never fabricate).
+    if (talkingPoints.length === 0 && (highlights.trim().length >= 3 || selectedTopics.length > 0)) {
+      talkingPoints = deriveTalkingPoints(highlights, selectedTopics);
+      tpProvider = tpProvider === "fallback" ? "fallback" : `${tpProvider}+local-fill`;
     }
 
     // Cache result for 60 seconds
@@ -237,7 +249,7 @@ Produce 2-5 short reminder bullets grounded strictly in what the customer wrote 
       if (firstKey) resultCache.delete(firstKey);
     }
 
-    res.json({ talkingPoints });
+    res.json({ talkingPoints, provider: tpProvider });
   } catch (err) {
     if (err instanceof z.ZodError) {
       return res.status(400).json({ error: "Invalid input", details: err.errors });
@@ -332,12 +344,15 @@ ${languageInstruction}
 Write a short, natural, authentic-sounding review draft (2-5 sentences) in the exact language specified above. Make it sound like a real customer sharing their genuine experience — casual, specific, and unique. Vary the opening — NEVER start with "I recently visited" or "I recently went to". Every generation should sound different.`;
 
     let review = "";
+    let reviewProvider = "gemini";
     try {
-      review = await callGemini(prompt, SYSTEM_PROMPT);
-      review = review.trim().replace(/^["']|["']$/g, "");
+      const generated = await generateWithFailover(prompt, SYSTEM_PROMPT);
+      review = generated.text.trim().replace(/^["']|["']$/g, "");
+      reviewProvider = generated.provider;
     } catch (err) {
-      console.warn("Gemini review generation failed, falling back to deterministic builder:", err);
-      review = buildFallbackReview({ highlights, businessName, rating, talkingPoints, selectedTopics });
+      console.warn("AI review generation failed on all providers, falling back to deterministic builder:", err);
+      review = buildFallbackReview({ highlights, businessName, rating, talkingPoints, selectedTopics, language });
+      reviewProvider = "fallback";
     }
 
     // Cache result for 300 seconds (5 min) — same input = same review
@@ -347,7 +362,7 @@ Write a short, natural, authentic-sounding review draft (2-5 sentences) in the e
       if (firstKey) reviewResultCache.delete(firstKey);
     }
 
-    res.json({ review });
+    res.json({ review, provider: reviewProvider });
   } catch (err) {
     if (err instanceof z.ZodError) {
       return res.status(400).json({ error: "Invalid input", details: err.errors });

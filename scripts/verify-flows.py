@@ -1,4 +1,4 @@
-import json, sys, urllib.request
+import json, sys, time, urllib.request, urllib.error
 
 BASE = "http://localhost:4000/api"
 EMAIL = "cptjacksprw@gmail.com"
@@ -7,24 +7,28 @@ results = []
 
 def call(method, path, body=None, token=None):
     data = json.dumps(body).encode() if body is not None else None
-    req = urllib.request.Request(BASE + path, data=data, method=method,
-        headers={"Content-Type": "application/json", **({"Authorization": f"Bearer {token}"} if token else {})})
-    try:
-        with urllib.request.urlopen(req, timeout=25) as r:
-            return r.status, json.loads(r.read().decode() or "{}")
-    except urllib.error.HTTPError as e:
+    for attempt in range(2):
+        req = urllib.request.Request(BASE + path, data=data, method=method,
+            headers={"Content-Type": "application/json", **({"Authorization": f"Bearer {token}"} if token else {})})
         try:
-            return e.code, json.loads(e.read().decode() or "{}")
-        except Exception:
-            return e.code, {}
-    except Exception as e:
-        return -1, {"error": str(e)}
+            with urllib.request.urlopen(req, timeout=25) as r:
+                return r.status, json.loads(r.read().decode() or "{}")
+        except urllib.error.HTTPError as e:
+            try:
+                payload = json.loads(e.read().decode() or "{}")
+            except Exception:
+                payload = {}
+            if e.code == 429 and attempt == 0:
+                time.sleep(12)
+                continue
+            return e.code, payload
+        except Exception as e:
+            return -1, {"error": str(e)}
+    return -1, {"error": "retries exhausted"}
 
 def check(name, cond, detail=""):
     results.append((name, bool(cond), detail))
     print(f"[{'PASS' if cond else 'FAIL'}] {name} {detail}")
-
-import urllib.error
 
 # 1. login
 s, b = call("POST", "/auth/login", {"email": EMAIL, "password": PASSWORD})

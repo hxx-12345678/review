@@ -1,3 +1,5 @@
+import * as fs from "fs";
+import * as path from "path";
 import { z } from "zod";
 
 const envSchema = z.object({
@@ -19,6 +21,16 @@ const envSchema = z.object({
   SMS_BASE_URL: z.string().optional().default("https://login.smsforyou.biz/V2/http-api.php"),
   GEMINI_API_KEY_1: z.string().optional().default(""),
   GOOGLE_GENERATIVE_AI_API_KEY: z.string().optional().default(""),
+  // OpenRouter failover (secondary AI provider when Gemini is rate-limited/down).
+  // Default model chosen Sep 2026 after cost/quality research: qwen/qwen3-30b-a3b
+  // (~$0.13 in / $0.52 out per 1M tokens, 131K context, JSON mode, strong multilingual incl. Hindi).
+  // Free ":free" variants exist but are rate-capped (20/min, ~50-200/day) and less reliable — paid cheap model is the default.
+  OPENROUTER_API_KEY: z.string().optional().default(""),
+  OPENROUTER_MODEL: z.string().default("qwen/qwen3-30b-a3b"),
+  OPENROUTER_BASE_URL: z.string().default("https://openrouter.ai/api/v1"),
+  OPENROUTER_TIMEOUT_MS: z.coerce.number().default(20000),
+  OPENROUTER_APP_URL: z.string().default("https://beyondvyu.com"),
+  OPENROUTER_APP_NAME: z.string().default("BEYONDVYU"),
   GOOGLE_OAUTH_CLIENT_ID: z.string().optional().default(""),
   GOOGLE_OAUTH_CLIENT_SECRET: z.string().optional().default(""),
   GOOGLE_OAUTH_REDIRECT_URI: z.string().optional().default("http://localhost:4000/api/google-reviews/oauth/callback"),
@@ -57,6 +69,37 @@ export type Env = z.infer<typeof envSchema>;
 
 let env: Env;
 
+// Dependency-free .env loader (tsx doesn't auto-load dotenv, and the runtime
+// previously never read server/.env at all — pasted keys were silently ignored).
+// Real environment variables always win; .env only fills gaps. Exported for tests.
+export function applyDotEnvFile(envPath: string, target: Record<string, string>): string[] {
+  const applied: string[] = [];
+  try {
+    if (!fs.existsSync(envPath)) return applied;
+    for (const line of fs.readFileSync(envPath, "utf-8").split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#") || !trimmed.includes("=")) continue;
+      const eqIdx = trimmed.indexOf("=");
+      let key = trimmed.slice(0, eqIdx).trim();
+      if (key.startsWith("export ")) key = key.slice(7).trim();
+      let value = trimmed.slice(eqIdx + 1).trim();
+      if (
+        (value.startsWith('"') && value.endsWith('"') && value.length >= 2) ||
+        (value.startsWith("'") && value.endsWith("'") && value.length >= 2)
+      ) {
+        value = value.slice(1, -1);
+      }
+      if (key && target[key] === undefined) {
+        target[key] = value;
+        applied.push(key);
+      }
+    }
+  } catch {
+    // .env is best-effort; missing/unreadable file must never crash boot
+  }
+  return applied;
+}
+
 export function loadEnv(): Env {
   if (!env) {
     const processed: Record<string, string> = {};
@@ -64,6 +107,14 @@ export function loadEnv(): Env {
       if (value !== undefined) {
         processed[key] = value;
       }
+    }
+    // Fill gaps from server/.env (same dir in dev src/ and prod dist/ layouts)
+    const candidates = [
+      path.resolve(__dirname, "../../.env"),
+      path.resolve(process.cwd(), ".env"),
+    ];
+    for (const p of candidates) {
+      applyDotEnvFile(p, processed);
     }
     // Support legacy EMAIL_HOST / EMAIL_USER / EMAIL_PASSWORD naming
     if (processed["EMAIL_HOST"] && !processed["SMTP_HOST"]) {
@@ -111,4 +162,42 @@ export function getEnv(): Env {
     console.error("FATAL: DATABASE_URL must be ap-south-1/central-india per RBI Apr-2018 localization");
   }
   return env;
+}
+
+// Hot-pickup for keys pasted into server/.env AFTER boot: if the cached env has
+// no OpenRouter key, re-scan the .env files (real process env still wins) and
+// update the cache. Lets "paste key → works" without restarting the server.
+export function getOpenRouterConfig(): {
+  apiKey: string;
+  model: string;
+  baseUrl: string;
+  timeoutMs: number;
+  appUrl: string;
+  appName: string;
+} {
+  const e = getEnv();
+  let apiKey = process.env.OPENROUTER_API_KEY || e.OPENROUTER_API_KEY;
+  let model = process.env.OPENROUTER_MODEL || e.OPENROUTER_MODEL;
+  if (!apiKey) {
+    const fresh: Record<string, string> = {};
+    for (const p of [path.resolve(__dirname, "../../.env"), path.resolve(process.cwd(), ".env")]) {
+      applyDotEnvFile(p, fresh);
+    }
+    if (fresh.OPENROUTER_API_KEY && !process.env.OPENROUTER_API_KEY) {
+      e.OPENROUTER_API_KEY = fresh.OPENROUTER_API_KEY;
+      apiKey = fresh.OPENROUTER_API_KEY;
+    }
+    if (fresh.OPENROUTER_MODEL && !process.env.OPENROUTER_MODEL) {
+      e.OPENROUTER_MODEL = fresh.OPENROUTER_MODEL;
+      model = fresh.OPENROUTER_MODEL;
+    }
+  }
+  return {
+    apiKey,
+    model,
+    baseUrl: process.env.OPENROUTER_BASE_URL || e.OPENROUTER_BASE_URL,
+    timeoutMs: e.OPENROUTER_TIMEOUT_MS,
+    appUrl: process.env.OPENROUTER_APP_URL || e.OPENROUTER_APP_URL,
+    appName: process.env.OPENROUTER_APP_NAME || e.OPENROUTER_APP_NAME,
+  };
 }
