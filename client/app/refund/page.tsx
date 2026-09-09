@@ -94,7 +94,9 @@ export default function RefundPage() {
           </p>
           <p className="text-muted-foreground">
             Email: support@beyondvyu.com<br />
-            Address: 123 Innovation Drive, Suite 400, San Francisco, CA 94105, United States
+            Grievance / privacy: privacy@beyondvyu.com<br />
+            Billing is in INR via Razorpay (UPI, cards); GST invoice is provided. Refunds, where approved,
+            go to the original payment method within 5-10 business days.
           </p>
         </section>
       </main>

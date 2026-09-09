@@ -15,20 +15,21 @@ export function CtaSection() {
 
         <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-1.5 text-xs font-semibold tracking-wide text-white/80 backdrop-blur-sm">
           <Star className="size-3.5 fill-amber-300 text-amber-300" />
-          <span>Trusted by 2,000+ businesses</span>
+          <span>QR + link + WhatsApp-ready</span>
           <span className="text-white/40">·</span>
-          <span>Google & FTC compliant</span>
+          <span>Same review path for every customer</span>
         </div>
 
-        <h2 className="text-balance text-4xl font-bold tracking-[-0.025em] text-white sm:text-5xl lg:text-6xl">
-          Start turning happy customers{" "}
-          <span className="text-gradient">into your best</span>{" "}
-          salespeople
+        <h2 className="speakable text-balance text-4xl font-bold tracking-[-0.025em] text-white sm:text-5xl lg:text-6xl">
+          Turn real customer experiences{" "}
+          <span className="text-gradient">into authentic</span>{" "}
+          Google reviews
         </h2>
 
-        <p className="mx-auto mt-5 max-w-xl text-pretty text-lg leading-relaxed text-white/70">
-          Set up your QR code in 2 minutes. Collect authentic reviews automatically. Get AI-powered sentiment
-          analysis and weekly WhatsApp reports — all while staying fully Google & FTC compliant.
+        <p className="speakable mx-auto mt-5 max-w-xl text-pretty text-lg leading-relaxed text-white/70">
+          Set up your QR code in 2 minutes. Customers describe their visit in their own words — in 10 Indian
+          languages — then choose what to post to Google. Track review velocity and get a weekly digest, all
+          without gating or fake reviews.
         </p>
 
         <div className="mt-10 flex flex-col justify-center gap-4 sm:flex-row">

@@ -272,6 +272,8 @@ export function FeedbackFlow({ business, slug, demo: isDemo = false }: { busines
           <MCQStep
             business={business}
             rating={rating}
+            language={language}
+            onLanguageChange={setLanguage}
             selectedSubOptions={selectedSubOptions}
             toggleSubOption={toggleSubOption}
             specialMention={specialMention}
@@ -407,6 +409,28 @@ function getMoodKey(rating: number): MoodTagKey {
   return "negative"
 }
 
+// Detect the script a customer actually typed in, so the draft language can
+// follow their words — not just the language chip they tapped earlier.
+export function detectTypedLanguage(text: string): string | null {
+  if (/[\u0B80-\u0BFF]/.test(text)) return "tamil"
+  if (/[\u0C00-\u0C7F]/.test(text)) return "telugu"
+  if (/[\u0C80-\u0CFF]/.test(text)) return "kannada"
+  if (/[\u0980-\u09FF]/.test(text)) return "bengali"
+  if (/[\u0A80-\u0AFF]/.test(text)) return "gujarati"
+  // Devanagari is shared by Hindi & Marathi — check Marathi markers first
+  if (/[\u0900-\u097F]/.test(text)) {
+    if (/ळ|ज्ञ|त्र|क्ष|छान|मस्त|आहे|होती|होता|नाही|खूप/.test(text)) return "marathi"
+    return "hindi"
+  }
+  return null
+}
+
+const LANGUAGE_LABELS: Record<string, string> = {
+  english: "English", hinglish: "Hinglish", hindi: "हिंदी", marathi: "मराठी",
+  gujarati: "ગુજરાતી", gujlish: "Gujlish", tamil: "தமிழ்", telugu: "తెలుగు",
+  bengali: "বাংলা", kannada: "ಕನ್ನಡ",
+}
+
 const MOOD_TAGS: Record<string, { icon: React.ReactNode; label: string; positive: string[]; neutral: string[]; negative: string[] }> = {
   service: {
     icon: <ThumbsUp className="size-4" />, label: "Service",
@@ -436,45 +460,55 @@ const MOOD_TAGS: Record<string, { icon: React.ReactNode; label: string; positive
 
 function LanguageStep({ business, language, setLanguage, onContinue, onBack }: { business: any; language: string; setLanguage: (v: string) => void; onContinue: () => void; onBack: () => void }) {
   const options = [
-    { value: "english", label: "English", flag: "🇬🇧", sub: "Standard English" },
-    { value: "hinglish", label: "Hinglish", flag: "🇮🇳", sub: "Hindi + English" },
-    { value: "gujlish", label: "Gujlish", flag: "🇮🇳", sub: "Gujarati + English" },
-    { value: "hindi", label: "हिंदी", flag: "🇮🇳", sub: "Hindi" },
-    { value: "gujarati", label: "ગુજરાતી", flag: "🇮🇳", sub: "Gujarati" },
+    { value: "english", label: "English", code: "EN", sub: "Standard English" },
+    { value: "hinglish", label: "Hinglish", code: "हिंEn", sub: "Hindi + English (Latin script)" },
+    { value: "hindi", label: "हिंदी", code: "हिं", sub: "Hindi (Devanagari)" },
+    { value: "marathi", label: "मराठी", code: "मर", sub: "Marathi" },
+    { value: "gujarati", label: "ગુજરાતી", code: "ગુ", sub: "Gujarati" },
+    { value: "gujlish", label: "Gujlish", code: "ગુEn", sub: "Gujarati + English (Latin script)" },
+    { value: "tamil", label: "தமிழ்", code: "த", sub: "Tamil" },
+    { value: "telugu", label: "తెలుగు", code: "తె", sub: "Telugu" },
+    { value: "bengali", label: "বাংলা", code: "বাং", sub: "Bengali" },
+    { value: "kannada", label: "ಕನ್ನಡ", code: "ಕ", sub: "Kannada" },
   ]
 
   return (
     <div className="flex flex-1 flex-col animate-fade-in-up">
       <div className="text-center mb-4">
         <h2 className="text-xl font-semibold tracking-tight text-foreground">Choose your language</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Pick how you'd like your review to be written.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Pick how you&apos;d like your review to be written.</p>
       </div>
-      <div className="flex flex-col gap-3 flex-1">
+      <div className="flex max-h-[320px] flex-col gap-2.5 flex-1 overflow-y-auto pr-0.5">
         {options.map((opt) => (
           <button
             key={opt.value}
             type="button"
             onClick={() => setLanguage(opt.value)}
+            aria-pressed={language === opt.value}
             className={cn(
-              "flex items-center gap-4 rounded-xl border-2 p-4 text-left transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]",
+              "flex items-center gap-3.5 rounded-xl border-2 p-3.5 text-left transition-all duration-200 hover:scale-[1.01] active:scale-[0.99]",
               language === opt.value
                 ? "border-primary bg-primary/5 shadow-md"
                 : "border-border/60 bg-card hover:border-foreground/30"
             )}
           >
-            <span className="text-3xl">{opt.flag}</span>
+            <span aria-hidden="true" className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-sm font-bold text-primary">{opt.code}</span>
             <div>
               <span className="text-base font-bold text-foreground">{opt.label}</span>
               <p className="text-xs text-muted-foreground">{opt.sub}</p>
             </div>
             {language === opt.value && (
-              <div className="ml-auto flex size-6 items-center justify-center rounded-full bg-primary text-primary-foreground">
+              <div className="ml-auto flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
                 <Check className="size-3.5" />
               </div>
             )}
           </button>
         ))}
       </div>
+      <p className="mt-3 text-center text-[11px] leading-relaxed text-muted-foreground/80">
+        AI drafts in your chosen language. Dashboard keyword trends work best in English/Hinglish today —
+        native-script analytics keep improving as we see more reviews in each language.
+      </p>
       <div className="mt-auto flex gap-3 pt-6">
         <Button variant="outline" onClick={onBack} className="flex-1 rounded-xl py-6 font-semibold bg-card">
           <ArrowLeft className="size-4 mr-2" />
@@ -489,12 +523,14 @@ function LanguageStep({ business, language, setLanguage, onContinue, onBack }: {
 }
 
 function MCQStep({
-  business, rating, selectedSubOptions, toggleSubOption, specialMention, onSpecialMentionChange, onContinue, onBack, submitting,
+  business, rating, language, onLanguageChange, selectedSubOptions, toggleSubOption, specialMention, onSpecialMentionChange, onContinue, onBack, submitting,
 }: {
-  business: any; rating: number; selectedSubOptions: string[]; toggleSubOption: (id: string) => void; specialMention: string; onSpecialMentionChange: (v: string) => void; onContinue: () => void; onBack: () => void; submitting: boolean
+  business: any; rating: number; language: string; onLanguageChange: (v: string) => void; selectedSubOptions: string[]; toggleSubOption: (id: string) => void; specialMention: string; onSpecialMentionChange: (v: string) => void; onContinue: () => void; onBack: () => void; submitting: boolean
 }) {
   const moodKey = getMoodKey(rating)
   const [specialDismissed, setSpecialDismissed] = useState(false)
+  const typedLang = detectTypedLanguage(specialMention)
+  const showLangHint = !!typedLang && typedLang !== language && specialMention.trim().length >= 8
 
   const categories = getMCQCategories(business.industry, business.promptTopics || [])
 
@@ -616,6 +652,19 @@ function MCQStep({
           </div>
         ) : (
           <div className="space-y-2">
+            {showLangHint && (
+              <button
+                type="button"
+                onClick={() => typedLang && onLanguageChange(typedLang)}
+                className="flex w-full items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-3.5 py-2.5 text-left text-xs transition-all hover:bg-primary/10"
+              >
+                <Lightbulb className="size-3.5 shrink-0 text-primary" />
+                <span className="text-foreground/80">
+                  Looks like you typed in <strong>{LANGUAGE_LABELS[typedLang!] || typedLang}</strong> — tap to draft
+                  your review in it instead of {LANGUAGE_LABELS[language] || language}.
+                </span>
+              </button>
+            )}
             <label className="text-xs font-medium text-muted-foreground/80">
               {moodKey === "positive"
                 ? "What made your experience special? Share a highlight..."

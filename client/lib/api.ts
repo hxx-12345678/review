@@ -246,11 +246,13 @@ export const api = {
         method: "POST",
         body: JSON.stringify(data),
       }),
-    whatsappReport: (data: { businessId: string; frequency: "weekly" | "monthly" | "none"; test?: boolean }) =>
-      request<{ success: boolean; message: string }>("/communications/whatsapp-report", {
+    whatsappReport: (data: { businessId: string; frequency: "weekly" | "monthly" | "none"; test?: boolean; ownerPhone?: string }) =>
+      request<{ success: boolean; message: string; report?: string; metrics?: any; whatsappConfigured?: boolean; deliveredVia?: "whatsapp" | "preview" }>("/communications/whatsapp-report", {
         method: "POST",
         body: JSON.stringify(data),
       }),
+    whatsappReportStatus: (businessId: string) =>
+      request<{ preference: string; ownerPhone: string | null; deliveredVia: string | null; updatedAt: string | null; whatsappConfigured: boolean }>(`/communications/whatsapp-report/${businessId}`),
   },
   activity: {
     list: (businessId: string) =>

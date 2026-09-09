@@ -1,12 +1,12 @@
-const BUSINESSES = [
-  "Brightsmile Dental",
-  "Coastal Coffee Co.",
-  "Maple Street Salon",
-  "Riverside Fitness",
-  "The Copper Plate",
-  "Oakwood Veterinary",
-  "Sage & Thyme Cafe",
-  "Blue Ridge Auto",
+const VERTICALS = [
+  "Restaurants & Cafes",
+  "Dental & Clinics",
+  "Salons & Spas",
+  "Gyms & Fitness",
+  "Hotels & Homestays",
+  "Auto Workshops",
+  "Retail Stores",
+  "Home Services",
 ]
 
 function BusinessCard({ name }: { name: string }) {
@@ -17,7 +17,7 @@ function BusinessCard({ name }: { name: string }) {
       </div>
       <div>
         <p className="text-sm font-semibold text-foreground whitespace-nowrap">{name}</p>
-        <p className="text-xs text-muted-foreground">Local business</p>
+        <p className="text-xs text-muted-foreground">High walk-in vertical</p>
       </div>
     </div>
   )
@@ -29,14 +29,17 @@ export function SocialProof() {
       {/* Heading */}
       <div className="text-center reveal px-4">
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
-          Built for local businesses
+          Purpose-built for high walk-in local businesses
+        </p>
+        <p className="mx-auto mt-1 max-w-xl text-[11px] text-muted-foreground/70">
+          Illustrative verticals — publish verified Indian case studies here (rating before/after, reviews/month, conversion).
         </p>
       </div>
 
       {/* Marquee */}
       <div className="mt-3 overflow-hidden [mask-image:linear-gradient(to_right,transparent_0%,black_2%,black_98%,transparent_100%)]">
         <div className="marquee-track flex gap-3">
-          {[...BUSINESSES, ...BUSINESSES, ...BUSINESSES].map((name, i) => (
+          {[...VERTICALS, ...VERTICALS, ...VERTICALS].map((name, i) => (
             <BusinessCard key={`${name}-${i}`} name={name} />
           ))}
         </div>

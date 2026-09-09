@@ -25,6 +25,15 @@ function isTooGeneric(text: string): boolean {
 
 // Split the customer's own notes into short reminder bullets.
 // We do not add new claims — we only reflect back what they typed.
+// Script-safe: Latin fragments get sentence-case; native scripts untouched.
+function prettify(s: string) {
+  const t = s.trim()
+  if (/^[A-Za-z]/.test(t)) return t.charAt(0).toUpperCase() + t.slice(1)
+  return t
+}
+
+// Split the customer's own notes into short reminder bullets.
+// We do not add new claims — we only reflect back what they typed.
 export function deriveTalkingPoints(highlights: string, selectedTopics?: string[]): string[] {
   const points: string[] = []
 
@@ -36,7 +45,7 @@ export function deriveTalkingPoints(highlights: string, selectedTopics?: string[
 
     for (const fragment of fragments) {
       const words = fragment.split(/\s+/).slice(0, 12).join(" ")
-      const cleaned = words.charAt(0).toUpperCase() + words.slice(1)
+      const cleaned = prettify(words)
       if (!points.includes(cleaned)) points.push(cleaned)
       if (points.length >= 5) break
     }
@@ -45,7 +54,7 @@ export function deriveTalkingPoints(highlights: string, selectedTopics?: string[
   // Add selected topics as talking points if we still have room
   if (points.length < 5 && selectedTopics && selectedTopics.length > 0) {
     for (const topic of selectedTopics) {
-      const cleaned = topic.charAt(0).toUpperCase() + topic.slice(1)
+      const cleaned = prettify(topic)
       if (!points.includes(cleaned) && !isTooGeneric(topic)) {
         points.push(cleaned)
         if (points.length >= 5) break
@@ -59,8 +68,11 @@ export function deriveTalkingPoints(highlights: string, selectedTopics?: string[
 function detectSentimentConflict(highlights?: string, selectedTopics?: string[]): "aligned" | "mixed" {
   if (!highlights || highlights.trim().length < 3) return "aligned"
   const lower = highlights.toLowerCase()
-  const positiveWords = ["good", "great", "excellent", "amazing", "wonderful", "fantastic", "love", "best", "happy", "satisfied", "friendly", "kind", "helpful", "caring", "comfortable", "clean", "professional", "quick", "fast", "nice"]
-  const negativeWords = ["bad", "terrible", "awful", "horrible", "worst", "hate", "poor", "rude", "slow", "unhelpful", "unclean", "dirty", "uncomfortable", "expensive", "overpriced", "disappointed", "frustrating", "waste", "shoddy"]
+  // English + transliterated Hinglish/Gujlish + native-script markers (fallback only)
+  const positiveWords = ["good", "great", "excellent", "amazing", "wonderful", "fantastic", "love", "best", "happy", "satisfied", "friendly", "kind", "helpful", "caring", "comfortable", "clean", "professional", "quick", "fast", "nice",
+    "mast", "achha", "accha", "bahut", "bohot", "badhiya", "badiya", "shandar", "saras", "saru", "maja", "अच्छा", "बढ़िया", "સરસ", "छान", "நல்ல", "బాగుంది", "ভালো", "ಚೆನ್ನಾಗಿ"]
+  const negativeWords = ["bad", "terrible", "awful", "horrible", "worst", "hate", "poor", "rude", "slow", "unhelpful", "unclean", "dirty", "uncomfortable", "expensive", "overpriced", "disappointed", "frustrating", "waste", "shoddy",
+    "wait", "delay", "late", "der", "dheere", "kharab", "bura", "mehenga", "bakwas", "thoda", "खराब", "बुरा", "धीमा", "इंतजार", "ખરાબ", "मुश्किल", "மோசம்", "చెడు", "খারাপ", "ಕೆಟ್ಟ"]
 
   // Check for mixed sentiment WITHIN the highlights text itself
   const textHasPositive = positiveWords.some(w => lower.includes(w))
@@ -92,9 +104,33 @@ export function buildFallbackReview(opts: {
   rating?: number
   talkingPoints?: string[]
   selectedTopics?: string[]
+  language?: string
 }): string {
-  const { highlights, businessName, rating, talkingPoints, selectedTopics } = opts
+  const { highlights, businessName, rating, talkingPoints, selectedTopics, language } = opts
+  // Offline fallback must still respect the customer's chosen language/script.
+  const frames: Record<string, { open: (n: string) => string; closePos: string; closeNeu: string; closeNeg: string; mixed: string; hope: string }> = {
+    hindi: { open: (n) => `${n} में मेरा अनुभव ऐसा रहा।`, closePos: "कुल मिलाकर संतुष्ट हूँ।", closeNeu: "ठीक-ठाक रहा, कुछ बेहतर हो सकता था।", closeNeg: "उम्मीद से कम रहा, सुधार की ज़रूरत है।", mixed: "कुछ अच्छा, कुछ ठीक नहीं — ईमानदारी से बता रहा हूँ।", hope: "उम्मीद है यह किसी के काम आए।" },
+    marathi: { open: (n) => `${n} मधला माझा अनुभव असा होता।`, closePos: "एकूण समाधानी आहे।", closeNeu: "ठीक होता, काही सुधारणा होऊ शकते।", closeNeg: "अपेक्षेपेक्षा कमी पडलं, सुधारणा हवी।", mixed: "काही चांगलं, काही ठीक नाही — प्रामाणिकपणे सांगतोय।", hope: "कुणाला तरी उपयोगी पडेल अशी आशा।" },
+    gujarati: { open: (n) => `${n} માં મારો અનુભવ આવો રહ્યો।`, closePos: "એકંદરે સંતુષ્ટ છું।", closeNeu: "ઠીક હતું, થોડું સારું થઈ શકત।", closeNeg: "અપેક્ષા કરતાં ઓછું રહ્યું, સુધારો જરૂરી છે।", mixed: "કંઈક સારું, કંઈક ઠીક નહીં — પ્રામાણિકપણે કહું છું।", hope: "કોઈને કામ આવે એવી આશા।" },
+    tamil: { open: (n) => `${n}-இல் என் அனுபவம் இப்படி இருந்தது.`, closePos: "ஒட்டுமொத்தமாக திருப்தி.", closeNeu: "பரவாயில்லை, இன்னும் சிறக்கலாம்.", closeNeg: "எதிர்பார்த்ததை விட குறைவு, முன்னேற்றம் தேவை.", mixed: "சில நல்லது, சில சரியில்லை — நேர்மையாக சொல்கிறேன்.", hope: "யாருக்காவது உதவும் என நம்புகிறேன்." },
+    telugu: { open: (n) => `${n}లో నా అనుభవం ఇలా ఉంది.`, closePos: "మొత్తంగా సంతృప్తిగా ఉన్నాను.", closeNeu: "పర్వాలేదు, ఇంకా మెరుగుపడవచ్చు.", closeNeg: "అంచనా కంటే తక్కువగా ఉంది, మెరుగుదల అవసరం.", mixed: "కొన్ని బాగున్నాయి, కొన్ని బాగోలేవు — నిజాయితీగా చెబుతున్నాను.", hope: "ఎవరికైనా ఉపయోగపడుతుందని ఆశిస్తున్నాను." },
+    bengali: { open: (n) => `${n}-এ আমার অভিজ্ঞতা এমন ছিল।`, closePos: "সব মিলিয়ে সন্তুষ্ট।", closeNeu: "মোটামুটি ছিল, আরও ভালো হতে পারত।", closeNeg: "প্রত্যাশার চেয়ে কম, উন্নতি দরকার।", mixed: "কিছু ভালো, কিছু ঠিক নয় — সৎভাবে বলছি।", hope: "আশা করি কারও কাজে লাগবে।" },
+    kannada: { open: (n) => `${n}ನಲ್ಲಿ ನನ್ನ ಅನುಭವ ಹೀಗಿತ್ತು.`, closePos: "ಒಟ್ಟಾರೆಯಾಗಿ ತೃಪ್ತನಾಗಿದ್ದೇನೆ.", closeNeu: "ಪರ್ವಾಗಿಲ್ಲ, ಇನ್ನೂ ಚೆನ್ನಾಗಿರಬಹುದು.", closeNeg: "ನಿರೀಕ್ಷೆಗಿಂತ ಕಡಿಮೆ ಇತ್ತು, ಸುಧಾರಣೆ ಬೇಕು.", mixed: "ಕೆಲವು ಚೆನ್ನಾಗಿತ್ತು, ಕೆಲವು ಸರಿಯಿಲ್ಲ — ಪ್ರಾಮಾಣಿಕವಾಗಿ ಹೇಳುತ್ತಿದ್ದೇನೆ.", hope: "ಯಾರಿಗಾದರೂ ಸಹಾಯವಾಗುತ್ತದೆ ಎಂದು ಆಶಿಸುತ್ತೇನೆ." },
+  }
+  const f = frames[(language || "english").toLowerCase()]
   const name = businessName || "this place"
+  if (f) {
+    const conflict = detectSentimentConflict(highlights, selectedTopics)
+    if (talkingPoints && talkingPoints.length > 0) {
+      return `${f.open(name)} ${talkingPoints.slice(0, 2).join(", ")}. ${rating && rating <= 2 ? f.closeNeg : rating === 3 ? f.closeNeu : f.closePos}`
+    }
+    if (highlights && highlights.trim().length >= 3) {
+      if (conflict === "mixed") return `${f.open(name)} ${highlights}. ${f.mixed}`
+      return `${f.open(name)} ${highlights}. ${f.hope}`
+    }
+    const close = rating && rating <= 2 ? f.closeNeg : rating === 3 ? f.closeNeu : f.closePos
+    return `${f.open(name)} ${close}`
+  }
   const conflict = detectSentimentConflict(highlights, selectedTopics)
 
   const openings = [

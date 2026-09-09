@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { Send, MessageSquare, Star, Check, Clock, Loader2, Phone, User } from "lucide-react"
+import { useCallback, useEffect, useState } from "react"
+import { Send, MessageSquare, Star, Check, Clock, Loader2, Phone, User, AlertTriangle } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -29,15 +29,25 @@ interface Props {
   businessName: string
 }
 
+function validIndianPhone(v: string) {
+  const d = v.replace(/\D/g, "")
+  return (
+    (d.length === 10 && /^[6-9]/.test(d)) ||
+    (d.length === 12 && d.startsWith("91")) ||
+    (d.length === 11 && d.startsWith("0"))
+  )
+}
+
 export function WhatsAppFlows({ businessId, businessName }: Props) {
   const [phoneNumber, setPhoneNumber] = useState("")
   const [customerName, setCustomerName] = useState("")
   const [sending, setSending] = useState(false)
   const [flows, setFlows] = useState<Flow[]>([])
   const [loaded, setLoaded] = useState(false)
+  const [notConfigured, setNotConfigured] = useState(false)
   const [stats, setStats] = useState<{ totalFlows: number; completedFlows: number; completionRate: number; averageRating: number | null } | null>(null)
 
-  async function loadFlows() {
+  const loadFlows = useCallback(async () => {
     try {
       const [flowRes, statsRes] = await Promise.all([
         api.v2.whatsappFlows.list(businessId),
@@ -45,18 +55,27 @@ export function WhatsAppFlows({ businessId, businessName }: Props) {
       ])
       setFlows(flowRes.flows)
       setStats(statsRes)
-    } catch {}
+    } catch {
+      // leave empty; page still usable
+    }
     setLoaded(true)
-  }
+  }, [businessId])
 
-  if (!loaded) { loadFlows() }
+  useEffect(() => {
+    loadFlows()
+  }, [loadFlows])
 
   async function sendFlow() {
     if (!phoneNumber.trim()) {
       toast.error("Phone number is required")
       return
     }
+    if (!validIndianPhone(phoneNumber.trim())) {
+      toast.error("Enter a valid 10-digit Indian mobile number")
+      return
+    }
     setSending(true)
+    setNotConfigured(false)
     try {
       const res = await api.v2.whatsappFlows.sendFlow({
         businessId,
@@ -71,8 +90,14 @@ export function WhatsAppFlows({ businessId, businessName }: Props) {
       } else {
         toast.error("Failed to send flow")
       }
-    } catch {
-      toast.error("Failed to send WhatsApp flow")
+    } catch (err: any) {
+      const msg = err?.message || "Failed to send WhatsApp flow"
+      if (/not configured/i.test(msg)) {
+        setNotConfigured(true)
+        toast.error("WhatsApp Business API is not connected yet — see setup steps below.")
+      } else {
+        toast.error(msg)
+      }
     } finally {
       setSending(false)
     }
@@ -89,6 +114,24 @@ export function WhatsAppFlows({ businessId, businessName }: Props) {
 
   return (
     <div className="space-y-6">
+      {notConfigured && (
+        <Card className="border-amber-200 bg-amber-50 p-4">
+          <div className="flex items-start gap-2 text-sm text-amber-800">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+            <div className="space-y-1">
+              <p className="font-semibold">WhatsApp Business API not connected</p>
+              <ol className="list-decimal space-y-0.5 pl-4 text-xs">
+                <li>Meta Business Suite → WhatsApp → API Setup: create app, get <code>WHATSAPP_API_TOKEN</code> + <code>WHATSAPP_PHONE_NUMBER_ID</code>.</li>
+                <li>Set them in <code>server/.env</code> and restart the API server.</li>
+                <li>Get the <code>review_request_flow</code> utility template approved (opt-in required before business-initiated sends).</li>
+                <li>Customer replies arrive via webhook; completion shows below and in your review inbox.</li>
+              </ol>
+              <p className="text-[11px]">India utility messages ≈ ₹0.14–₹0.30 per delivered message (Meta rate card). Marketing templates cost more — keep review flows strictly transactional.</p>
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* Send Flow Card */}
       <Card className="p-5">
         <h3 className="mb-4 text-sm font-semibold flex items-center gap-2">
@@ -101,7 +144,8 @@ export function WhatsAppFlows({ businessId, businessName }: Props) {
             <Input
               value={phoneNumber}
               onChange={(e) => setPhoneNumber(e.target.value)}
-              placeholder="Phone number (e.g. 919820012345)"
+              placeholder="Customer mobile (e.g. 98200 12345)"
+              inputMode="tel"
               className="flex-1"
             />
           </div>
@@ -119,7 +163,8 @@ export function WhatsAppFlows({ businessId, businessName }: Props) {
             {sending ? "Sending..." : "Send WhatsApp Review Flow"}
           </Button>
           <p className="text-xs text-muted-foreground">
-            Customer receives an interactive flow to rate their experience. 88% avg. completion rate.
+            Customer must have opted in to WhatsApp messages. Completion rate is tracked per flow below — no
+            fixed benchmark is claimed until you have your own data.
           </p>
         </div>
       </Card>
@@ -149,7 +194,12 @@ export function WhatsAppFlows({ businessId, businessName }: Props) {
       {/* Flow History */}
       <div className="space-y-2">
         <h4 className="text-sm font-medium text-muted-foreground">Recent Flows</h4>
-        {flows.length === 0 ? (
+        {!loaded ? (
+          <Card className="p-6 text-center">
+            <Loader2 className="mx-auto size-5 animate-spin text-muted-foreground" />
+            <p className="mt-2 text-sm text-muted-foreground">Loading flows…</p>
+          </Card>
+        ) : flows.length === 0 ? (
           <Card className="p-6 text-center">
             <MessageSquare className="mx-auto size-6 text-muted-foreground" />
             <p className="mt-2 text-sm text-muted-foreground">No flows sent yet</p>

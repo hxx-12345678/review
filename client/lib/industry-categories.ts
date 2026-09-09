@@ -59,16 +59,16 @@ export interface IndustryOption {
 }
 
 export const INDUSTRY_OPTIONS: IndustryOption[] = [
-  { value: "DENTAL", label: "Dental practice", topics: ["Your dentist or hygienist", "Office cleanliness", "Wait time", "How treatment felt"] },
-  { value: "SALON", label: "Salon / Spa", topics: ["Your stylist", "The result", "Atmosphere", "Booking experience"] },
-  { value: "RESTAURANT", label: "Restaurant", topics: ["A standout dish", "Service & staff", "Atmosphere", "Value"] },
-  { value: "MEDICAL", label: "Medical clinic", topics: ["Your provider", "Front desk staff", "Wait time", "How you were treated"] },
-  { value: "AUTO", label: "Auto repair / Garage", topics: ["The technician", "Quality of work", "Pricing transparency", "Turnaround time"] },
-  { value: "AUTO_DEALER", label: "Automobile showroom / Dealer", topics: ["The salesperson", "Test drive", "Vehicle selection", "Deal & pricing"] },
-  { value: "ELECTRONICS", label: "Electronics store / Service", topics: ["Product quality", "Staff knowledge", "Repair service", "After-sales support"] },
-  { value: "FITNESS", label: "Gym / Fitness", topics: ["Your trainer or class", "Equipment & facilities", "Cleanliness", "Community"] },
-  { value: "HOME_SERVICES", label: "Home services", topics: ["The technician", "Quality of work", "Punctuality", "Communication"] },
-  { value: "OTHER", label: "Other", topics: ["The staff", "Quality", "Value", "Overall experience"] },
+  { value: "DENTAL", label: "Dental practice", topics: ["Explanation of treatment", "Office cleanliness", "Wait time", "How treatment felt"] },
+  { value: "SALON", label: "Salon / Spa", topics: ["Haircut / colour result", "Hygiene & comfort", "Atmosphere", "Booking experience"] },
+  { value: "RESTAURANT", label: "Restaurant", topics: ["A standout dish", "Service speed", "Atmosphere", "Value"] },
+  { value: "MEDICAL", label: "Medical clinic", topics: ["Explanation of care", "Front desk experience", "Wait time", "How you were treated"] },
+  { value: "AUTO", label: "Auto repair / Garage", topics: ["Quality of work", "Pricing transparency", "Turnaround time", "Communication"] },
+  { value: "AUTO_DEALER", label: "Automobile showroom / Dealer", topics: ["Test drive experience", "Vehicle selection", "Deal & pricing", "Delivery experience"] },
+  { value: "ELECTRONICS", label: "Electronics store / Service", topics: ["Product quality", "Product guidance", "Repair service", "After-sales support"] },
+  { value: "FITNESS", label: "Gym / Fitness", topics: ["Training session quality", "Equipment & facilities", "Cleanliness", "Community"] },
+  { value: "HOME_SERVICES", label: "Home services", topics: ["Quality of work", "Punctuality", "Pricing clarity", "Communication"] },
+  { value: "OTHER", label: "Other", topics: ["Quality", "Service speed", "Value", "Overall experience"] },
 ]
 
 export const INDUSTRY_CATEGORIES: Record<IndustryKey, Category[]> = {
@@ -149,9 +149,9 @@ export const INDUSTRY_CATEGORIES: Record<IndustryKey, Category[]> = {
       label: "Staff",
       icon: "Users",
       subOptions: [
-        { id: "dent_dentist", label: "Dentist", keywords: ["dentist", "doctor", "dr.", "specialist"] },
-        { id: "dent_hygienist", label: "Hygienist", keywords: ["hygienist", "cleaning", "teeth cleaning"] },
-        { id: "dent_front_desk", label: "Front Desk", keywords: ["front desk", "reception", "scheduler", "admin"] },
+        { id: "dent_dentist", label: "Treatment experience", keywords: ["dentist", "doctor", "dr.", "specialist"] },
+        { id: "dent_hygienist", label: "Cleaning experience", keywords: ["hygienist", "cleaning", "teeth cleaning"] },
+        { id: "dent_front_desk", label: "Reception experience", keywords: ["front desk", "reception", "scheduler", "admin"] },
       ],
     },
     {
@@ -211,7 +211,7 @@ export const INDUSTRY_CATEGORIES: Record<IndustryKey, Category[]> = {
     },
     {
       id: "stylist",
-      label: "Stylist / Technician",
+      label: "Service delivery",
       icon: "UserCheck",
       subOptions: [
         { id: "salon_skill", label: "Skill & Expertise", keywords: ["skilled", "expert", "talented", "professional"] },
@@ -259,7 +259,7 @@ export const INDUSTRY_CATEGORIES: Record<IndustryKey, Category[]> = {
       label: "Provider Care",
       icon: "Stethoscope",
       subOptions: [
-        { id: "med_doctor", label: "Doctor / Nurse", keywords: ["doctor", "nurse", "physician", "specialist"] },
+        { id: "med_doctor", label: "Care experience", keywords: ["doctor", "nurse", "physician", "specialist"] },
         { id: "med_bedside", label: "Bedside Manner", keywords: ["bedside", "caring", "compassionate", "kind"] },
         { id: "med_thorough", label: "Thoroughness", keywords: ["thorough", "detailed", "examined", "listened"] },
         { id: "med_expertise", label: "Expertise", keywords: ["expert", "knowledgeable", "experienced"] },
@@ -270,8 +270,8 @@ export const INDUSTRY_CATEGORIES: Record<IndustryKey, Category[]> = {
       label: "Staff",
       icon: "Users",
       subOptions: [
-        { id: "med_front_desk", label: "Front Desk", keywords: ["front desk", "reception", "check-in"] },
-        { id: "med_support", label: "Support Staff", keywords: ["staff", "assistant", "team", "helper"] },
+        { id: "med_front_desk", label: "Reception experience", keywords: ["front desk", "reception", "check-in"] },
+        { id: "med_support", label: "Helpfulness", keywords: ["staff", "assistant", "team", "helper"] },
       ],
     },
     {
@@ -332,9 +332,9 @@ export const INDUSTRY_CATEGORIES: Record<IndustryKey, Category[]> = {
       label: "Staff",
       icon: "Users",
       subOptions: [
-        { id: "auto_technician", label: "Technician", keywords: ["technician", "mechanic", "tech", "expert"] },
+        { id: "auto_technician", label: "Workmanship", keywords: ["technician", "mechanic", "tech", "expert"] },
         { id: "auto_honesty", label: "Honesty", keywords: ["honest", "trustworthy", "trust", "integrity"] },
-        { id: "auto_front_desk", label: "Front Desk", keywords: ["front desk", "service advisor", "manager"] },
+        { id: "auto_front_desk", label: "Reception experience", keywords: ["front desk", "service advisor", "manager"] },
       ],
     },
     {
@@ -393,7 +393,7 @@ export const INDUSTRY_CATEGORIES: Record<IndustryKey, Category[]> = {
       label: "Classes",
       icon: "Users",
       subOptions: [
-        { id: "fit_instructor", label: "Instructor", keywords: ["instructor", "trainer", "coach", "teacher"] },
+        { id: "fit_instructor", label: "Class quality", keywords: ["instructor", "trainer", "coach", "teacher"] },
         { id: "fit_variety_classes", label: "Variety", keywords: ["class variety", "schedule", "options"] },
         { id: "fit_schedule", label: "Schedule", keywords: ["schedule", "timing", "time slot"] },
       ],
@@ -413,8 +413,8 @@ export const INDUSTRY_CATEGORIES: Record<IndustryKey, Category[]> = {
       label: "Staff",
       icon: "UserCheck",
       subOptions: [
-        { id: "fit_trainers", label: "Trainers", keywords: ["trainer", "coach", "personal trainer"] },
-        { id: "fit_front_desk", label: "Front Desk", keywords: ["front desk", "check-in", "staff"] },
+        { id: "fit_trainers", label: "Coaching quality", keywords: ["trainer", "coach", "personal trainer"] },
+        { id: "fit_front_desk", label: "Reception experience", keywords: ["front desk", "check-in", "staff"] },
         { id: "fit_knowledge", label: "Knowledge", keywords: ["knowledgeable", "helpful", "expert"] },
       ],
     },
@@ -447,7 +447,7 @@ export const INDUSTRY_CATEGORIES: Record<IndustryKey, Category[]> = {
       label: "Sales Experience",
       icon: "Car",
       subOptions: [
-        { id: "dealer_salesperson", label: "Salesperson", keywords: ["salesperson", "salesman", "representative", "consultant", "executive"] },
+        { id: "dealer_salesperson", label: "Sales experience", keywords: ["salesperson", "salesman", "representative", "consultant", "executive"] },
         { id: "dealer_no_pressure", label: "No Pressure", keywords: ["pressure", "pushy", "hassle", "rushed", "hard sell"] },
         { id: "dealer_transparency", label: "Transparency", keywords: ["transparent", "upfront", "honest", "hidden", "clear"] },
         { id: "dealer_test_drive", label: "Test Drive", keywords: ["test drive", "test ride", "demo", "trial", "drive"] },
@@ -567,7 +567,7 @@ export const INDUSTRY_CATEGORIES: Record<IndustryKey, Category[]> = {
       label: "Staff",
       icon: "Users",
       subOptions: [
-        { id: "home_technician", label: "Technician", keywords: ["technician", "worker", "pro", "contractor"] },
+        { id: "home_technician", label: "Workmanship", keywords: ["technician", "worker", "pro", "contractor"] },
         { id: "home_professionalism", label: "Professionalism", keywords: ["professional", "polite", "respectful"] },
         { id: "home_friendly", label: "Friendliness", keywords: ["friendly", "nice", "pleasant"] },
       ],
@@ -689,9 +689,12 @@ export function getCategoriesForIndustry(industry: string): Category[] {
 export function getMCQCategories(industry: string, promptTopics: string[] = []): Category[] {
   const base = getCategoriesForIndustry(industry)
   const existingLabels = new Set(base.flatMap((c) => c.subOptions.map((s) => s.label.toLowerCase())))
+  // Google April 2026 policy: never prompt customers to mention staff names.
+  // Filter owner-configured topics that look like person-name prompts.
+  const personLike = /^(dr|mr|ms|mrs|miss|sir|madam)\b/i
   const custom = promptTopics
     .map((t) => t.trim())
-    .filter((t) => t.length > 0 && !existingLabels.has(t.toLowerCase()))
+    .filter((t) => t.length > 1 && !existingLabels.has(t.toLowerCase()) && !personLike.test(t))
 
   if (custom.length === 0) return base
 

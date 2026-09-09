@@ -127,15 +127,30 @@ export default function PrivacyPage() {
           </p>
           <ul className="list-disc space-y-1 pl-6 text-sm">
             <li>
-              <strong>Razorpay</strong> (payment processing) — only Razorpay IDs are stored in our
-              database; no financial instrument data
+              <strong>Razorpay</strong> (payment processing) — only Razorpay subscription/payment IDs are stored in our
+              database; no card numbers, CVV, or bank details. Razorpay, as payment system operator, stores payment data in India per RBI requirements.
             </li>
             <li>
               <strong>Google</strong> — only when you choose to redirect customers to Google Reviews
-              or connect Google Business Profile
+              or connect Google Business Profile (subject to Google&apos;s own terms and privacy policy)
             </li>
             <li>
-              <strong>Service providers</strong> — hosting (Render), email delivery, and analytics
+              <strong>AI providers (Google Gemini)</strong> — customer feedback text you choose to process with AI features
+              is transmitted for inference only to generate talking points, drafts, replies and insights. We do not authorize
+              use of your data to train models. See Terms §9 for details, retention, and your deletion rights.
+            </li>
+            <li>
+              <strong>Meta / WhatsApp Business Platform</strong> — only if you connect a WhatsApp Business number and your
+              customers/owners have opted in. Message content follows Meta&apos;s template and data policies; per-message
+              rates apply. No auto-delivery happens until you connect and opt in.
+            </li>
+            <li>
+              <strong>SMS provider</strong> — phone numbers and message text for review requests you explicitly send.
+              Promotional SMS needs TRAI-registered headers/templates and recipient consent; transactional/service SMS
+              follows your provider&apos;s DLT requirements.
+            </li>
+            <li>
+              <strong>Service providers</strong> — hosting, email delivery, and analytics
               under strict data processing agreements
             </li>
             <li>
@@ -146,11 +161,17 @@ export default function PrivacyPage() {
         </section>
 
         <section className="mb-8 space-y-4">
-          <h2 className="text-xl font-semibold">7. Data Localization &amp; Storage</h2>
+          <h2 className="text-xl font-semibold">7. Data Hosting &amp; Transfers</h2>
           <p>
-            As required by the DPDP Act and the RBI April 2018 circular on data localization, all
-            personal data is stored on servers located in <strong>India</strong>. Our database
-            infrastructure uses India-region cloud services (AWS ap-south-1 / Mumbai).
+            Our database infrastructure uses India-region cloud services (AWS ap-south-1 / Mumbai), and payment data
+            stays in India via Razorpay as required of payment system operators under the RBI April 2018 circular.
+          </p>
+          <p>
+            The DPDP Act (Section 16) does not impose a blanket &ldquo;all personal data must always stay in
+            India&rdquo; rule — it permits transfers outside India except to countries the Central Government
+            restricts. Where our subprocessors (e.g. Google AI inference, email delivery) process data outside
+            India, we rely on this framework plus contractual safeguards, data minimisation, and your consent.
+            AI inference data is not retained for training; deletion requests propagate per our processor terms.
           </p>
         </section>
 

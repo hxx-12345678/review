@@ -49,7 +49,8 @@ export default function ContactPage() {
                 <h3 className="font-medium">Email</h3>
                 <p className="mt-1 text-sm text-muted-foreground">support@beyondvyu.com</p>
                 <p className="text-sm text-muted-foreground">sales@beyondvyu.com</p>
-                <p className="mt-1 text-xs text-muted-foreground">We respond within 24 hours</p>
+                <p className="text-sm text-muted-foreground">privacy@beyondvyu.com (grievance & DPDP requests)</p>
+                <p className="mt-1 text-xs text-muted-foreground">We respond within 24 hours · English & Hindi (हिंदी)</p>
               </div>
             </div>
 

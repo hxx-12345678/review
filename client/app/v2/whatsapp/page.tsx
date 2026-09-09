@@ -15,7 +15,7 @@ export default function V2WhatsAppPage() {
       <div className="mb-6">
         <h1 className="text-xl font-semibold">WhatsApp Review Flows</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Send interactive review collection flows via WhatsApp — 88% completion rate.
+          Send interactive review collection flows via WhatsApp. Requires WhatsApp Business API + customer opt-in.
         </p>
       </div>
       <WhatsAppFlows businessId={currentBusiness.id} businessName={currentBusiness.name} />

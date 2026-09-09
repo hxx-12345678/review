@@ -166,6 +166,16 @@ router.post("/talking-points", aiBurstLimiter, talkingPointsLimiter, aiDailyLimi
       languageInstruction = "Write the reminder bullet points in everyday Hindi using the Devanagari script (हिंदी). Use natural spoken Hindi, like 'आपने बताया कि खाना बहुत स्वादिष्ट था'.";
     } else if (language === "gujarati") {
       languageInstruction = "Write the reminder bullet points in everyday Gujarati using the Gujarati script (ગુજરાતી). Use natural spoken Gujarati, like 'તમે જણાવ્યું કે સેવા ઘણી સારી હતી'.";
+    } else if (language === "marathi") {
+      languageInstruction = "Write the reminder bullet points in everyday Marathi using the Devanagari script. Use natural spoken Marathi, like 'तुम्ही सांगितलं की सेवा खूप छान होती'.";
+    } else if (language === "tamil") {
+      languageInstruction = "Write the reminder bullet points in everyday Tamil using the Tamil script. Use natural spoken Tamil, like 'சேவை மிகவும் நன்றாக இருந்தது என்று சொன்னீர்கள்'.";
+    } else if (language === "telugu") {
+      languageInstruction = "Write the reminder bullet points in everyday Telugu using the Telugu script. Use natural spoken Telugu, like 'సేవ చాలా బాగుంది అని మీరు చెప్పారు'.";
+    } else if (language === "bengali") {
+      languageInstruction = "Write the reminder bullet points in everyday Bengali using the Bengali script. Use natural spoken Bengali, like 'আপনি বললেন সেবা খুব ভালো ছিল'.";
+    } else if (language === "kannada") {
+      languageInstruction = "Write the reminder bullet points in everyday Kannada using the Kannada script. Use natural spoken Kannada, like 'ಸೇವೆ ತುಂಬಾ ಚೆನ್ನಾಗಿತ್ತು ಅಂತ ನೀವು ಹೇಳಿದಿರಿ'.";
     }
 
     const SYSTEM_PROMPT = `You are a helpful assistant for a review tool that works for ALL business types — restaurants, clinics, salons, gyms, auto shops, home services, retail, D2C brands, agencies, professional services, and more.
@@ -271,6 +281,16 @@ router.post("/generate-review", aiBurstLimiter, generateReviewLimiter, aiDailyLi
       languageInstruction = "Write the review draft in natural, conversational Hindi using Devanagari script (हिंदी). Use everyday spoken Hindi, not formal literary Hindi. Include common Hindi phrases real people use in reviews. Sound like someone casually sharing their experience on Google.";
     } else if (language === "gujarati") {
       languageInstruction = "Write the review draft in natural, conversational Gujarati using Gujarati script (ગુજરાતી). Use everyday spoken Gujarati, not formal literary Gujarati. Include common Gujarati phrases real people use in reviews. Sound like someone casually sharing their experience on Google.";
+    } else if (language === "marathi") {
+      languageInstruction = "Write the review draft in natural, conversational Marathi using Devanagari script. Use everyday spoken Marathi. Sound like someone casually sharing their experience on Google.";
+    } else if (language === "tamil") {
+      languageInstruction = "Write the review draft in natural, conversational Tamil using Tamil script. Use everyday spoken Tamil. Sound like someone casually sharing their experience on Google.";
+    } else if (language === "telugu") {
+      languageInstruction = "Write the review draft in natural, conversational Telugu using Telugu script. Use everyday spoken Telugu. Sound like someone casually sharing their experience on Google.";
+    } else if (language === "bengali") {
+      languageInstruction = "Write the review draft in natural, conversational Bengali using Bengali script. Use everyday spoken Bengali. Sound like someone casually sharing their experience on Google.";
+    } else if (language === "kannada") {
+      languageInstruction = "Write the review draft in natural, conversational Kannada using Kannada script. Use everyday spoken Kannada. Sound like someone casually sharing their experience on Google.";
     }
 
     const SYSTEM_PROMPT = `You are a review draft assistant. You work for ALL types of businesses — restaurants, clinics, dental practices, salons, barbershops, gyms, auto repair shops, home services (plumbing, electrical, cleaning), retail stores, D2C/ecommerce brands, agencies, professional services (legal, consulting, accounting), real estate, and more. Adapt your output naturally to the business type.

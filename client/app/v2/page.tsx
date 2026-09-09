@@ -14,7 +14,7 @@ import { Card } from "@/components/ui/card"
 const features = [
   {
     title: "WhatsApp Review Flows",
-    description: "Interactive review collection via WhatsApp — 88% completion rate.",
+    description: "Interactive review collection via WhatsApp (API + opt-in required).",
     href: "/v2/whatsapp",
     icon: MessageSquare,
     color: "bg-green-500/10 text-green-600",

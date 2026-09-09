@@ -6,29 +6,29 @@ const PAIN_POINTS = [
   {
     icon: Timer,
     title: "You're losing reviews every day",
-    body: "Most happy customers never leave a review simply because nobody asked. Without a system, every unsatisfied customer leaves a public review — but every satisfied one walks out silent.",
-    stat: "76%",
-    statLabel: "of customers never leave a review, even when satisfied",
+    body: "Most happy customers never leave a review simply because nobody asked at the right moment. Without a point-of-experience system, unhappy moments become public reviews — while satisfied visits walk out silent.",
+    stat: "97%",
+    statLabel: "of consumers read reviews for local businesses (BrightLocal 2026)",
     statColor: "text-amber-400",
     gradient: "from-amber-500/10 via-amber-500/[0.02] to-transparent",
     borderColor: "border-l-amber-500",
   },
   {
     icon: Search,
-    title: "Your Google ranking depends on reviews",
-    body: "Google's Local Pack ranks businesses by review count, rating, and response rate. More reviews = higher visibility. Higher visibility = more customers walking through your door.",
-    stat: "4.7×",
-    statLabel: "higher chance to appear in Google Local 3-Pack",
+    title: "Your Google visibility depends on genuine reviews",
+    body: "Google says review count and score can contribute to local prominence, alongside relevance and distance. Fresh, genuine reviews build trust and keep your profile active — no shortcuts, no gating.",
+    stat: "6",
+    statLabel: "review sites the average consumer checks (BrightLocal 2026)",
     statColor: "text-emerald-400",
     gradient: "from-emerald-500/10 via-emerald-500/[0.02] to-transparent",
     borderColor: "border-l-emerald-500",
   },
   {
     icon: ThumbsUp,
-    title: "93% of consumers read reviews before buying",
-    body: "Reviews are your most powerful sales asset. Each authentic 5-star review is a trust signal that converts skeptical browsers into paying customers — but only if you're actively collecting them.",
-    stat: "93%",
-    statLabel: "of consumers say online reviews influence their buying decisions",
+    title: "Consumers trust specifics, not templates",
+    body: "Reviews convert browsers into customers when they describe real experiences — staff, cleanliness, waiting time, food quality. BEYONDVYU turns what customers already told you into their own words, never copy-paste templates.",
+    stat: "89%",
+    statLabel: "expect businesses to respond to reviews (BrightLocal 2025)",
     statColor: "text-blue-400",
     gradient: "from-blue-500/10 via-blue-500/[0.02] to-transparent",
     borderColor: "border-l-blue-500",
@@ -38,20 +38,20 @@ const PAIN_POINTS = [
 const SOLUTIONS = [
   {
     icon: TrendingUp,
-    title: "3.2× more reviews than paper cards",
-    body: "A QR code on the counter does what a stack of business cards never could. Customers scan, rate, and review in under 60 seconds — no typing URLs, no searching your business name.",
+    title: "Turn visits into authentic reviews",
+    body: "A QR code at billing, checkout or reception does what paper cards never could. Customers scan, describe their visit in their language, and post to Google in about a minute — the same path for every customer, never gated.",
     gradient: "from-primary/10 via-primary/[0.02] to-transparent",
   },
   {
     icon: BarChart3,
-    title: "Weekly AI insights on WhatsApp",
-    body: "Every review feeds into an AI that tracks sentiment, identifies trends, and finds top praises and complaints — delivered as a weekly report to your WhatsApp. Know what customers love and what needs fixing.",
+    title: "Weekly WhatsApp intelligence, not another dashboard",
+    body: "Every interaction feeds sentiment, praise/complaint themes and review-velocity trends — delivered as a weekly WhatsApp digest. See what customers love, what needs fixing, and which location needs attention.",
     gradient: "from-violet-500/10 via-violet-500/[0.02] to-transparent",
   },
   {
     icon: ShieldCheck,
-    title: "100% Google & FTC compliant",
-    body: "No gating, no templated reviews, no staff name prompts. Every review is authentic. BEYONDVYU is built from the ground up to follow every Google and FTC rule — because your reputation is too important to risk.",
+    title: "Compliance-first by design",
+    body: "No gating, no incentives, no staff-name prompts, no posting on a customer's behalf. Open-ended prompts keep you aligned with Google's review policies. India privacy (DPDP Act) and consent-first messaging built in.",
     gradient: "from-sky-500/10 via-sky-500/[0.02] to-transparent",
   },
 ]
@@ -140,7 +140,11 @@ export function ValueProposition() {
             </Button>
           </div>
           <p className="mt-4 text-sm text-muted-foreground">
-            No credit card required · Set up in 2 minutes · Free plan available
+            No credit card required · Set up in 2 minutes · Free plan · From ₹499/mo when you grow
+          </p>
+          <p className="mx-auto mt-3 max-w-2xl text-[11px] leading-relaxed text-muted-foreground/70">
+            Review statistics cited from BrightLocal Local Consumer Review Survey 2025–2026 (US panel, n≈1,026).
+            Product performance varies by location, volume and execution — we measure visits → review starts → Google posts per location.
           </p>
         </div>
       </div>

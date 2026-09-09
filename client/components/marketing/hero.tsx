@@ -26,20 +26,21 @@ export function Hero() {
             {/* Badge pill */}
             <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-1.5 text-xs font-semibold tracking-wide text-white/80 backdrop-blur-sm">
               <ShieldCheck className="size-3.5 text-primary" />
-              Google & FTC compliant by design
+              Google-policy compliant · Same review path for every customer
             </div>
 
             {/* Outcome-driven headline */}
-            <h1 className="mt-7 text-balance text-[2.75rem] font-bold leading-[1.03] tracking-[-0.03em] text-white sm:text-6xl lg:text-[4.25rem]">
-              Turn every happy customer{" "}
-              <span className="text-gradient">into your best</span>{" "}
-              salesperson
+            <h1 className="speakable mt-7 text-balance text-[2.75rem] font-bold leading-[1.03] tracking-[-0.03em] text-white sm:text-6xl lg:text-[4.25rem]">
+              Turn real customer experiences{" "}
+              <span className="text-gradient">into authentic</span>{" "}
+              Google reviews
             </h1>
 
             {/* Pain-point subheadline */}
-            <p className="mt-6 max-w-lg text-pretty text-base leading-relaxed text-white/70 sm:text-lg">
-              Collect authentic Google reviews in <strong className="text-white">60 seconds</strong> — no code, no app
-              install, no gating. AI-powered insights delivered to your WhatsApp weekly.
+            <p className="speakable mt-6 max-w-lg text-pretty text-base leading-relaxed text-white/70 sm:text-lg">
+              Collect feedback by QR or link in <strong className="text-white">60 seconds</strong> — no code, no app
+              install, no review gating. Customers describe their visit in their own words — even in Hindi, Hinglish
+              or regional languages — then choose what to post to Google. Weekly insights come to your WhatsApp.
             </p>
 
             {/* Social proof strip */}
@@ -53,7 +54,8 @@ export function Hero() {
                 ))}
               </div>
               <div className="text-sm text-white/60">
-                <span className="font-bold text-white">2,000+</span> businesses using BEYONDVYU
+                <span className="font-bold text-white">Built for restaurants, salons, clinics & gyms</span>
+                <span className="mt-0.5 block text-xs text-white/45">QR + WhatsApp + multilingual review flow · Made for India</span>
               </div>
             </div>
 
@@ -61,15 +63,15 @@ export function Hero() {
             <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-white/50">
               <span className="flex items-center gap-1.5">
                 <div className="size-1.5 rounded-full bg-primary" />
-                Google compliant
+                No gating — same link for all
               </span>
               <span className="flex items-center gap-1.5">
                 <div className="size-1.5 rounded-full bg-primary" />
-                FTC compliant
+                Customer owns every word
               </span>
               <span className="flex items-center gap-1.5">
                 <div className="size-1.5 rounded-full bg-primary" />
-                94% completion rate
+                Free plan · UPI & cards via Razorpay
               </span>
             </div>
 
@@ -131,9 +133,9 @@ function HeroVisual() {
 
             {/* Review talking points */}
             <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4">
-              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/50">A few reminders for your review</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/50">Reminders from your own words</p>
               <ul className="mt-3 space-y-2">
-                {["You mentioned Dr. Lee explained the crown clearly", "Priya the hygienist was gentle", "You were in and out in 40 minutes"].map((text) => (
+                {["You mentioned the doctor explained the treatment clearly", "Front-desk wait was short", "You were in and out in about 40 minutes"].map((text) => (
                   <li key={text} className="flex items-start gap-2 text-xs text-white/80">
                     <span className="mt-1 size-1 shrink-0 rounded-full bg-primary/60" />
                     {text}
@@ -142,7 +144,7 @@ function HeroVisual() {
               </ul>
             </div>
 
-            <p className="mt-3 text-[10px] text-white/50">These are reminders — you write the review in your own words.</p>
+            <p className="mt-3 text-[10px] text-white/50">Reminders only — you write and edit the review in your own words.</p>
 
             <div className="mt-4 w-full rounded-lg bg-white/10 py-2.5 text-center text-xs font-bold text-white/80 border border-white/10 transition-all duration-200 hover:bg-white/20 hover:text-white cursor-pointer">
               Write my review on Google
@@ -154,16 +156,16 @@ function HeroVisual() {
         <div className="tilt-card col-span-1 rounded-2xl border border-white/15 bg-white/10 p-4 shadow-2xl shadow-black/30 backdrop-blur-xl flex flex-col items-center justify-center text-center" data-tilt="6" data-tilt-scale="1.01">
           <div className="tilt-shine" />
           <BarChart3 className="size-5 text-primary/80" />
-          <p className="mt-2 text-xl font-bold text-white">3.2<span className="text-xs text-primary">×</span></p>
-          <p className="text-[10px] text-white/50 leading-tight">more reviews<br />vs paper cards</p>
+          <p className="mt-2 text-xl font-bold text-white">60<span className="text-xs text-primary">s</span></p>
+          <p className="text-[10px] text-white/50 leading-tight">mobile-first<br />review flow</p>
         </div>
 
         {/* Side card 2: Users */}
         <div className="tilt-card col-span-1 rounded-2xl border border-white/15 bg-white/10 p-4 shadow-2xl shadow-black/30 backdrop-blur-xl flex flex-col items-center justify-center text-center" data-tilt="6" data-tilt-scale="1.01">
           <div className="tilt-shine" />
           <Users className="size-5 text-primary/80" />
-          <p className="mt-2 text-xl font-bold text-white">94<span className="text-xs text-primary">%</span></p>
-          <p className="text-[10px] text-white/50 leading-tight">completion<br />rate</p>
+          <p className="mt-2 text-xl font-bold text-white">QR</p>
+          <p className="text-[10px] text-white/50 leading-tight">+ link +<br />WhatsApp</p>
         </div>
 
         {/* Bottom badge spanning full width */}

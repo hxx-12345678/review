@@ -400,7 +400,7 @@ export function SettingsForm({ business }: { business: any }) {
           </div>
           <div className="space-y-2">
             <Label htmlFor="phone">Phone number</Label>
-            <Input id="phone" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} placeholder="+1-555-0123" />
+            <Input id="phone" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} placeholder="e.g. 98200 12345" inputMode="tel" />
           </div>
           <div className="space-y-2">
             <Label htmlFor="website">Website</Label>

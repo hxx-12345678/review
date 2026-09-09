@@ -30,6 +30,7 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
+        disallow: ["/dashboard", "/api/", "/admin", "/d1ff499050", "/c/", "/v2/"],
       },
     ],
     sitemap: "https://beyondvyu.com/sitemap.xml",

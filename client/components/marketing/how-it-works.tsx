@@ -24,7 +24,7 @@ const STEPS = [
   {
     icon: MessageSquareText,
     title: "Share details in their language",
-    body: "Customers choose their preferred language, then answer specific questions based on their rating. AI generates talking points to help them write authentic Google reviews.",
+    body: "Customers choose their preferred language — English, Hindi, Hinglish or regional languages — then describe their visit in their own words with neutral, open-ended prompts. AI only organises what they already said into reminders.",
     color: "border-l-blue-500",
     iconBg: "bg-blue-500/10",
     iconColor: "text-blue-600",
@@ -33,8 +33,8 @@ const STEPS = [
   },
   {
     icon: Sparkles,
-    title: "AI generates the review draft",
-    body: "Based on their feedback, AI creates a natural review draft. Customers review, edit, and own every word before posting to Google.",
+    title: "Customer crafts their own review",
+    body: "The customer reviews, edits and owns every word before choosing what to post to Google. BEYONDVYU never posts on their behalf and never pushes staff names or scripted content.",
     color: "border-l-violet-500",
     iconBg: "bg-violet-500/10",
     iconColor: "text-violet-600",
@@ -64,9 +64,9 @@ const STEPS = [
 ]
 
 const STATS = [
-  { icon: TrendingUp, value: 3.2, suffix: "×", label: "More reviews", desc: "vs. paper cards" },
-  { icon: Clock, value: 60, suffix: "s", label: "Average flow", desc: "start to finish", prefix: "< " },
-  { icon: Zap, value: 94, suffix: "%", label: "Completion rate", desc: "customers finish" },
+  { icon: TrendingUp, value: null as number | null, suffix: "", label: "Review velocity", desc: "reviews / location / month, tracked live", staticText: "Live" },
+  { icon: Clock, value: 60, suffix: "s", label: "Average flow", desc: "scan to Google-post choice", prefix: "~" },
+  { icon: Zap, value: null as number | null, suffix: "", label: "Review conversion", desc: "visits → starts → Google posts", staticText: "Funnel" },
 ]
 
 export function HowItWorks() {
@@ -134,16 +134,26 @@ export function HowItWorks() {
               >
                 <stat.icon className="mx-auto size-5 text-primary transition-transform duration-300 group-hover:scale-110" />
                 <div className="mt-3 text-3xl font-bold tracking-tight text-foreground tabular-nums">
-                  {stat.prefix || ""}
-                  <span className="counter-value" data-target={stat.value} data-suffix={stat.suffix}>
-                    0{stat.suffix}
-                  </span>
+                  {stat.value == null ? (
+                    <span>{(stat as { staticText?: string }).staticText ?? "—"}</span>
+                  ) : (
+                    <>
+                      {stat.prefix || ""}
+                      <span className="counter-value" data-target={stat.value} data-suffix={stat.suffix}>
+                        {stat.prefix || ""}{stat.value}{stat.suffix}
+                      </span>
+                    </>
+                  )}
                 </div>
                 <div className="mt-1 text-sm font-semibold text-foreground/80">{stat.label}</div>
                 <div className="text-xs text-muted-foreground">{stat.desc}</div>
               </div>
             ))}
           </div>
+          <p className="mx-auto mt-4 max-w-2xl text-center text-[11px] leading-relaxed text-muted-foreground/70">
+            We don&apos;t publish fixed multipliers (e.g. &ldquo;4.7×&rdquo; or &ldquo;94%&rdquo;) without a disclosed sample, timeframe and
+            methodology. Your dashboard reports your own review velocity and visits → review-starts → Google-posts funnel per location.
+          </p>
         </div>
       </div>
     </section>

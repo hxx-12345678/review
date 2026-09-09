@@ -58,6 +58,8 @@ export function MarketingHeader() {
         <nav className="hidden items-center gap-1 md:flex" aria-label="Primary">
           {[
             { href: "/#how", label: "How it works" },
+            { href: "/pricing", label: "Pricing" },
+            { href: "/#faq", label: "FAQ" },
             { href: "/#compliance", label: "Compliance" },
               { href: "/contact", label: "Contact" },
           ].map((link) => (
@@ -166,6 +168,8 @@ export function MarketingHeader() {
           <nav className="flex flex-col gap-1" aria-label="Mobile">
             {[
               { href: "/#how", label: "How it works" },
+              { href: "/pricing", label: "Pricing" },
+              { href: "/#faq", label: "FAQ" },
               { href: "/#compliance", label: "Compliance" },
             { href: "/contact", label: "Contact" },
               ...(user ? [] : [{ href: "/login", label: "Log in" as const }]),
