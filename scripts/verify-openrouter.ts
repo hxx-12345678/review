@@ -6,8 +6,8 @@
 import { getOpenRouterConfig } from "../server/src/config/env";
 import { callOpenRouter, extractTalkingPoints } from "../server/src/utils/gemini";
 
-const IN_PER_M = 0.13;
-const OUT_PER_M = 0.52;
+const IN_PER_M = 0.27;
+const OUT_PER_M = 0.41;
 let promptTokens = 0;
 let completionTokens = 0;
 let failures = 0;
@@ -18,8 +18,8 @@ function check(name: string, cond: boolean, detail = "") {
 }
 
 async function tracked(prompt: string, system?: string, json = false) {
-  const text = await callOpenRouter(prompt, system, json ? ({ responseMimeType: "application/json" } as any) : undefined);
-  return text;
+  const r: any = await callOpenRouter(prompt, system, json ? ({ responseMimeType: "application/json" } as any) : undefined);
+  return typeof r === "string" ? r : r.text;
 }
 
 async function main() {
@@ -54,7 +54,7 @@ Customer's notes about their visit: "Service mast tha but thoda wait karna pada"
 MANDATORY OUTPUT LANGUAGE (apply to every word of every bullet — this overrides everything):
 Write the reminder bullet points in natural Hinglish — a casual mix of Hindi and English using ONLY the English/Latin alphabet (no Devanagari).
 
-Produce 2-5 short reminder bullets grounded strictly in what the customer wrote above. If the customer notes above are non-empty, return at least 2 bullets — never an empty list. Every single word must be in the language stated in the MANDATORY OUTPUT LANGUAGE section.`;
+Produce 2-5 short reminder bullets grounded strictly in what the customer wrote above. If the customer notes above are non-empty, return at least 2 bullets — never an empty list. Respond with this exact JSON shape: {"talkingPoints": ["first reminder", "second reminder"]}. Every single word must be in the language stated in the MANDATORY OUTPUT LANGUAGE section.`;
   const tpSys = "You ONLY produce short reminder bullet points. Every bullet must be grounded in a SPECIFIC detail the customer provided. Keep each bullet under 12 words.";
   const tpRaw = await tracked(tpPrompt, tpSys, true);
   let tp: string[] = [];

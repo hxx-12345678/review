@@ -4,7 +4,7 @@ import { prisma } from "../config/database";
 import { authRequired, AuthRequest } from "../middleware/auth";
 import { requireSubscription, consumeCredits, checkCreditLimit } from "../middleware/subscription";
 import { aiBurstLimiter, aiDailyLimiter } from "../middleware/rate-limit";
-import { callGemini, buildFallbackInsights } from "../utils/gemini";
+import { buildFallbackInsights, generateWithFailover } from "../utils/gemini";
 import { generateQueries } from "../integrations/ai-visibility/query-generator";
 import { scoreFromCompleteness, compositeScore, customerReputationFromFeedback, engineMentionRate } from "../integrations/ai-visibility/scorer";
 import { buildAlignment, computeGap } from "../integrations/ai-visibility/gap";
@@ -53,7 +53,7 @@ router.post("/visibility-check", authRequired, requireSubscription, aiBurstLimit
       try {
         const prompt = `Business: "${biz.name}" in ${resolvedCity} (${biz.industry})\nWebsite: ${resolvedWebsite || "none"}\nQuery a customer would ask AI: "${query}"\nQuestion: Would an AI answering this query recommend "${biz.name}"? Return JSON {mentioned: boolean, cited: boolean, snippet: string (20 words why), citations: string[] (website if cited else []) }`;
         const system = `You are an AI visibility auditor. Be honest, not promotional. cited=true only if website would be linked as source.`;
-        const raw = (await callGemini(prompt, system, { responseMimeType: "application/json", responseSchema: { type: "OBJECT", properties: { mentioned: { type: "BOOLEAN" }, cited: { type: "BOOLEAN" }, snippet: { type: "STRING" }, citations: { type: "ARRAY", items: { type: "STRING" } } }, required: ["mentioned", "cited"] } })).text;
+        const raw = (await generateWithFailover(prompt, system, { responseMimeType: "application/json", responseSchema: { type: "OBJECT", properties: { mentioned: { type: "BOOLEAN" }, cited: { type: "BOOLEAN" }, snippet: { type: "STRING" }, citations: { type: "ARRAY", items: { type: "STRING" } } }, required: ["mentioned", "cited"] } })).text;
         const parsed = JSON.parse(raw);
         return { engine, query, mentioned: !!parsed.mentioned, cited: !!parsed.cited, snippet: parsed.snippet || "", citations: parsed.citations || [], latencyMs: Date.now() - start };
       } catch (e) {
@@ -175,7 +175,7 @@ router.post("/visibility-check/:id/fix", authRequired, requireSubscription, aiBu
       const loves = (ct.loves || []).map((l: any) => `${l.phrase} (${l.count})`).join(", ") || "—";
       const complaints = (ct.complaints || []).map((c: any) => `${c.phrase} (${c.count})`).join(", ") || "—";
       const prompt = `Business: ${business.name} (${business.industry}) | Location: ${business.location} | Website: ${business.website || "none"} | Gap: ${check.gap} pts (Customer ${check.customerReputation} vs AI ${check.score})\nCustomer evidence (from ${business.name} reviews): Loves: ${loves}. Complaints: ${complaints}.\nFix to generate: ${target.title} — ${target.why} — type ${target.generateType}\nRules: Use actual customer phrases above, mention ${business.location} once, no generic filler ("premier", "exceptional experience", "welcome"), keep description 90-110 words, FAQ must be 5 Q/A valid JSON array with location-specific answers, service_section 2 short paragraphs + 4 bullets grounded in loves, inconsistency: table Correct vs Example1/2 only if gap is NAP, response_plan: 4-step checklist tied to complaint. No hallucinated address/phone. Return plain text (or JSON for faq).`;
-      content = (await callGemini(prompt, "You are a precise business copywriter. Ground every sentence in customer evidence provided. No template filler. If FAQ, output only JSON array.")).text;
+      content = (await generateWithFailover(prompt, "You are a precise business copywriter. Ground every sentence in customer evidence provided. No template filler. If FAQ, output only JSON array.")).text;
       // Strip code fences if model wrapped JSON
       if (target.generateType === "faq") content = content.replace(/```json|```/g, "").trim();
     } catch {
