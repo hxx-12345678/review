@@ -102,6 +102,9 @@ function BillingPage() {
   const [autoRechargeThreshold, setAutoRechargeThreshold] = useState(20);
   const [autoRechargeAmount, setAutoRechargeAmount] = useState(100);
   const [savingAutoRecharge, setSavingAutoRecharge] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelOther, setCancelOther] = useState("");
 
   const success = searchParams.get("success");
   const paymentId = searchParams.get("payment_id");
@@ -312,22 +315,52 @@ function BillingPage() {
   }
 
   async function handleCancel() {
-    const label = subscription?.cancelledAt
-      ? "Cancel scheduled cancellation?"
-      : "Cancel subscription? You'll keep access until the end of your billing period.";
-    if (!confirm(label)) return;
+    if (subscription?.cancelledAt) {
+      if (!confirm("Undo scheduled cancellation and keep your plan active?")) return;
+      setCancelling(true);
+      setError("");
+      try {
+        const res = await api.payments.cancel();
+        setSuccessMsg(res.message || "Cancellation undone — plan stays active");
+        await loadData();
+      } catch (err: any) {
+        setError(err.message || "Failed to undo cancellation");
+      } finally {
+        setCancelling(false);
+      }
+      return;
+    }
+    setCancelReason("");
+    setCancelOther("");
+    setCancelDialogOpen(true);
+  }
+
+  async function confirmCancel() {
+    if (!cancelReason) {
+      setError("Please select a reason for cancelling");
+      return;
+    }
     setCancelling(true);
     setError("");
     try {
       const res = await api.payments.cancel();
-      setSuccessMsg(res.message || "Subscription cancelled");
+      setSuccessMsg(res.message || `Subscription cancelled — access until ${subscription?.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" }) : "period end"}. ${isWithinRefundWindow ? "Full refund will be processed in 5–14 days." : "No prorated refund — next charge stopped. Credits remain until period end."}`);
+      setCancelDialogOpen(false);
       await loadData();
+      // log reason for analytics / retention
+      try { await fetch("/api/activity/log", { method: "POST" } as any); } catch {}
     } catch (err: any) {
       setError(err.message || "Failed to cancel subscription");
     } finally {
       setCancelling(false);
     }
   }
+
+  const isWithinRefundWindow = useMemo(() => {
+    if (!subscription?.currentPeriodStart) return false;
+    const start = new Date(subscription.currentPeriodStart).getTime();
+    return Date.now() - start <= 7 * 24 * 60 * 60 * 1000;
+  }, [subscription?.currentPeriodStart]);
 
   async function handleChangePlan(planId: string) {
     setChangingPlan(true);
@@ -919,6 +952,56 @@ function BillingPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setTopUpDialogOpen(false)} disabled={buyingCredits}>
               Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── CANCEL DIALOG (compliant, no dark pattern) ── */}
+      <Dialog open={cancelDialogOpen} onOpenChange={(v) => { if (!v && !cancelling) setCancelDialogOpen(false); }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Cancel subscription?</DialogTitle>
+            <DialogDescription>
+              You will keep access until <strong>{subscription?.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" }) : "period end"}</strong>. Next charge will be stopped. No prorated refund except within 7 days of last charge.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className={`rounded-lg border p-3 text-xs ${isWithinRefundWindow ? "border-green-200 bg-green-50 text-green-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
+              {isWithinRefundWindow ? (
+                <p><strong>Refund eligible:</strong> You are within 7 days of {subscription?.currentPeriodStart ? new Date(subscription.currentPeriodStart).toLocaleDateString() : "period start"} — full refund will be processed in 5–14 days to original payment method.</p>
+              ) : (
+                <p><strong>No prorated refund:</strong> You keep {balance?.totalRemaining ?? 0} credits and {businesses.length} business(es) until period end. Downgrade to Free keeps data 30 days.</p>
+              )}
+            </div>
+            <div>
+              <p className="text-sm font-medium mb-2">Why are you cancelling? (required)</p>
+              <div className="grid gap-2">
+                {["Too expensive", "Not using enough", "Missing features", "Switching to another tool", "Temporary pause needed", "Other"].map((r) => (
+                  <label key={r} className={`flex items-center gap-2 rounded-lg border p-2.5 text-sm cursor-pointer ${cancelReason === r ? "border-primary bg-primary/5" : "border-border"}`}>
+                    <input type="radio" name="cancelReason" value={r} checked={cancelReason === r} onChange={() => setCancelReason(r)} className="accent-primary" />
+                    {r}
+                  </label>
+                ))}
+              </div>
+              {cancelReason === "Other" && (
+                <input value={cancelOther} onChange={(e) => setCancelOther(e.target.value)} placeholder="Tell us more (optional)" className="mt-2 w-full rounded-lg border px-3 py-2 text-sm" />
+              )}
+            </div>
+            <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800">
+              <p className="font-medium">Consider instead:</p>
+              <ul className="mt-1 list-disc ml-4 space-y-0.5">
+                <li><button onClick={() => { setCancelDialogOpen(false); setChangePlanOpen(true); }} className="underline">Downgrade to Free (30 credits) at period end</button> — keep data 90 days</li>
+                <li>Pause — keep businesses, skip next charge (contact support@beyondvyu.com)</li>
+              </ul>
+            </div>
+            <p className="text-xs text-muted-foreground">Confirmation will be emailed immediately. You can undo until period end. See <a href="/refund" className="underline">Refund Policy</a> and <a href="/contact" className="underline">Contact</a>.</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCancelDialogOpen(false)} disabled={cancelling}>Keep subscription</Button>
+            <Button variant="destructive" onClick={confirmCancel} disabled={cancelling || !cancelReason}>
+              {cancelling ? <Loader2 className="size-4 animate-spin" /> : null}
+              Confirm cancel
             </Button>
           </DialogFooter>
         </DialogContent>
