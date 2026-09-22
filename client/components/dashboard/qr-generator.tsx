@@ -65,8 +65,16 @@ export function QrGenerator({ slug, businessName, businessId }: { slug: string; 
   }
 
   function copyLink() {
-    navigator.clipboard?.writeText(reviewUrl)
-    toast.success("Review link copied")
+    try {
+      const p = navigator.clipboard?.writeText(reviewUrl)
+      if (p && typeof p.catch === "function") {
+        p.then(() => toast.success("Review link copied")).catch(() => toast.error("Copy failed — long-press the link to copy manually"))
+        return
+      }
+      toast.success("Review link copied")
+    } catch {
+      toast.error("Copy failed — long-press the link to copy manually")
+    }
   }
 
   // Multi-channel trigger functions (SMS, WA, Email, NFC)

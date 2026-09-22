@@ -1,4 +1,11 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+
+// Share reports are user-distributed, never search-indexed — business scores
+// and review data must not leak into Google results.
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 export default async function SharePage({ params }: { params: Promise<{ shareSlug: string }> }) {
   const { shareSlug } = await params;
