@@ -18,6 +18,9 @@ const envSchema = z.object({
   SMS_API_KEY: z.string().optional().default(""),
   SMS_SENDER_ID: z.string().optional().default(""),
   SMS_TEMPLATE_ID: z.string().optional().default(""),
+  // DLT template for review-request (service) SMS — must exactly match the
+  // registered template text. Carriers block messages without a matching template.
+  SMS_REVIEW_TEMPLATE_ID: z.string().optional().default(""),
   SMS_BASE_URL: z.string().optional().default("https://login.smsforyou.biz/V2/http-api.php"),
   GEMINI_API_KEY_1: z.string().optional().default(""),
   GOOGLE_GENERATIVE_AI_API_KEY: z.string().optional().default(""),

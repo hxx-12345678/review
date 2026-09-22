@@ -769,6 +769,11 @@ export function SettingsForm({ business }: { business: any }) {
           Customize the SMS sent to customers. Keep it short — SMS has a 300 character limit.
           Use {"{"}{"{"}business_name{"}"}{"}"} and {"{"}{"{"}review_url{"}"}{"}"} placeholders.
         </p>
+        <p className="rounded-lg border border-amber-200 bg-amber-50/60 p-3 text-xs text-amber-800">
+          TRAI DLT requirement: carriers block any SMS that doesn&apos;t exactly match your registered
+          template (header + Template ID in server settings). Register this exact text on your DLT
+          portal before sending, or messages will fail silently at carrier scrubbing.
+        </p>
         <div className="mt-4 space-y-2">
           <Label htmlFor="sms-template">SMS text (max 300 characters)</Label>
           <textarea

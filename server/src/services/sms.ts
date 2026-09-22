@@ -6,7 +6,7 @@ interface SmsResult {
   error?: string;
 }
 
-export async function sendSms(phoneNumber: string, message: string): Promise<SmsResult> {
+export async function sendSms(phoneNumber: string, message: string, templateId?: string): Promise<SmsResult> {
   const env = getEnv();
   if (!env.SMS_API_KEY) {
     console.warn("SMS not sent: SMS_API_KEY not configured");
@@ -34,8 +34,12 @@ export async function sendSms(phoneNumber: string, message: string): Promise<Sms
 
   let url = `${env.SMS_BASE_URL}?apikey=${env.SMS_API_KEY}&senderid=${env.SMS_SENDER_ID}&number=${fullNumber}&message=${encodedMessage}&format=json`;
 
-  if (env.SMS_TEMPLATE_ID && message.includes("OTP")) {
-    url += `&template_id=${env.SMS_TEMPLATE_ID}`;
+  // TRAI DLT: every commercial SMS must carry its registered Template ID or
+  // carriers block it at scrubbing. Never mix categories — an OTP template ID
+  // on a review-request message is a category mismatch (block + violation).
+  const resolvedTemplateId = templateId || (message.includes("OTP") ? env.SMS_TEMPLATE_ID : undefined);
+  if (resolvedTemplateId) {
+    url += `&template_id=${resolvedTemplateId}`;
   }
 
   try {

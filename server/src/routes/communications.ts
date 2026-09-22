@@ -151,7 +151,7 @@ router.post("/send-sms", authRequired, async (req: AuthRequest, res: Response) =
       message = message.substring(0, 297) + "...";
     }
 
-    const result = await sendSms(data.toPhone, message);
+    const result = await sendSms(data.toPhone, message, env.SMS_REVIEW_TEMPLATE_ID || undefined);
 
     if (!result.success) {
       return res.status(502).json({ error: result.error || "Failed to send SMS" });

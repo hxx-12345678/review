@@ -18,7 +18,7 @@ export default function PrivacyPage() {
       <main className="mx-auto w-full max-w-3xl flex-1 min-w-0 overflow-hidden px-4 py-10 sm:px-6 sm:py-16">
         <h1 className="mb-2 text-3xl font-bold">Privacy Policy</h1>
         <p className="mb-8 text-sm text-muted-foreground">
-          Last updated: July 21, 2026
+          Last updated: September 22, 2026
         </p>
 
         <section className="mb-8 space-y-4">
@@ -26,9 +26,11 @@ export default function PrivacyPage() {
           <p>
             BEYONDVYU (&ldquo;we,&rdquo; &ldquo;us,&rdquo; or &ldquo;our&rdquo;) is committed to
             protecting your privacy. This policy explains how we collect, use, store, process, and
-            protect your personal data when you use our review management platform. It complies with
-            the <strong>Digital Personal Data Protection Act, 2023 (DPDP Act)</strong> of India,
-            along with other applicable privacy laws.
+            protect your personal data when you use our review management platform. It is designed
+            to comply with the <strong>Digital Personal Data Protection Act, 2023 (DPDP Act)</strong> of
+            India and is aligned with the <strong>DPDP Rules, 2025</strong> (notified November 2025;
+            core fiduciary duties enforceable in phases through May 2027), along with other
+            applicable privacy laws.
           </p>
         </section>
 
@@ -283,7 +285,19 @@ export default function PrivacyPage() {
         </section>
 
         <section className="mb-8 space-y-4">
-          <h2 className="text-xl font-semibold">14. Grievance Redressal</h2>
+          <h2 className="text-xl font-semibold">14. Data Breach Notification</h2>
+          <p>
+            If we become aware of a personal data breach, we will notify affected users{" "}
+            <strong>without delay</strong> in clear, plain language through your account or
+            registered contact details, describing what happened, its likely impact, what we are
+            doing about it, and how to protect yourself. We will also notify the{" "}
+            <strong>Data Protection Board of India</strong> without delay, with a detailed report
+            within 72 hours as required by the DPDP Rules, 2025.
+          </p>
+        </section>
+
+        <section className="mb-8 space-y-4">
+          <h2 className="text-xl font-semibold">15. Grievance Redressal</h2>
           <p>
             If you have any complaints or concerns regarding your personal data, please contact our
             Grievance Officer:
