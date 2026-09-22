@@ -128,7 +128,11 @@ export function FeedbackFlow({ business, slug, demo: isDemo = false }: { busines
 
   function handlePostToGoogle(content: string) {
     if (content.trim()) {
-      navigator.clipboard.writeText(content.trim())
+      // Clipboard can throw on non-secure contexts — never break the redirect flow
+      try {
+        const p = navigator.clipboard?.writeText(content.trim())
+        if (p && typeof p.catch === "function") p.catch(() => {})
+      } catch {}
     }
     setRedirectContent(content)
     setShowRedirectPopup(true)

@@ -78,6 +78,9 @@ export default function InsightsPage() {
     if (currentBusiness) {
       setLoading(true)
       loadInsights(currentBusiness.id, period)
+    } else {
+      // No business — don't leave the skeleton hanging forever
+      setLoading(false)
     }
   }, [user, authLoading, bizLoading, currentBusiness, period, loadInsights])
 
@@ -353,9 +356,15 @@ export default function InsightsPage() {
                 ? "Unable to load insights. Make sure you have active AI credits."
                 : "No reviews collected yet. Share your QR code to start gathering feedback."}
             </p>
-            <Button className="mt-4 rounded-xl" onClick={() => router.push("/dashboard/billing")}>
-              View Plan & Credits
-            </Button>
+            {error ? (
+              <Button className="mt-4 rounded-xl" onClick={() => router.push("/dashboard/billing")}>
+                View Plan & Credits
+              </Button>
+            ) : (
+              <Button className="mt-4 rounded-xl" onClick={() => router.push("/dashboard/qr")}>
+                Get QR code
+              </Button>
+            )}
           </Card>
         ) : null}
       </div>
