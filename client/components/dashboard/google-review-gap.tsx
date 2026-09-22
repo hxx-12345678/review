@@ -17,8 +17,9 @@ export function GoogleReviewGap({ businessId, compact }: { businessId: string; c
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [importing, setImporting] = useState(false);
 
-  useEffect(() => {
+  function load() {
     if (!businessId) return;
     setLoading(true);
     setError("");
@@ -26,7 +27,28 @@ export function GoogleReviewGap({ businessId, compact }: { businessId: string; c
       .then(setData)
       .catch((e: any) => setError(e.message || "Failed to load review gap"))
       .finally(() => setLoading(false));
-  }, [businessId]);
+  }
+
+  useEffect(() => { load(); }, [businessId]);
+
+  const [importNote, setImportNote] = useState("");
+
+  async function handleImport() {
+    setImporting(true);
+    setImportNote("");
+    try {
+      // Places API import — no GBP OAuth needed, uses stored Place ID
+      const res: any = await api.googleReviews.syncPlaces(businessId);
+      if (res && res.total === 0) {
+        setImportNote("Google returned no review texts for this listing (common for quieter profiles) — gap uses live rating/count plus your BeyondVyu feedback for recency and sentiment. Connect GBP OAuth in Settings for full review sync.");
+      }
+      load();
+    } catch (e: any) {
+      setError(e.message || "Import failed — check Place ID in Settings");
+    } finally {
+      setImporting(false);
+    }
+  }
 
   if (loading) return <Card className="p-5"><div className="h-6 w-48 animate-pulse rounded bg-muted" /><div className="mt-4 grid gap-3 sm:grid-cols-3">{[1,2,3].map(i=><div key={i} className="h-20 animate-pulse rounded-lg bg-muted" />)}</div></Card>;
   if (error) {
@@ -46,6 +68,19 @@ export function GoogleReviewGap({ businessId, compact }: { businessId: string; c
         </div>
         <span className={`px-3 py-1 rounded-full text-xs font-bold text-white ${gapColor}`}>Gap: {data.gap}{data.gapDeficit ? ` · behind ${data.gapDeficit}` : ""}</span>
       </div>
+
+      {(data.googleListing?.nameMismatch || data.you?.lastReviewSource === "feedback_db" || (data.responseBehavior?.googleTotal ?? 0) === 0) && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 space-y-2">
+          {data.googleListing?.nameMismatch && <p><strong>Listing mismatch:</strong> {data.googleListing.note}</p>}
+          {data.you?.lastReviewSource === "feedback_db" && <p><strong>Last review from BeyondVyu feedback</strong> (Google sample empty) — import public reviews below for live Google recency.</p>}
+          {(data.responseBehavior?.googleTotal ?? 0) === 0 && <p><strong>No synced Google reviews yet</strong> — import takes 10 seconds, no Google login needed.</p>}
+          <div className="flex flex-wrap gap-2">
+            {data.googleListing?.nameMismatch && <Button size="sm" variant="outline" className="bg-white" onClick={() => window.location.href = "/dashboard/settings"}>Fix listing in Settings</Button>}
+            {(data.responseBehavior?.googleTotal ?? 0) === 0 && <Button size="sm" variant="outline" className="bg-white" disabled={importing} onClick={handleImport}>{importing ? "Importing…" : "Import Google reviews"}</Button>}
+          </div>
+          {importNote && <p className="text-xs text-amber-700 bg-white/60 rounded-lg p-2">{importNote}</p>}
+        </div>
+      )}
 
       {/* You vs competitors */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

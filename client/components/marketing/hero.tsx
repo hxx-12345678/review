@@ -40,7 +40,7 @@ export function Hero() {
             <p className="speakable mt-6 max-w-lg text-pretty text-base leading-relaxed text-white/70 sm:text-lg">
               Collect feedback by QR or link in <strong className="text-white">60 seconds</strong> — no code, no app
               install, no review gating. Customers describe their visit in their own words — even in Hindi, Hinglish
-              or regional languages — then choose what to post to Google. Weekly insights come to your WhatsApp.
+              or regional languages — then choose what to post to Google. Weekly insights in your dashboard, with optional WhatsApp delivery.
             </p>
 
             {/* Social proof strip */}

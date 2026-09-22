@@ -225,13 +225,21 @@ router.get("/review-gap", authRequired, async (req: AuthRequest, res: Response) 
       const times = selfReviews.map((r: any) => r.publishTime).filter(Boolean).map((t: string) => new Date(t).getTime());
       if (times.length > 0) lastReviewAt = new Date(Math.max(...times)).toISOString();
     }
-    // Fallback last review from DB if Places returns no publishTime
+    // Fallback last review from DB (GoogleReview first, then Feedback) if Places returns no publishTime
+    let lastReviewSource: "google_places" | "google_db" | "feedback_db" | null = selfReviews.length > 0 && lastReviewAt ? "google_places" : null;
     if (!lastReviewAt) {
       const lastDb = await prisma.googleReview.findFirst({ where: { businessId }, orderBy: { createTime: "desc" }, select: { createTime: true } });
-      if (lastDb) lastReviewAt = lastDb.createTime.toISOString();
+      if (lastDb) { lastReviewAt = lastDb.createTime.toISOString(); lastReviewSource = "google_db"; }
+    }
+    if (!lastReviewAt) {
+      const lastFb = await prisma.feedback.findFirst({ where: { businessId }, orderBy: { createdAt: "desc" }, select: { createdAt: true } });
+      if (lastFb) { lastReviewAt = lastFb.createdAt.toISOString(); lastReviewSource = "feedback_db"; }
     }
     const yourRating: number | null = selfData.rating ?? null;
     const yourTotal: number | null = selfData.userRatingCount ?? null;
+    const googleName: string = selfData.displayName?.text || "";
+    const googleAddress: string = selfData.formattedAddress || "";
+    const nameMismatch = googleName && business.name ? googleName.toLowerCase().trim() !== business.name.toLowerCase().trim() : false;
     const daysSinceLast = lastReviewAt ? Math.floor((Date.now() - new Date(lastReviewAt).getTime()) / 86400000) : null;
 
     // 2. Competitors via Text Search: "{industry label} in {location}"
@@ -305,29 +313,31 @@ router.get("/review-gap", authRequired, async (req: AuthRequest, res: Response) 
       ? { positive: Math.round((pos / allRatings.length) * 100), neutral: Math.round((neu / allRatings.length) * 100), negative: Math.round((neg / allRatings.length) * 100), sample: allRatings.length, source: "googleReview+feedback" }
       : null;
 
-    // 5. Velocity plan — safe cadence per Feb 2026 policy + Localo (1-2/wk 594d, 100+/wk 6d)
-    // Never recommend bulk: cap 2-5/week, spread over 7 months (Local Dominator 142/mo example).
+    // 5. Velocity plan — honest math per Feb 2026 policy + Localo (1-2/wk 594d, 100+/wk 6d)
+    // Never recommend bulk: cap 2-5/week (8-20/mo safe ceiling). Honest timeline = ceil(deficit/perMonth).
     let velocity: any = null;
     if (gapDeficit != null && gapDeficit > 0) {
-      const monthsToClose = 7;
-      const perMonthRaw = Math.ceil(gapDeficit / monthsToClose);
-      const perMonth = Math.min(20, Math.max(8, perMonthRaw)); // 8-20/mo = 2-5/wk safe ceiling
-      const perWeek = Math.min(5, Math.max(2, Math.round(perMonth / 4)));
+      const perMonth = 20; // safe ceiling (5/wk)
+      const perWeek = 5;
+      const honestMonths = Math.ceil(gapDeficit / perMonth);
+      const sevenMonthProgress = Math.min(gapDeficit, perMonth * 7);
       velocity = {
         deficit: gapDeficit,
-        monthsToClose,
+        monthsToClose: honestMonths,
         perMonth,
         perWeek,
         currentAvgPerWeek: avgPerWeek,
-        message: `At your current customer volume, target ${perWeek} reviews/week (~${perMonth}/month) steadily for ~${monthsToClose} months — not ${gapDeficit} overnight. Bulk spikes trigger Google's Feb 2026 unusual-volume filter and batch deletions.`,
+        sevenMonthProgress,
+        message: `At your current customer volume, target ${perWeek} reviews/week (~${perMonth}/month) steadily — not ${gapDeficit} overnight. Full parity takes ~${honestMonths} months at safe pace; 7-month milestone closes ~${sevenMonthProgress}. Bulk spikes trigger Google's Feb 2026 unusual-volume filter and batch deletions.`,
       };
     } else if (gapDeficit === 0) {
-      velocity = { deficit: 0, perWeek: 2, perMonth: 8, monthsToClose: 0, currentAvgPerWeek: avgPerWeek, message: "You're at parity — hold 2 reviews/week to stay ahead. Recency (last 90 days) matters more than lifetime count." };
+      velocity = { deficit: 0, perWeek: 2, perMonth: 8, monthsToClose: 0, sevenMonthProgress: 0, currentAvgPerWeek: avgPerWeek, message: "You're at parity — hold 2 reviews/week to stay ahead. Recency (last 90 days) matters more than lifetime count." };
     }
 
     res.json({
       business: { id: business.id, name: business.name, industry: business.industry, location: business.location, placeId: business.googlePlaceId },
-      you: { rating: yourRating, totalRatings: yourTotal, lastReviewAt, daysSinceLastReview: daysSinceLast, source: "google_places_details" },
+      you: { rating: yourRating, totalRatings: yourTotal, lastReviewAt, daysSinceLastReview: daysSinceLast, lastReviewSource, source: "google_places_details" },
+      googleListing: { name: googleName, address: googleAddress, nameMismatch, note: nameMismatch ? `Your Google listing is "${googleName}" but your BeyondVyu business is "${business.name}" — update the name or re-select the correct listing.` : null },
       competitors,
       competitorAverages: { avgRating: compAvgRating != null ? Math.round(compAvgRating * 10) / 10 : null, avgTotal: compAvgTotal, maxTotal: compMaxTotal },
       gap,
