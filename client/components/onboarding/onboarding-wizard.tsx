@@ -370,6 +370,31 @@ export function OnboardingWizard({ embedded, onComplete }: {
                 <p className="text-xs text-muted-foreground">
                   Your Google review URL will be: <code className="rounded bg-muted px-1 py-0.5 font-mono">https://search.google.com/local/writereview?placeid={selectedPlace.placeId.slice(0, 8)}...</code>
                 </p>
+                {/* ── Google Review Gap preview — pain visualization at signup ── */}
+                {(() => {
+                  const rivals = searchResults.filter((r) => r.placeId !== selectedPlace.placeId).sort((a, b) => (b.totalRatings || 0) - (a.totalRatings || 0)).slice(0, 3);
+                  const avgTotal = rivals.length ? Math.round(rivals.reduce((s, r) => s + (r.totalRatings || 0), 0) / rivals.length) : null;
+                  const deficit = avgTotal != null && selectedPlace.totalRatings != null ? Math.max(0, avgTotal - selectedPlace.totalRatings) : null;
+                  const gap = deficit == null ? "Unknown" : deficit > 200 ? "High" : deficit > 50 ? "Medium" : "Low";
+                  const perWeek = deficit ? Math.min(5, Math.max(2, Math.round(Math.min(20, Math.max(8, Math.ceil(deficit / 7))) / 4))) : 2;
+                  return (
+                    <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4 text-sm">
+                      <p className="font-semibold">Your Google Review Gap: <span className={gap === "High" ? "text-red-600" : gap === "Medium" ? "text-amber-600" : "text-emerald-600"}>{gap}</span></p>
+                      <p className="mt-1 text-xs text-muted-foreground">Your rating: <strong className="text-foreground">{selectedPlace.rating ?? "—"}</strong> · Your reviews: <strong className="text-foreground">{selectedPlace.totalRatings?.toLocaleString() ?? "—"}</strong></p>
+                      {rivals.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          <p className="text-xs font-medium">Nearby competitors:</p>
+                          {rivals.map((r) => (
+                            <p key={r.placeId} className="text-xs text-muted-foreground">{r.name} — <strong className="text-foreground">{r.rating}</strong> / {r.totalRatings?.toLocaleString()} reviews</p>
+                          ))}
+                        </div>
+                      )}
+                      {deficit != null && deficit > 0 && (
+                        <p className="mt-2 text-xs">At your current customer volume, target <strong>{perWeek} reviews/week</strong> steadily — not {deficit} overnight. Bulk spikes trigger Google&apos;s Feb 2026 filter.</p>
+                      )}
+                    </div>
+                  );
+                })()}
                 <Button variant="ghost" size="sm" onClick={clearSelection} className="text-xs text-muted-foreground">
                   Change selection
                 </Button>

@@ -2,6 +2,7 @@ import { Router, Response } from "express";
 import { z } from "zod";
 import { prisma } from "../config/database";
 import { authRequired, AuthRequest } from "../middleware/auth";
+import { syncPlacesApiReviews } from "../services/google-business-api";
 
 const router = Router();
 
@@ -272,6 +273,12 @@ router.post("/", authRequired, async (req: AuthRequest, res: Response) => {
 
       return business;
     });
+
+    // Auto-sync public reviews via Places API (fire-and-forget) so Review Gap
+    // has last-review + synced count immediately after signup. No GBP approval needed.
+    if (result.googlePlaceId) {
+      syncPlacesApiReviews(result.id).catch((e) => console.warn("Auto Places sync failed:", (e as Error).message));
+    }
 
     res.status(201).json({ business: result });
   } catch (err) {

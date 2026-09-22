@@ -76,24 +76,36 @@ export async function fetchGoogleReviews(
   locationId: string,
   accessToken: string,
 ): Promise<GoogleReviewData[]> {
-  const url = `${GBP_API_BASE}/accounts/${accountId}/locations/${locationId}/reviews?pageSize=50&orderBy=createTime%20desc`;
+  // Paginated — v4 returns nextPageToken; loop to avoid missing 20-30% on high-volume profiles
+  const all: any[] = [];
+  let pageToken: string | undefined;
+  for (let page = 0; page < 10; page++) {
+    const params = new URLSearchParams({ pageSize: "50", orderBy: "createTime desc" });
+    if (pageToken) params.set("pageToken", pageToken);
+    const url = `${GBP_API_BASE}/accounts/${accountId}/locations/${locationId}/reviews?${params.toString()}`;
 
-  const res = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-  });
+    const res = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+    });
 
-  if (!res.ok) {
-    const errorBody = await res.text();
-    throw new Error(`Google Business API fetch failed: ${res.status} — ${errorBody}`);
+    if (!res.ok) {
+      const errorBody = await res.text();
+      throw new Error(`Google Business API fetch failed: ${res.status} — ${errorBody}`);
+    }
+
+    const data: any = await res.json();
+    const reviews: any[] = data.reviews || [];
+    all.push(...reviews);
+    pageToken = data.nextPageToken || undefined;
+    if (!pageToken) break;
+    // Small delay to respect 300 QPM
+    await new Promise((r) => setTimeout(r, 150));
   }
 
-  const data: any = await res.json();
-  const reviews: any[] = data.reviews || [];
-
-  return reviews.map((r: any) => ({
+  return all.map((r: any) => ({
     // reviewId may be at r.reviewId OR derived from r.name (e.g., "accounts/x/locations/y/reviews/abc")
     reviewId: r.reviewId || r.name?.split("/").pop() || "",
     reviewerName: r.reviewer?.displayName || null,

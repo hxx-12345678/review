@@ -10,6 +10,7 @@ import { StatCards } from "@/components/dashboard/stat-cards";
 import { AiCreditsBar } from "@/components/dashboard/ai-credits-bar";
 import { TrendChart } from "@/components/dashboard/trend-chart";
 import { RatingBreakdown, RecentActivity, ComplianceCard } from "@/components/dashboard/overview-panels";
+import { GoogleReviewGap } from "@/components/dashboard/google-review-gap";
 import {
   Select,
   SelectContent,
@@ -154,6 +155,7 @@ if (!biz) {
       </PageHeader>
 
       <div className="space-y-6 p-4 sm:p-6 lg:p-8">
+        {currentBusiness?.id && <GoogleReviewGap businessId={currentBusiness.id} compact />}
         <StatCards
           rating={avgRating}
           reviewCount={stats?.totalFeedback || 0}

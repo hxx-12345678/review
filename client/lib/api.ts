@@ -261,6 +261,12 @@ export const api = {
   googlePlaces: {
     search: (query: string) =>
       request<{ results: { placeId: string; name: string; address: string; rating: number | null; totalRatings: number | null }[] }>(`/google-places/search?query=${encodeURIComponent(query)}`),
+    details: (placeId: string) =>
+      request<{ placeId: string; name: string; address: string; rating: number | null; totalRatings: number | null; lastReviewAt: string | null; reviewSampleCount: number; fetchedAt: string }>(`/google-places/details?placeId=${encodeURIComponent(placeId)}`),
+    competitors: (placeId: string, query: string) =>
+      request<{ competitors: { placeId: string; name: string; address: string; rating: number | null; totalRatings: number | null }[] }>(`/google-places/competitors?placeId=${encodeURIComponent(placeId)}&query=${encodeURIComponent(query)}`),
+    reviewGap: (businessId: string) =>
+      request<any>(`/google-places/review-gap?businessId=${encodeURIComponent(businessId)}`),
   },
   v2: {
     // WhatsApp Flows
