@@ -24,8 +24,18 @@ import { useBusiness } from "@/lib/business-context";
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
-  const { businesses, currentBusiness, isLoading: bizLoading, loadError, switchBusiness, showOnboarding } = useBusiness();
+  const { businesses, currentBusiness, isLoading: bizLoading, loadError, switchBusiness, showOnboarding, refreshBusinesses } = useBusiness();
   const router = useRouter();
+  const [retrying, setRetrying] = useState(false);
+
+  async function handleRetry() {
+    setRetrying(true);
+    try {
+      await refreshBusinesses();
+    } finally {
+      setRetrying(false);
+    }
+  }
   const [stats, setStats] = useState<any>(null);
   const [feedback, setFeedback] = useState<any[]>([]);
   const [googleReviews, setGoogleReviews] = useState<any[]>([]);
@@ -91,6 +101,25 @@ if (!biz) {
           ))}
         </div>
         <div className="mt-6 h-[260px] animate-pulse rounded-lg bg-muted" />
+      </div>
+    );
+  }
+
+  if (loadError && businesses.length === 0) {
+    return (
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-6 p-6 text-center">
+        <div className="flex size-16 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+          <Building2 className="size-8" />
+        </div>
+        <div>
+          <h2 className="text-xl font-semibold tracking-tight">Couldn&apos;t load your businesses</h2>
+          <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
+            The server took too long to respond. Your data is safe — check your connection and try again.
+          </p>
+        </div>
+        <Button onClick={handleRetry} disabled={retrying}>
+          {retrying ? "Retrying..." : "Try again"}
+        </Button>
       </div>
     );
   }

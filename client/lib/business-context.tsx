@@ -91,9 +91,22 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
 
   const refreshBusinesses = useCallback(async () => {
     setLoadError(false);
+    // Production backends can cold-start (first request slow) — retry once on
+    // timeout/network failure so users don't land on a dead empty state.
+    async function fetchWithRetry<T>(fn: () => Promise<T>): Promise<T> {
+      try {
+        return await fn();
+      } catch (err: any) {
+        if (err?.status === 408 || err?.status === 0) {
+          await new Promise((r) => setTimeout(r, 2000));
+          return await fn();
+        }
+        throw err;
+      }
+    }
     try {
       const [bizRes, subRes] = await Promise.all([
-        api.businesses.list(),
+        fetchWithRetry(() => api.businesses.list()),
         api.payments.subscription().catch(() => null),
       ]);
       const list = bizRes.businesses || [];
