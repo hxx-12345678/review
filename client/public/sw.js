@@ -1,4 +1,4 @@
-const CACHE = "beyondvyu-v3"
+const CACHE = "beyondvyu-v7"
 const STATIC_ASSETS = [
   "/",
   "/offline",
@@ -59,7 +59,11 @@ self.addEventListener("fetch", (event) => {
       url.pathname.startsWith("/fonts/") ||
       url.pathname.match(/\.(png|jpg|jpeg|gif|svg|ico|webp|woff2?|css|js)$/))
   ) {
-    event.respondWith(cacheFirst(request))
+    // Hashed filenames are immutable per deploy, but the HTML chunk manifest
+    // changes every deploy — stale-while-revalidate serves fast AND self-heals
+    // instead of serving mismatched chunks forever (cacheFirst caused
+    // "module factory not available" crashes on login/signup after deploys).
+    event.respondWith(staleWhileRevalidate(request))
     return
   }
 
@@ -92,6 +96,24 @@ async function cacheFirst(request) {
       cache.put(request, response.clone())
     }
     return response
+  } catch {
+    return new Response("", { status: 408, statusText: "Offline" })
+  }
+}
+
+async function staleWhileRevalidate(request) {
+  const cache = await caches.open(CACHE)
+  const cached = await cache.match(request)
+  const networkPromise = fetch(request)
+    .then((response) => {
+      if (response && response.ok) cache.put(request, response.clone())
+      return response
+    })
+    .catch(() => cached)
+  // Serve instantly from cache when available; otherwise wait for network
+  if (cached) return cached
+  try {
+    return await networkPromise
   } catch {
     return new Response("", { status: 408, statusText: "Offline" })
   }

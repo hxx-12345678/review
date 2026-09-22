@@ -10,7 +10,12 @@ class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+// Default timeout so slow/unreachable backends (e.g. cold starts in production)
+// can never leave pages stuck on loading spinners forever — auth boot,
+// business load, and every dashboard fetch resolve or fail fast.
+const DEFAULT_TIMEOUT_MS = 15000;
+
+async function request<T>(path: string, options: RequestInit & { timeoutMs?: number } = {}): Promise<T> {
   const token = typeof window !== "undefined" ? localStorage.getItem("beyondvyu_token") : null;
 
   const headers: Record<string, string> = {
@@ -22,10 +27,25 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers,
-  });
+  const { timeoutMs, ...fetchOptions } = options;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs ?? DEFAULT_TIMEOUT_MS);
+
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}`, {
+      ...fetchOptions,
+      headers,
+      signal: controller.signal,
+    });
+  } catch (err: any) {
+    if (err?.name === "AbortError") {
+      throw new ApiError("Request timed out. Please check your connection and try again.", 408, "TIMEOUT");
+    }
+    throw new ApiError("Network error. Please check your connection and try again.", 0);
+  } finally {
+    clearTimeout(timer);
+  }
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({ error: "Request failed" }));
