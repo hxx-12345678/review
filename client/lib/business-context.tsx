@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
-import { api } from "./api";
+import { api, fetchWithRetry } from "./api";
 import { useAuth } from "./auth-context";
 
 interface Business {
@@ -91,22 +91,11 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
 
   const refreshBusinesses = useCallback(async () => {
     setLoadError(false);
-    // Production backends can cold-start (first request slow) — retry once on
-    // timeout/network failure so users don't land on a dead empty state.
-    async function fetchWithRetry<T>(fn: () => Promise<T>): Promise<T> {
-      try {
-        return await fn();
-      } catch (err: any) {
-        if (err?.status === 408 || err?.status === 0) {
-          await new Promise((r) => setTimeout(r, 2000));
-          return await fn();
-        }
-        throw err;
-      }
-    }
+    // Production backends can cold-start (first request slow) — shared
+    // fetchWithRetry from lib/api survives one cold start (15s + 45s).
     try {
       const [bizRes, subRes] = await Promise.all([
-        fetchWithRetry(() => api.businesses.list()),
+        fetchWithRetry(() => api.businesses.list(), { tries: 2, timeouts: [15000, 45000], delayMs: 3000 }),
         api.payments.subscription().catch(() => null),
       ]);
       const list = bizRes.businesses || [];

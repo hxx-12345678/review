@@ -396,12 +396,35 @@ async function seedDefaultPlans() {
     { name: "Growth (Yearly)", slug: "growth-yearly", price: 499900, interval: "year", sortOrder: 7, creditsLimit: 1500, businessLimit: 3, teamSeats: 5, features: ["Up to 3 businesses", "1,500 Credits/mo", "Everything in Starter", "Google Business Profile sync", "Team roles (5 users)", "Priority support", "Save 2 months free"], description: "Billed annually. Save ₹989 vs monthly." },
     { name: "Pro (Yearly)", slug: "pro-yearly", price: 799900, interval: "year", sortOrder: 8, creditsLimit: 5000, businessLimit: 10, teamSeats: 15, features: ["Up to 10 businesses", "5,000 Credits/mo", "Everything in Pro monthly", "WhatsApp review collection", "Google Business Profile sync", "Team roles (15 users)", "Dedicated support", "Save 2 months free"], description: "Billed annually. Save ₹1,589 vs monthly." },
   ];
-  for (const p of plans) {
-    await prisma.subscriptionPlan.upsert({
-      where: { slug: p.slug },
-      create: p,
-      update: p,
-    });
+  // Cold-boot fast path: a single select decides whether any write is needed.
+  // On steady state (all 9 plans match) this skips 9 upserts every boot —
+  // meaningful when Render cold-starts the free instance (~50s budget).
+  const existing = await prisma.subscriptionPlan.findMany();
+  const bySlug = new Map(existing.map((p) => [p.slug, p]));
+  const samePlan = (a: any, b: any) =>
+    a.name === b.name &&
+    a.price === b.price &&
+    a.interval === b.interval &&
+    a.sortOrder === b.sortOrder &&
+    a.creditsLimit === b.creditsLimit &&
+    a.businessLimit === b.businessLimit &&
+    a.teamSeats === b.teamSeats &&
+    JSON.stringify(a.features) === JSON.stringify(b.features) &&
+    (a.description || null) === (b.description || null);
+  const plansDirty = plans.some((p) => {
+    const e = bySlug.get(p.slug);
+    return !e || !samePlan(e, p);
+  });
+  if (plansDirty || existing.length !== plans.length) {
+    for (const p of plans) {
+      await prisma.subscriptionPlan.upsert({
+        where: { slug: p.slug },
+        create: p,
+        update: p,
+      });
+    }
+  } else {
+    console.log("Plans up to date — skipping seed writes");
   }
   // Sync creditsLimit for active subscriptions tied to updated plans
   for (const p of plans) {
@@ -427,13 +450,14 @@ async function seedDefaultPlans() {
 }
 
 async function start() {
+  const bootStart = Date.now();
   try {
     await prisma.$connect();
-    console.log("Connected to PostgreSQL");
+    console.log(`Connected to PostgreSQL in ${Date.now() - bootStart}ms`);
     await seedDefaultPlans();
 
     app.listen(env.PORT, () => {
-      console.log(`BEYONDVYU API server running on port ${env.PORT}`);
+      console.log(`BEYONDVYU API server running on port ${env.PORT} (boot ${Date.now() - bootStart}ms)`);
       console.log(`Environment: ${env.NODE_ENV}`);
       console.log(`Allowed origins: ${allowedOrigins.join(", ")}`);
     });

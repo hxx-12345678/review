@@ -14,6 +14,46 @@ class ApiError extends Error {
 // can never leave pages stuck on loading spinners forever — auth boot,
 // business load, and every dashboard fetch resolve or fail fast.
 const DEFAULT_TIMEOUT_MS = 15000;
+let defaultTimeoutMs = DEFAULT_TIMEOUT_MS;
+
+/** Run fn with a temporary request timeout (restored afterwards). */
+export function withTimeout<T>(ms: number, fn: () => Promise<T>): Promise<T> {
+  const prev = defaultTimeoutMs;
+  defaultTimeoutMs = ms;
+  return fn().finally(() => {
+    defaultTimeoutMs = prev;
+  });
+}
+
+/**
+ * Retry helper for boot-critical fetches on free-tier backends (Render cold
+ * starts can exceed one timeout). Retries only timeout/network failures —
+ * real errors (401/403/404/validation) throw immediately. No extra args:
+ * pass a closure calling any api.* method.
+ */
+export async function fetchWithRetry<T>(
+  fn: () => Promise<T>,
+  opts?: { tries?: number; timeouts?: number[]; delayMs?: number },
+): Promise<T> {
+  const tries = opts?.tries ?? 2;
+  const timeouts = opts?.timeouts ?? [15000, 45000];
+  const delayMs = opts?.delayMs ?? 3000;
+  let lastErr: any = null;
+  for (let i = 0; i < tries; i++) {
+    try {
+      return await withTimeout(timeouts[Math.min(i, timeouts.length - 1)], fn);
+    } catch (err: any) {
+      lastErr = err;
+      const retryable = err?.status === 408 || err?.status === 0;
+      if (i < tries - 1 && retryable) {
+        await new Promise((r) => setTimeout(r, delayMs));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastErr;
+}
 
 async function request<T>(path: string, options: RequestInit & { timeoutMs?: number } = {}): Promise<T> {
   const token = typeof window !== "undefined" ? localStorage.getItem("beyondvyu_token") : null;
@@ -29,7 +69,7 @@ async function request<T>(path: string, options: RequestInit & { timeoutMs?: num
 
   const { timeoutMs, ...fetchOptions } = options;
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs ?? DEFAULT_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs ?? defaultTimeoutMs);
 
   let res: Response;
   try {

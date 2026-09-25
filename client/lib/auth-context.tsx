@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { api } from "./api";
+import { api, fetchWithRetry } from "./api";
 
 interface User {
   id: string;
@@ -36,7 +36,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       setToken(stored);
-      const data = await api.auth.me();
+      // Same cold-start survival as business load — login/signup pages
+      // depend on this resolving.
+      const data = await fetchWithRetry(() => api.auth.me(), { tries: 2, timeouts: [15000, 45000], delayMs: 3000 });
       setUser(data.user);
     } catch (err: any) {
       if (err?.status === 401) {
