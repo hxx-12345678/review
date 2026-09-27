@@ -70,6 +70,9 @@ export async function POST(req: Request) {
         rating,
         language,
       }),
+      // Hobby-safe: never idle past maxDuration waiting on a sleeping backend —
+      // abort at 20s and return the deterministic fallback below instead.
+      signal: AbortSignal.timeout(20000),
     })
 
     if (!response.ok) {

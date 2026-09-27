@@ -57,6 +57,9 @@ export async function POST(req: Request) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ highlights, selectedTopics, businessName, promptTopics, rating, language, talkingPoints, businessSlug }),
+      // Hobby-safe: never idle past maxDuration waiting on a sleeping backend —
+      // abort at 20s and return the deterministic fallback below instead.
+      signal: AbortSignal.timeout(20000),
     })
 
     if (!response.ok) {
