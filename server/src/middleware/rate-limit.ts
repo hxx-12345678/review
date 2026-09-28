@@ -84,6 +84,18 @@ export const aiDailyLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// ── Public Places limiter (free Health Check — no auth) ──
+// 15 requests/min per IP: generous for a human running 2-3 checks, tight
+// enough to bound Places API quota burn (300 QPM shared). Combined with the
+// global apiLimiter (100/min) and 1h health-check cache below.
+export const publicPlacesLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 15,
+  message: { error: "Too many lookups. Please wait a minute and try again." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // ── Per-(IP + Business) Cooldown ──
 // Prevents the same IP from repeatedly hitting an expensive endpoint for the same
 // business within a short time window. Uses the database for persistence so it

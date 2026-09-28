@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { getEnv } from "../config/env";
 import { authRequired, AuthRequest } from "../middleware/auth";
+import { publicPlacesLimiter } from "../middleware/rate-limit";
 import { prisma } from "../config/database";
 
 const router = Router();
@@ -31,6 +32,38 @@ interface PlaceResult {
   totalRatings: number | null;
 }
 
+// Shared Text Search helper (used by authed /search and public /search-public).
+// Throws on API failure so callers decide the status code.
+async function textSearch(query: string, maxResultCount: number): Promise<PlaceResult[]> {
+  const apiKey = getEnv().GOOGLE_PLACES_API_KEY;
+  if (!apiKey) throw new Error("Google Places API key not configured");
+  const response = await fetch(`${PLACES_BASE}/places:searchText`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Goog-Api-Key": apiKey,
+      "X-Goog-FieldMask":
+        "places.id,places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.businessStatus",
+    },
+    body: JSON.stringify({ textQuery: query, languageCode: "en", maxResultCount }),
+  });
+  if (!response.ok) {
+    const errorBody = await response.text();
+    console.error("Places API search error:", response.status, errorBody);
+    throw new Error("Places API search failed");
+  }
+  const data: any = await response.json();
+  return ((data.places || []) as any[])
+    .filter((p: any) => p.businessStatus === "OPERATIONAL")
+    .map((p: any) => ({
+      placeId: p.id || "",
+      name: p.displayName?.text || p.displayName || "",
+      address: p.formattedAddress || "",
+      rating: p.rating ?? null,
+      totalRatings: p.userRatingCount ?? null,
+    }));
+}
+
 /**
  * GET /api/google-places/search?query=...
  *
@@ -43,51 +76,159 @@ router.get("/search", authRequired, async (req: Request, res: Response) => {
     if (!query || query.length < 2) {
       return res.status(400).json({ error: "Query must be at least 2 characters" });
     }
-
-    const apiKey = getEnv().GOOGLE_PLACES_API_KEY;
-    if (!apiKey) {
-      return res.status(500).json({ error: "Google Places API key not configured" });
-    }
-
-    const url = `${PLACES_BASE}/places:searchText`;
-
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Goog-Api-Key": apiKey,
-        "X-Goog-FieldMask":
-          "places.id,places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.businessStatus",
-      },
-      body: JSON.stringify({
-        textQuery: query,
-        languageCode: "en",
-        maxResultCount: 6,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorBody = await response.text();
-      console.error("Places API search error:", response.status, errorBody);
-      return res.status(502).json({ error: "Places API search failed", details: errorBody });
-    }
-
-    const data: any = await response.json();
-    const places: any[] = data.places || [];
-
-    const results: PlaceResult[] = places
-      .filter((p: any) => p.businessStatus === "OPERATIONAL")
-      .map((p: any) => ({
-        placeId: p.id || "",
-        name: p.displayName?.text || p.displayName || "",
-        address: p.formattedAddress || "",
-        rating: p.rating ?? null,
-        totalRatings: p.userRatingCount ?? null,
-      }));
-
+    const results = await textSearch(query, 6);
     res.json({ results });
   } catch (err: any) {
     console.error("Google Places search error:", err);
+    const msg = err.message === "Google Places API key not configured" ? err.message : "Places API search failed";
+    res.status(err.message === "Google Places API key not configured" ? 500 : 502).json({ error: msg });
+  }
+});
+
+// ── GET /search-public?query= — Free Health Check listing lookup (NO AUTH) ──
+// Same data as /search, guarded by publicPlacesLimiter (15/min/IP) + the
+// global apiLimiter. No AI, no DB writes — quota cost is 1 Places call.
+router.get("/search-public", publicPlacesLimiter, async (req: Request, res: Response) => {
+  try {
+    const query = (req.query.query as string || "").trim().slice(0, 200);
+    if (!query || query.length < 2) {
+      return res.status(400).json({ error: "Query must be at least 2 characters" });
+    }
+    const cacheKey = `search-public:${query.toLowerCase()}`;
+    const cached = getCache(cacheKey);
+    if (cached) return res.json({ ...cached, cached: true });
+    const results = await textSearch(query, 6);
+    const out = { results };
+    setCache(cacheKey, out);
+    res.json(out);
+  } catch (err: any) {
+    console.error("Public places search error:", err);
+    res.status(502).json({ error: "Search failed. Please try again." });
+  }
+});
+
+// ── GET /health-check?placeId= — Free Google Review Health Check (NO AUTH) ──
+// Lead magnet: live count + rating + recent activity + competitors + gap tier.
+// Unanswered count, velocity history, response coverage and workflow gaps need
+// synced account data — returned as locked teasers that convert to free signup.
+// No AI calls, no DB writes. Cached 1h per placeId to bound quota burn.
+router.get("/health-check", publicPlacesLimiter, async (req: Request, res: Response) => {
+  try {
+    const placeId = ((req.query.placeId as string) || "").trim().slice(0, 200);
+    if (!placeId) return res.status(400).json({ error: "placeId required" });
+    const cacheKey = `health-check:${placeId}`;
+    const cached = getCache(cacheKey);
+    if (cached) return res.json({ ...cached, cached: true });
+
+    const apiKey = getEnv().GOOGLE_PLACES_API_KEY;
+    if (!apiKey) return res.status(500).json({ error: "Health check unavailable right now" });
+
+    const selfRes = await fetch(`${PLACES_BASE}/places/${encodeURIComponent(placeId)}`, {
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": apiKey,
+        "X-Goog-FieldMask": "id,displayName,formattedAddress,rating,userRatingCount,reviews,primaryType",
+      },
+    });
+    if (!selfRes.ok) return res.status(502).json({ error: "Could not find that Google listing" });
+    const selfData: any = await selfRes.json();
+    const sample: any[] = selfData.reviews || [];
+    let lastReviewAt: string | null = null;
+    if (sample.length > 0) {
+      const times = sample.map((r: any) => r.publishTime).filter(Boolean).map((t: string) => new Date(t).getTime());
+      if (times.length > 0) lastReviewAt = new Date(Math.max(...times)).toISOString();
+    }
+    const rating: number | null = selfData.rating ?? null;
+    const total: number | null = selfData.userRatingCount ?? null;
+    const daysSince = lastReviewAt ? Math.floor((Date.now() - new Date(lastReviewAt).getTime()) / 86400000) : null;
+
+    // Competitors from the listing's own type + address (no user context needed).
+    // primaryType is often generic ("store") which returns nothing useful, so
+    // fall back to city-scoped and name-derived queries. Max 3 Places calls
+    // per uncached check; result cached 1h below.
+    const selfId = selfData.id || placeId;
+    const selfName: string = selfData.displayName?.text || "";
+    const selfAddr: string = selfData.formattedAddress || "";
+    const typeLabel = (selfData.primaryType || "business").toString().replace(/_/g, " ");
+    const GENERIC_TYPES = new Set(["store", "point of interest", "establishment", "premise", "food", "health", "business"]);
+    function cityFromAddress(addr: string): string {
+      const parts = addr.split(",").map((s) => s.trim()).filter(Boolean);
+      if (parts.length >= 3) return parts[parts.length - 3].replace(/\d{6}.*$/, "").trim();
+      return "";
+    }
+    const city = cityFromAddress(selfAddr);
+    const nameTail = selfName.split(/\s+/).filter(Boolean).slice(-2).join(" ");
+    // Generic primaryTypes ("store") match the wrong vertical — the business
+    // name tail ("Auto Garage") is far more relevant, so it goes first.
+    const isGeneric = GENERIC_TYPES.has(typeLabel.toLowerCase());
+    const queries =
+      isGeneric && nameTail && city
+        ? [`${nameTail} in ${city}`, `${typeLabel} in ${city}`, `${typeLabel} near ${selfAddr}`.trim()]
+        : [`${typeLabel} near ${selfAddr}`.trim(), ...(city ? [`${typeLabel} in ${city}`] : [])];
+    let competitors: PlaceResult[] = [];
+    let compQueryUsed = queries[0];
+    for (const q of queries.slice(0, 3)) {
+      try {
+        compQueryUsed = q;
+        competitors = (await textSearch(q, 10))
+          .filter((c) => c.placeId !== selfId && c.rating != null)
+          .sort((a, b) => (b.totalRatings || 0) - (a.totalRatings || 0))
+          .slice(0, 3);
+        if (competitors.length >= 2) break;
+      } catch (e) {
+        console.error("Health-check competitors failed:", e);
+      }
+    }
+    const compAvg = competitors.length
+      ? Math.round((competitors.reduce((s, c) => s + (c.totalRatings || 0), 0) / competitors.length))
+      : null;
+    const compAvgRating = competitors.length
+      ? Math.round((competitors.reduce((s, c) => s + (c.rating || 0), 0) / competitors.length) * 10) / 10
+      : null;
+    let gap: "High" | "Medium" | "Low" | "Unknown" = "Unknown";
+    let gapDeficit: number | null = null;
+    if (total != null && compAvg != null) {
+      gapDeficit = Math.max(0, compAvg - total);
+      const behind = compAvgRating != null && rating != null ? compAvgRating - rating : 0;
+      if (gapDeficit > 200 || behind >= 0.4) gap = "High";
+      else if (gapDeficit > 50 || behind >= 0.2) gap = "Medium";
+      else gap = "Low";
+    }
+
+    const out = {
+      place: {
+        placeId: selfData.id || placeId,
+        name: selfData.displayName?.text || "",
+        address: selfData.formattedAddress || "",
+        rating,
+        totalRatings: total,
+        lastReviewAt,
+        daysSinceLastReview: daysSince,
+        reviewSampleCount: sample.length,
+      },
+      competitors,
+      competitorAverages: { avgRating: compAvgRating, avgTotal: compAvg },
+      competitorQuery: compQueryUsed,
+      gap,
+      gapDeficit,
+      // Honest locked teasers — unknowable without a connected account, and
+      // saying otherwise would be hallucination. They are the signup hook.
+      locked: [
+        { id: "unanswered", label: "Unanswered-review count", why: "Needs your connected Google account" },
+        { id: "velocity", label: "Review velocity (per week / month)", why: "Needs your review history" },
+        { id: "response", label: "Response coverage", why: "Needs your reply data" },
+        { id: "workflow", label: "Workflow gaps (touchpoints, funnel)", why: "Needs your QR deployment" },
+      ],
+      message: "Your business has reviews, but no continuous review collection system behind them. See exactly where customers drop off.",
+      cta: "See how the BeyondVyu funnel would work for you.",
+      fetchedAt: new Date().toISOString(),
+      source: "google_places",
+    };
+    // 1h cache — listing data moves slowly, quota is precious on a free tool
+    setCache(cacheKey, out, 60 * 60 * 1000);
+    res.json(out);
+  } catch (err: any) {
+    console.error("Health check error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });
