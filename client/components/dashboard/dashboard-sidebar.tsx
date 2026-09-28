@@ -80,6 +80,7 @@ export function DashboardSidebar() {
             </Link>
           )
         })}
+        {/* v2 sidebar hidden for v1 video — routes still live, uncomment block below to restore
         {isV2Visible(user?.email) && (
           <>
             <div className="my-2 border-t border-border" />
@@ -105,6 +106,7 @@ export function DashboardSidebar() {
             })}
           </>
         )}
+        */}
       </nav>
 
       <div className="shrink-0 p-3">
@@ -212,6 +214,7 @@ export function DashboardSidebar() {
               </Link>
             )
           })}
+          {/* v2 sidebar hidden for v1 video — routes still live, uncomment block below to restore
           {isV2Visible(user?.email) && (
             <>
               <div className="my-2 border-t border-border" />
@@ -236,6 +239,7 @@ export function DashboardSidebar() {
               })}
             </>
           )}
+          */}
         </nav>
         <div className="shrink-0 p-3 border-t border-border">
           <Link
