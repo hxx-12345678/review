@@ -4,7 +4,7 @@ import type { ReactNode } from "react"
 export const metadata: Metadata = {
   title: "Pricing",
   description:
-    "Simple, transparent pricing for BEYONDVYU. Start free and upgrade as you grow. Every plan is fully compliant with Google and FTC policy.",
+    "Simple, transparent pricing for BEYONDVYU. Start free and upgrade as you grow. Designed around Google and FTC policy requirements — same review path for every customer, no gating, no incentives.",
   alternates: {
     canonical: "https://beyondvyu.com/pricing",
   },

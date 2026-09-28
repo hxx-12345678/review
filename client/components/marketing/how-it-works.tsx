@@ -53,8 +53,8 @@ const STEPS = [
   },
   {
     icon: ShieldCheck,
-    title: "Fully compliant",
-    body: "No gating, no templated reviews, no staff name prompts. Every review is authentic and policy-safe.",
+    title: "Designed around Google's policies",
+    body: "Same review path for every customer. No gating, no incentives, no staff-name prompts, no posting on a customer's behalf — the customer approves the final review.",
     color: "border-l-emerald-500",
     iconBg: "bg-emerald-500/10",
     iconColor: "text-emerald-600",

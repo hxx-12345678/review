@@ -140,7 +140,7 @@ export function ValueProposition() {
             </Button>
           </div>
           <p className="mt-4 text-sm text-muted-foreground">
-            No credit card required · Set up in 2 minutes · Free plan forever · From ₹100/mo — see pricing
+            Your happiest customers almost never review on their own — we ask every one of them, in their language. Start free · Set up in 2 minutes · No credit card
           </p>
           <p className="mx-auto mt-3 max-w-2xl text-[11px] leading-relaxed text-muted-foreground/70">
             Review statistics cited from BrightLocal Local Consumer Review Survey 2025–2026 (US panel, n≈1,026).

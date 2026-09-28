@@ -170,7 +170,7 @@ function HeroVisual() {
 
         {/* Bottom badge spanning full width */}
         <div className="col-span-4 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-center text-xs text-white/50">
-          ⚡ No code · No app install · Works on any device · Fully compliant
+          ⚡ No code · No app install · Works on any device · Designed around Google&apos;s review policies
         </div>
       </div>
     </div>

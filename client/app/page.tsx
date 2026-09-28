@@ -217,8 +217,8 @@ export default function Page() {
             {
               "@type": "HowToStep",
               position: 6,
-              name: "Stay policy-safe",
-              text: "No gating, no incentives, no staff-name prompts. Open-ended prompts keep collection aligned with Google review policies.",
+              name: "Stay within Google's review policies",
+              text: "Same review path for every customer. No gating, no incentives, no staff-name prompts, no posting on a customer's behalf — the customer approves the final review.",
             },
           ],
         }}
