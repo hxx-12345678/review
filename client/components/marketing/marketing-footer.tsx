@@ -24,6 +24,7 @@ export function MarketingFooter() {
             title="Product"
             links={[
               { label: "How it works", href: "/#how" },
+              { label: "Free QR vs BeyondVyu", href: "/google-review-qr-vs-beyondvyu" },
               { label: "Pricing (INR)", href: "/pricing" },
               { label: "FAQ", href: "/#faq" },
               { label: "Contact", href: "/contact" },

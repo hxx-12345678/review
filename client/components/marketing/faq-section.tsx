@@ -8,6 +8,14 @@ const FAQS = [
     a: "No. Every customer gets the same Google review path whatever they rate — no gating, no incentives, no staff-name prompts. Private feedback is offered alongside the public option, never as a gate that hides it.",
   },
   {
+    q: "Why not just use Google's free review QR?",
+    a: "Google gives you the destination — a link that opens the review box. BeyondVyu builds the system around it: a guided multilingual flow customers actually finish, visits → review-starts → Google-posts analytics per touchpoint (billing, reception, WhatsApp), review velocity tracking, praise/complaint themes, and reply workflow. Free QR tells you nothing about where customers drop off.",
+  },
+  {
+    q: "Does BeyondVyu write reviews for my customers?",
+    a: "Never. The customer describes their visit in their own words and edits and owns the final review before choosing what to post. AI only turns what they already wrote into short reminder talking points — it never invents experiences, names, or wording they can paste.",
+  },
+  {
     q: "How much does BEYONDVYU cost?",
     a: "Free (₹0) for 1 location with 30 AI credits/month. Paid plans: Lite ₹100/month, Starter ₹249/month, Growth ₹499/month (up to 3 locations), Pro ₹799/month (up to 10 locations) — with yearly options. UPI and cards via Razorpay, GST invoice included. Full table on /pricing.",
   },
