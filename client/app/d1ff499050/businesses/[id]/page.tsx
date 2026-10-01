@@ -7,17 +7,46 @@ import { ArrowLeft, Building2, MessageSquare, QrCode, Globe, Star } from "lucide
 import { adminApi } from "@/lib/admin-api"
 import { ADMIN_BASE } from "@/lib/admin-path"
 
+const INDUSTRIES = ["RESTAURANT", "DENTAL", "SALON", "MEDICAL", "AUTO", "AUTO_DEALER", "FITNESS", "ELECTRONICS", "HOME_SERVICES", "OTHER"]
+
 export default function AdminBusinessDetailPage() {
   const { id } = useParams()
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [industry, setIndustry] = useState("")
+  const [saving, setSaving] = useState(false)
+  const [savedMsg, setSavedMsg] = useState("")
 
-  useEffect(() => {
+  function reload() {
+    setLoading(true)
     adminApi.business(id as string)
-      .then(setData)
+      .then((d) => {
+        setData(d)
+        setIndustry(d.business.industry)
+      })
       .catch(() => {})
       .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    reload()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
+
+  async function saveIndustry() {
+    if (!industry || industry === data?.business?.industry) return
+    setSaving(true)
+    setSavedMsg("")
+    try {
+      const res = await adminApi.updateBusiness(id as string, { industry })
+      setData({ business: res.business })
+      setSavedMsg(`Industry allotted: ${industry}. Review flow topics follow this industry.`)
+    } catch (e: any) {
+      setSavedMsg(`Failed: ${e.message || "unknown error"}`)
+    } finally {
+      setSaving(false)
+    }
+  }
 
   if (loading) return <div className="h-48 animate-pulse rounded-lg bg-zinc-800" />
   if (!data) return <div className="rounded-lg bg-red-500/10 p-4 text-red-400">Business not found</div>
@@ -36,6 +65,28 @@ export default function AdminBusinessDetailPage() {
           <p className="mt-1 text-sm text-zinc-500">
             {business.industry} | {business.location || "No location"} | Slug: {business.slug}
           </p>
+          {/* Industry allotment — customers never pick industry (food-only onboarding) */}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <label htmlFor="admin-industry" className="text-xs text-zinc-500">Allot industry:</label>
+            <select
+              id="admin-industry"
+              value={industry}
+              onChange={(e) => { setIndustry(e.target.value); setSavedMsg("") }}
+              className="rounded-md border border-zinc-700 bg-zinc-800 px-2 py-1.5 text-sm text-zinc-100"
+            >
+              {INDUSTRIES.map((ind) => (
+                <option key={ind} value={ind}>{ind}</option>
+              ))}
+            </select>
+            <button
+              onClick={saveIndustry}
+              disabled={saving || !industry || industry === business.industry}
+              className="rounded-md bg-amber-500 px-3 py-1.5 text-sm font-medium text-black disabled:opacity-40"
+            >
+              {saving ? "Saving…" : "Allot"}
+            </button>
+          </div>
+          {savedMsg && <p className="mt-2 text-xs text-zinc-400">{savedMsg}</p>}
           <p className="text-sm text-zinc-500">
             Owner: <Link href={`/${ADMIN_BASE}/users/${business.user.id}`} className="text-amber-400 hover:underline">{business.user.email}</Link>
           </p>

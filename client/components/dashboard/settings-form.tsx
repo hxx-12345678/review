@@ -8,17 +8,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { toast } from "sonner"
 import { api } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
-import { INDUSTRY_OPTIONS, getIndustryLabel } from "@/lib/industry-categories"
+import { getIndustryLabel } from "@/lib/industry-categories"
 
 /**
  * Extracts a direct image URL from various URL formats.
@@ -425,31 +418,14 @@ export function SettingsForm({ business }: { business: any }) {
         </p>
         <div className="mt-5 space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="settings-industry">Industry</Label>
-            <Select
-              value={industry}
-              onValueChange={(v) => {
-                setIndustry(v)
-                const found = INDUSTRY_OPTIONS.find((i) => i.value === v)
-                if (found) setPromptTopics(found.topics)
-              }}
-            >
-              <SelectTrigger id="settings-industry" className="w-full">
-                <SelectValue placeholder="Select an industry" />
-              </SelectTrigger>
-              <SelectContent>
-                {INDUSTRY_OPTIONS.map((i) => (
-                  <SelectItem key={i.value} value={i.value}>
-                    {i.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {business?.industry !== industry && (
-              <p className="text-[11px] text-amber-600 dark:text-amber-400">
-                Changing the industry will replace your topics with {getIndustryLabel(industry)} defaults. You can edit them below before saving.
-              </p>
-            )}
+            <Label>Industry</Label>
+            <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2.5 text-sm">
+              <span className="font-medium text-foreground">{getIndustryLabel(business?.industry || "RESTAURANT")}</span>
+              <span className="text-xs text-muted-foreground">· set by your account manager</span>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Selling food-only right now — your industry is allotted at signup. Contact support if this looks wrong.
+            </p>
           </div>
 
           <div className="space-y-2">

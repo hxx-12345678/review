@@ -70,6 +70,12 @@ export const adminApi = {
   business: (id: string) =>
     request<{ business: any }>(`/admin/businesses/${id}`),
 
+  updateBusiness: (id: string, data: { industry: string; promptTopics?: string[] }) =>
+    request<{ business: any }>(`/admin/businesses/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
   subscriptions: (params?: { page?: number; limit?: number }) => {
     const sp = new URLSearchParams();
     if (params?.page) sp.set("page", params.page.toString());

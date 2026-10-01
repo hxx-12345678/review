@@ -690,13 +690,43 @@ export function getMCQCategories(industry: string, promptTopics: string[] = []):
   const base = getCategoriesForIndustry(industry)
   const existingLabels = new Set(base.flatMap((c) => c.subOptions.map((s) => s.label.toLowerCase())))
   // Google April 2026 policy: never prompt customers to mention staff names.
-  // Filter owner-configured topics that look like person-name prompts.
-  const personLike = /^(dr|mr|ms|mrs|miss|sir|madam)\b/i
+  // Filter owner-configured topics that look like person-name prompts. All
+  // patterns are end-anchored and narrow so legit food topics like
+  // "Ask for Jain options" still pass while "Ask for Rajesh" is dropped.
+  const personLike = [
+    /^(dr|mr|ms|mrs|miss|sir|madam)\b/i,
+    /\bask\s+for\s+[A-Z][a-z]+(\s+[A-Z][a-z]+)?\s*$/i,
+    /\bstaff\s+names?\b/i,
+  ]
   const custom = promptTopics
     .map((t) => t.trim())
-    .filter((t) => t.length > 1 && !existingLabels.has(t.toLowerCase()) && !personLike.test(t))
+    .filter((t) => t.length > 1 && !existingLabels.has(t.toLowerCase()) && !personLike.some((re) => re.test(t)))
 
   if (custom.length === 0) return base
+
+  // Content-stable IDs: index-based ids (custom_topic_0) silently change meaning
+  // when the owner reorders/adds/removes topics, corrupting stored analytics.
+  // Slug-based ids stay bound to the topic text itself.
+  const seen = new Set<string>()
+  const baseIds = new Set(base.flatMap((c) => c.subOptions.map((s) => s.id)))
+  const subOptions = custom.map((label) => {
+    let slug = label
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 40) || "topic"
+    let id = `custom_topic_${slug}`
+    let n = 2
+    while (seen.has(id) || baseIds.has(id)) {
+      id = `custom_topic_${slug}-${n++}`
+    }
+    seen.add(id)
+    return {
+      id,
+      label,
+      keywords: label.toLowerCase().split(/\s+/),
+    }
+  })
 
   return [
     ...base,
@@ -704,11 +734,7 @@ export function getMCQCategories(industry: string, promptTopics: string[] = []):
       id: "custom_topics",
       label: "Other things to mention",
       icon: "Sparkles",
-      subOptions: custom.map((label, i) => ({
-        id: `custom_topic_${i}`,
-        label,
-        keywords: label.toLowerCase().split(/\s+/),
-      })),
+      subOptions,
     },
   ]
 }

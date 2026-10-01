@@ -1,4 +1,5 @@
 import { Router, Response } from "express";
+import { z } from "zod";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import Razorpay from "razorpay";
@@ -585,6 +586,53 @@ router.get("/businesses/:id", async (req: AdminRequest, res: Response) => {
     res.json({ business });
   } catch (err) {
     console.error("Admin business detail error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ─── Update business industry (superadmin allotment) ─────────────────────────
+// Founder-led food-only sales: customers never pick an industry in onboarding
+// (it defaults to RESTAURANT). The admin allots/changes it here. Validated
+// against the Prisma Industry enum; logged for audit.
+const adminUpdateBusinessSchema = z.object({
+  industry: z.enum(["DENTAL", "MEDICAL", "SALON", "GYM", "HOME_SERVICES", "RESTAURANT", "AUTO", "AUTO_DEALER", "FITNESS", "ELECTRONICS", "OTHER"]),
+  promptTopics: z.array(z.string().max(100)).max(30).optional(),
+});
+
+router.patch("/businesses/:id", async (req: AdminRequest, res: Response) => {
+  try {
+    const businessId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const data = adminUpdateBusinessSchema.parse(req.body);
+
+    const business = await prisma.business.findUnique({
+      where: { id: businessId },
+      select: { id: true, userId: true, industry: true },
+    });
+    if (!business) return res.status(404).json({ error: "Business not found" });
+
+    const updated = await prisma.business.update({
+      where: { id: businessId },
+      data: {
+        industry: data.industry as any,
+        ...(data.promptTopics !== undefined ? { promptTopics: data.promptTopics } : {}),
+      },
+    });
+
+    await prisma.activityLog.create({
+      data: {
+        userId: business.userId,
+        businessId,
+        action: "admin:industry_updated",
+        details: { from: business.industry, to: data.industry, adminId: (req as any).adminId },
+      },
+    });
+
+    res.json({ business: updated });
+  } catch (err: any) {
+    if (err instanceof z.ZodError) {
+      return res.status(400).json({ error: "Invalid input", details: err.errors });
+    }
+    console.error("Admin update business error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });

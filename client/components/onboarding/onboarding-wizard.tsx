@@ -9,13 +9,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { toast } from "sonner"
 import { api } from "@/lib/api"
 import { cn } from "@/lib/utils"
@@ -24,7 +17,7 @@ import { INDUSTRY_OPTIONS } from "@/lib/industry-categories"
 
 const INDUSTRIES: { value: string; label: string; topics: string[] }[] = INDUSTRY_OPTIONS
 
-const STEPS = ["Business", "Industry", "Google link", "Done"]
+const STEPS = ["Business", "Google link", "Topics", "Done"]
 
 type SearchResult = {
   placeId: string
@@ -43,10 +36,14 @@ export function OnboardingWizard({ embedded, onComplete }: {
   const [step, setStep] = useState(0)
   const [name, setName] = useState("")
   const [location, setLocation] = useState("")
-  const [industry, setIndustry] = useState<string>("")
+  // Food-only founder-led sales: industry is allotted by admin, never picked
+  // by the customer. Onboarding always creates RESTAURANT businesses.
+  const [industry] = useState<string>("RESTAURANT")
   const [googleUrl, setGoogleUrl] = useState("")
   const [googlePlaceId, setGooglePlaceId] = useState("")
-  const [topics, setTopics] = useState<string[]>([])
+  const [topics, setTopics] = useState<string[]>(
+    () => INDUSTRY_OPTIONS.find((i) => i.value === "RESTAURANT")?.topics || []
+  )
   const [newTopic, setNewTopic] = useState("")
 
   const [searching, setSearching] = useState(false)
@@ -58,7 +55,7 @@ export function OnboardingWizard({ embedded, onComplete }: {
   const progress = ((step + 1) / STEPS.length) * 100
 
   useEffect(() => {
-    if (step === 2 && !searchAttempted.current && !selectedPlace && !showManualInput) {
+    if (step === 1 && !searchAttempted.current && !selectedPlace && !showManualInput) {
       const query = [name, location].filter(Boolean).join(" ")
       if (query.length > 2) {
         searchAttempted.current = true
@@ -67,16 +64,9 @@ export function OnboardingWizard({ embedded, onComplete }: {
     }
   }, [step])
 
-  function selectIndustry(value: string) {
-    setIndustry(value)
-    const found = INDUSTRIES.find((i) => i.value === value)
-    setTopics(found ? found.topics : [])
-  }
-
   function canAdvance() {
     if (step === 0) return name.trim().length > 1
-    if (step === 1) return industry !== ""
-    if (step === 2) return !!(googleUrl.trim().length > 4 || selectedPlace)
+    if (step === 1) return !!(googleUrl.trim().length > 4 || selectedPlace)
     return true
   }
 
@@ -274,69 +264,6 @@ export function OnboardingWizard({ embedded, onComplete }: {
         )}
 
         {step === 1 && (
-          <StepShell title="What kind of business?" subtitle="We'll tailor the questions we ask your customers.">
-            <div className="space-y-2">
-              <Label htmlFor="industry">Industry</Label>
-              <Select value={industry} onValueChange={(v) => v && selectIndustry(v)}>
-                <SelectTrigger id="industry">
-                  <SelectValue placeholder="Select an industry" />
-                </SelectTrigger>
-                <SelectContent>
-                  {INDUSTRIES.map((i) => (
-                    <SelectItem key={i.value} value={i.value}>
-                      {i.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {industry && (
-              <div className="mt-6">
-                <Label>Topics we'll ask customers about</Label>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  These prompts jog your customers&apos; memory. Add or remove any.
-                </p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {topics.map((t) => (
-                    <span
-                      key={t}
-                      className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1 text-sm text-secondary-foreground"
-                    >
-                      {t}
-                      <button
-                        type="button"
-                        onClick={() => setTopics((prev) => prev.filter((x) => x !== t))}
-                        aria-label={`Remove ${t}`}
-                        className="text-muted-foreground hover:text-foreground"
-                      >
-                        <X className="size-3.5" />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-                {industry === "OTHER" && (
-                  <p className="mt-3 text-xs text-amber-600 dark:text-amber-400">
-                    To get the most out of this, add topics that match your business and the things customers care about most.
-                  </p>
-                )}
-                <div className="mt-3 flex gap-2">
-                  <Input
-                    placeholder="Add a topic"
-                    value={newTopic}
-                    onChange={(e) => setNewTopic(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addTopic())}
-                  />
-                  <Button type="button" variant="outline" size="icon" onClick={addTopic} aria-label="Add topic">
-                    <Plus className="size-4" />
-                  </Button>
-                </div>
-              </div>
-            )}
-          </StepShell>
-        )}
-
-        {step === 2 && (
           <StepShell
             title="Find your Google listing"
             subtitle="Select your business from the search results so we can automatically connect your Google review link."
@@ -520,6 +447,46 @@ export function OnboardingWizard({ embedded, onComplete }: {
                 )}
               </div>
             )}
+          </StepShell>
+        )}
+
+        {step === 2 && (
+          <StepShell title="What should we ask your guests?" subtitle="Food topics we'll ask about after their meal. Add or remove any — these shape the review flow.">
+            <div>
+              <Label>Food topics</Label>
+              <p className="mt-1 text-xs text-muted-foreground">
+                These prompts jog your guests&apos; memory about taste, service, ambience and value.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {topics.map((t) => (
+                  <span
+                    key={t}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1 text-sm text-secondary-foreground"
+                  >
+                    {t}
+                    <button
+                      type="button"
+                      onClick={() => setTopics((prev) => prev.filter((x) => x !== t))}
+                      aria-label={`Remove ${t}`}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <div className="mt-3 flex gap-2">
+                <Input
+                  placeholder="Add a topic (e.g. Jain options)"
+                  value={newTopic}
+                  onChange={(e) => setNewTopic(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addTopic())}
+                />
+                <Button type="button" variant="outline" size="icon" onClick={addTopic} aria-label="Add topic">
+                  <Plus className="size-4" />
+                </Button>
+              </div>
+            </div>
           </StepShell>
         )}
 
