@@ -555,6 +555,15 @@ router.post("/update-subscription", authRequired, async (req: AuthRequest, res: 
     if (!newPlan || !newPlan.active) return res.status(404).json({ error: "Plan not found" });
     if (newPlan.id === currentSub.planId) return res.status(400).json({ error: "Already on this plan" });
     if (newPlan.price === 0) return res.status(400).json({ error: "Cannot switch to free plan. Use cancel instead." });
+    // A subscription set to cancel at period end must not accept plan changes:
+    // the cancel wins at period end (webhook moves to Free), so any pending
+    // downgrade scheduled now would silently never apply.
+    if (currentSub.cancelledAt) {
+      return res.status(400).json({
+        error: `Your subscription is set to cancel on ${currentSub.currentPeriodEnd?.toLocaleDateString() || "the period end"}. Undo the cancellation first, then change plan.`,
+        code: "SUBSCRIPTION_CANCELLING",
+      });
+    }
 
     const isUpgrade = newPlan.price >= currentSub.plan.price;
     const razorpay = getRazorpay();
@@ -624,30 +633,45 @@ router.post("/update-subscription", authRequired, async (req: AuthRequest, res: 
         message: `Upgraded to ${newPlan.name}. Prorated difference will be charged.`,
       });
     } else {
-      // Downgrade: schedule at end of current billing cycle
+      // Downgrade: schedule at end of current billing cycle.
+      // UPI Autopay mandates cannot be modified mid-cycle (Razorpay rejects
+      // the update) — retrying is pointless, so detect it and go straight to
+      // the DB-pending fallback with an honest message. The webhook applies
+      // pendingPlanId on the next charge; this cycle bills on the old plan.
+      let razorpaySynced = false;
+      let upiRestricted = false;
+      const isUpiError = (e: any) =>
+        (e?.error?.description || e?.message || String(e)).toLowerCase().includes("upi");
       if (razorpay && currentSub.razorpaySubscriptionId) {
         try {
-          let razorpayPlanId = newPlan.razorpayPlanId || await getOrCreateRazorpayPlan(razorpay, newPlan);
+          const razorpayPlanId = newPlan.razorpayPlanId || await getOrCreateRazorpayPlan(razorpay, newPlan);
           await razorpay.subscriptions.update(currentSub.razorpaySubscriptionId, {
             plan_id: razorpayPlanId,
             schedule_change_at: "cycle_end",
           } as any);
+          razorpaySynced = true;
         } catch (updateErr: any) {
-          // Razorpay PATCH may fail (stale plan_id, emandate) — retry with fresh plan
-          console.warn("Razorpay scheduled update failed, retrying with fresh plan:", updateErr?.error?.description || updateErr?.message || String(updateErr));
-          if (newPlan.razorpayPlanId) {
-            await prisma.subscriptionPlan.update({
-              where: { id: newPlan.id },
-              data: { razorpayPlanId: null },
-            });
+          if (isUpiError(updateErr)) {
+            upiRestricted = true;
+            console.warn("Razorpay scheduled update blocked for UPI mandate — DB-pending fallback (no retry, UPI mandates are immutable).");
+          } else {
+            // Non-UPI failure (e.g. stale plan_id) — retry once with a fresh plan
+            console.warn("Razorpay scheduled update failed, retrying with fresh plan:", updateErr?.error?.description || updateErr?.message || String(updateErr));
+            if (newPlan.razorpayPlanId) {
+              await prisma.subscriptionPlan.update({
+                where: { id: newPlan.id },
+                data: { razorpayPlanId: null },
+              });
+            }
             try {
               const freshPlanId = await getOrCreateRazorpayPlan(razorpay, newPlan);
               await razorpay.subscriptions.update(currentSub.razorpaySubscriptionId, {
                 plan_id: freshPlanId,
                 schedule_change_at: "cycle_end",
               } as any);
+              razorpaySynced = true;
             } catch (retryErr: any) {
-              console.warn("Razorpay scheduled update retry also failed, using DB-only fallback:", retryErr?.error?.description || retryErr?.message || String(retryErr));
+              console.warn("Razorpay scheduled update retry failed, using DB-only fallback:", retryErr?.error?.description || retryErr?.message || String(retryErr));
             }
           }
         }
@@ -667,7 +691,12 @@ router.post("/update-subscription", authRequired, async (req: AuthRequest, res: 
         upgrade: false,
         immediate: false,
         scheduledDate: scheduledChangeAt.toISOString(),
+        razorpaySynced,
+        upiRestricted,
         message: `Downgrade to ${newPlan.name} scheduled at end of current billing period (${scheduledChangeAt.toLocaleDateString()}).`,
+        upiNote: upiRestricted
+          ? `Your payments run on UPI Autopay, which Razorpay does not allow to modify mid-cycle — so this cycle still bills on your current plan. Your downgrade to ${newPlan.name} is saved and takes effect from the next billing period.`
+          : undefined,
       });
     }
   } catch (err) {

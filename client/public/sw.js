@@ -1,4 +1,4 @@
-const CACHE = "beyondvyu-v10"
+const CACHE = "beyondvyu-v11"
 const STATIC_ASSETS = [
   "/",
   "/offline",

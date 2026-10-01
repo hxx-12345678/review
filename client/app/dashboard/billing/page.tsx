@@ -2,12 +2,11 @@
 
 import { Suspense, useEffect, useState, useMemo, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Check, Receipt, Loader2, AlertCircle, IndianRupee, Download, ArrowUpDown, XCircle, Calendar, Building2, ExternalLink, Sparkles, Zap, Plus, Settings2, RefreshCw } from "lucide-react";
+import { Check, Receipt, Loader2, AlertCircle, IndianRupee, Download, ArrowUpDown, XCircle, Calendar, Building2, ExternalLink, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/dashboard/page-header";
-import { Switch } from "@/components/ui/switch";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { useBusiness } from "@/lib/business-context";
@@ -46,12 +45,6 @@ type Balance = {
   autoRechargeAmount: number;
 };
 
-type CreditPack = {
-  credits: number;
-  amount: number;
-  label: string;
-};
-
 export default function BillingPageWrapper() {
   return (
     <Suspense fallback={<BillingSkeleton />}>
@@ -84,24 +77,16 @@ function BillingPage() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [subscription, setSubscription] = useState<any>(null);
   const [balance, setBalance] = useState<Balance | null>(null);
-  const [creditPacks, setCreditPacks] = useState<CreditPack[]>([]);
   const [loading, setLoading] = useState(true);
   const [subscribing, setSubscribing] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [changingPlan, setChangingPlan] = useState(false);
-  const [buyingCredits, setBuyingCredits] = useState(false);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [changePlanOpen, setChangePlanOpen] = useState(false);
-  const [changePlanResult, setChangePlanResult] = useState<{ message: string; upgrade: boolean; immediate: boolean; scheduledDate?: string } | null>(null);
+  const [changePlanResult, setChangePlanResult] = useState<{ message: string; upgrade: boolean; immediate: boolean; scheduledDate?: string; upiNote?: string } | null>(null);
   const [selectedMonthlyPlan, setSelectedMonthlyPlan] = useState<Plan | null>(null);
-  const [topUpDialogOpen, setTopUpDialogOpen] = useState(false);
-  const [topUpCredits, setTopUpCredits] = useState(100);
-  const [autoRechargeEnabled, setAutoRechargeEnabled] = useState(false);
-  const [autoRechargeThreshold, setAutoRechargeThreshold] = useState(20);
-  const [autoRechargeAmount, setAutoRechargeAmount] = useState(100);
-  const [savingAutoRecharge, setSavingAutoRecharge] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelOther, setCancelOther] = useState("");
@@ -109,27 +94,20 @@ function BillingPage() {
   const success = searchParams.get("success");
   const paymentId = searchParams.get("payment_id");
   const errorType = searchParams.get("error");
-  const topup = searchParams.get("topup");
-  const topupCreditsStr = searchParams.get("credits");
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [plansRes, subRes, balanceRes, packsRes] = await Promise.all([
+      const [plansRes, subRes, balanceRes] = await Promise.all([
         api.payments.plans(),
         api.payments.subscription(),
         api.payments.creditBalance(),
-        api.payments.creditPacks(),
       ]);
       setPlans(plansRes.plans);
       setSubscription(subRes.subscription);
       if (balanceRes.balance) {
         setBalance(balanceRes.balance);
-        setAutoRechargeEnabled(balanceRes.balance.autoRechargeEnabled);
-        setAutoRechargeThreshold(balanceRes.balance.autoRechargeThreshold);
-        setAutoRechargeAmount(balanceRes.balance.autoRechargeAmount);
       }
-      setCreditPacks(packsRes.packs);
     } catch (err: any) {
       setError(err.message || "Failed to load plan info");
     } finally {
@@ -151,16 +129,6 @@ function BillingPage() {
       return () => clearTimeout(timer);
     }
   }, [user, authLoading, paymentId, loadData]);
-
-  useEffect(() => {
-    if (topup === "success" && topupCreditsStr) {
-      setSuccessMsg(`${topupCreditsStr} credits added to your account!`);
-      loadData();
-    }
-    if (topup === "error") {
-      setError("Top-up payment could not be completed. Please try again.");
-    }
-  }, [topup, topupCreditsStr, loadData]);
 
   useEffect(() => {
     if (successMsg) {
@@ -205,42 +173,6 @@ function BillingPage() {
   function formatPrice(paise: number) {
     if (paise === 0) return "Free";
     return `₹${(paise / 100).toLocaleString("en-IN")}`;
-  }
-
-  async function handleBuyCredits(credits: number) {
-    setBuyingCredits(true);
-    setError("");
-    try {
-      const res = await api.payments.createTopUp(credits);
-      if (res.shortUrl) {
-        window.open(res.shortUrl, "_blank");
-        setTopUpDialogOpen(false);
-        setSuccessMsg(`Payment link opened for ${credits} credits. Complete payment in the new tab.`);
-      }
-    } catch (err: any) {
-      setError(err.message || "Failed to create top-up");
-    } finally {
-      setBuyingCredits(false);
-    }
-  }
-
-  async function handleSaveAutoRecharge() {
-    setSavingAutoRecharge(true);
-    try {
-      const res = await api.payments.autoRecharge({
-        enabled: autoRechargeEnabled,
-        threshold: autoRechargeThreshold,
-        amount: autoRechargeAmount,
-      });
-      setAutoRechargeEnabled(res.autoRechargeEnabled);
-      setAutoRechargeThreshold(res.autoRechargeThreshold);
-      setAutoRechargeAmount(res.autoRechargeAmount);
-      setSuccessMsg(autoRechargeEnabled ? "Auto-recharge enabled" : "Auto-recharge disabled");
-    } catch (err: any) {
-      setError(err.message || "Failed to save auto-recharge settings");
-    } finally {
-      setSavingAutoRecharge(false);
-    }
   }
 
   async function handleSubscribeClick(planId: string) {
@@ -372,7 +304,11 @@ function BillingPage() {
         upgrade: res.upgrade,
         immediate: res.immediate,
         scheduledDate: res.scheduledDate,
+        upiNote: res.upiNote,
       });
+      // Close the dialog on success — the result banner below confirms what
+      // happened. Leaving it open made users re-click plans thinking nothing ran.
+      setChangePlanOpen(false);
       await loadData();
       await refreshBusinesses();
     } catch (err: any) {
@@ -449,6 +385,11 @@ function BillingPage() {
                 Scheduled for {new Date(changePlanResult.scheduledDate).toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" })}
               </p>
             )}
+            {changePlanResult.upiNote && (
+              <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-800">
+                {changePlanResult.upiNote}
+              </p>
+            )}
             <button onClick={() => setChangePlanResult(null)} className="mt-1 text-xs underline opacity-70 hover:opacity-100">Dismiss</button>
           </div>
         )}
@@ -509,17 +450,6 @@ function BillingPage() {
                 </div>
               </div>
 
-              {/* Top-up balance */}
-              <div className="flex items-center justify-between text-sm">
-                <span className="flex items-center gap-1.5 text-muted-foreground">
-                  <Zap className="size-3.5 text-green-600" />
-                  Top-up balance
-                </span>
-                <span className={cn("font-medium tabular-nums", topUpBalance > 0 ? "text-green-600" : "text-muted-foreground")}>
-                  {topUpBalance > 0 ? `${topUpBalance} credits` : "None"}
-                </span>
-              </div>
-
               {/* Total remaining */}
               <div className="flex items-center justify-between rounded-lg bg-muted/50 p-3 text-sm">
                 <span className="font-medium">Total available</span>
@@ -528,12 +458,8 @@ function BillingPage() {
                 </span>
               </div>
             </CardContent>
-            <CardFooter className="flex-col gap-3">
-              <Button className="w-full gap-2" onClick={() => setTopUpDialogOpen(true)}>
-                <Plus className="size-4" />
-                Buy Credits
-              </Button>
-              {!isFreePlan && subscription?.plan?.slug !== "free" && (
+            {!isFreePlan && subscription?.plan?.slug !== "free" && (
+              <CardFooter className="flex-col gap-3">
                 <div className="flex w-full gap-2">
                   <Button variant="outline" size="sm" className="flex-1 gap-1.5" onClick={() => setChangePlanOpen(true)}>
                     <ArrowUpDown className="size-3.5" />
@@ -547,93 +473,8 @@ function BillingPage() {
                     </Button>
                   )}
                 </div>
-              )}
-            </CardFooter>
-          </Card>
-        )}
-
-        {/* ── AUTO-RECHARGE ── */}
-        {balance && !isFreePlan && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <RefreshCw className="size-4 text-primary" />
-                Auto-Recharge
-              </CardTitle>
-              <CardDescription>Automatically buy credits when your balance runs low</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <p className="text-sm font-medium">Enable auto-recharge</p>
-                  <p className="text-xs text-muted-foreground">Buy credits automatically when you run low</p>
-                </div>
-                <Switch
-                  checked={autoRechargeEnabled}
-                  onCheckedChange={setAutoRechargeEnabled}
-                />
-              </div>
-
-              {autoRechargeEnabled && (
-                <>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Trigger when credits remaining ≤</span>
-                      <span className="font-medium">{autoRechargeThreshold}</span>
-                    </div>
-                    <div className="flex gap-2">
-                      {[10, 20, 30, 50, 100].map((val) => (
-                        <button
-                          key={val}
-                          onClick={() => setAutoRechargeThreshold(val)}
-                          className={cn(
-                            "flex-1 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
-                            autoRechargeThreshold === val
-                              ? "border-primary bg-primary/10 text-primary"
-                              : "border-border text-muted-foreground hover:border-primary/50"
-                          )}
-                        >
-                          {val}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Buy amount</span>
-                      <span className="font-medium">{autoRechargeAmount} credits (₹{formatPrice(autoRechargeAmount * 99)})</span>
-                    </div>
-                    <div className="flex gap-2">
-                      {[50, 100, 250, 500].map((amt) => (
-                        <button
-                          key={amt}
-                          onClick={() => setAutoRechargeAmount(amt)}
-                          className={cn(
-                            "flex-1 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
-                            autoRechargeAmount === amt
-                              ? "border-primary bg-primary/10 text-primary"
-                              : "border-border text-muted-foreground hover:border-primary/50"
-                          )}
-                        >
-                          {amt}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <Button
-                    size="sm"
-                    onClick={handleSaveAutoRecharge}
-                    disabled={savingAutoRecharge}
-                    className="w-full"
-                  >
-                    {savingAutoRecharge ? <Loader2 className="size-4 animate-spin" /> : null}
-                    Save Auto-Recharge
-                  </Button>
-                </>
-              )}
-            </CardContent>
+              </CardFooter>
+            )}
           </Card>
         )}
 
@@ -876,8 +717,8 @@ function BillingPage() {
       />
 
       {/* ── CHANGE PLAN DIALOG ── */}
-      <Dialog open={changePlanOpen} onOpenChange={(v) => { if (!v && !changingPlan) setChangePlanOpen(false); }}>
-        <DialogContent className="sm:max-w-md">
+      <Dialog open={changePlanOpen} onOpenChange={(v) => { if (!changingPlan) setChangePlanOpen(v); }}>
+        <DialogContent className="sm:max-w-md max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Change Plan</DialogTitle>
             <DialogDescription>
@@ -914,52 +755,9 @@ function BillingPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ── TOP-UP DIALOG ── */}
-      <Dialog open={topUpDialogOpen} onOpenChange={(v) => { if (!v && !buyingCredits) setTopUpDialogOpen(false); }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Buy Credits</DialogTitle>
-            <DialogDescription>
-              Credits never expire and are used after your monthly credits. ₹99 per 100 credits.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 py-4">
-            {creditPacks.map((pack) => (
-              <button
-                key={pack.credits}
-                onClick={() => { setTopUpCredits(pack.credits); handleBuyCredits(pack.credits); }}
-                disabled={buyingCredits}
-                className="w-full rounded-xl border-2 border-border p-4 text-left transition-all hover:border-primary/50 hover:bg-accent disabled:opacity-50"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10">
-                      <Zap className="size-5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="font-semibold">{pack.label}</p>
-                      <p className="text-xs text-muted-foreground">{formatPrice(pack.amount)}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-lg font-bold">{formatPrice(pack.amount)}</p>
-                    <p className="text-xs text-muted-foreground">{pack.credits} credits</p>
-                  </div>
-                </div>
-              </button>
-            ))}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setTopUpDialogOpen(false)} disabled={buyingCredits}>
-              Cancel
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       {/* ── CANCEL DIALOG (compliant, no dark pattern) ── */}
       <Dialog open={cancelDialogOpen} onOpenChange={(v) => { if (!v && !cancelling) setCancelDialogOpen(false); }}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Cancel subscription?</DialogTitle>
             <DialogDescription>
@@ -991,7 +789,7 @@ function BillingPage() {
             <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800">
               <p className="font-medium">Consider instead:</p>
               <ul className="mt-1 list-disc ml-4 space-y-0.5">
-                <li><button onClick={() => { setCancelDialogOpen(false); setChangePlanOpen(true); }} className="underline">Downgrade to Free (30 credits) at period end</button> — keep data 90 days</li>
+                <li><button onClick={() => { setCancelDialogOpen(false); setChangePlanOpen(true); }} className="underline">Switch to a cheaper paid plan</button> at period end — or cancel and continue on Free (30 credits/mo)</li>
                 <li>Pause — keep businesses, skip next charge (contact support@beyondvyu.com)</li>
               </ul>
             </div>
