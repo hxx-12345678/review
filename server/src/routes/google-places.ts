@@ -32,6 +32,68 @@ interface PlaceResult {
   totalRatings: number | null;
 }
 
+const GENERIC_PLACE_TYPES = new Set(["store", "point of interest", "establishment", "premise", "food", "health", "business"]);
+
+function cityFromAddress(addr: string): string {
+  const parts = addr.split(",").map((s) => s.trim()).filter(Boolean);
+  if (parts.length >= 3) return parts[parts.length - 3].replace(/\d{6}.*$/, "").trim();
+  return "";
+}
+
+function pluralizeType(label: string): string {
+  const l = label.trim().toLowerCase();
+  if (!l || l === "business") return "businesses";
+  if (l.endsWith("s")) return l + "es";
+  return l + "s";
+}
+
+async function fetchPlaceDetails(placeId: string, fieldMask: string): Promise<any> {
+  const apiKey = getEnv().GOOGLE_PLACES_API_KEY;
+  if (!apiKey) throw new Error("Google Places API key not configured");
+  const res = await fetch(`${PLACES_BASE}/places/${encodeURIComponent(placeId)}`, {
+    headers: { "Content-Type": "application/json", "X-Goog-Api-Key": apiKey, "X-Goog-FieldMask": fieldMask },
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Places details failed: ${res.status} — ${body.slice(0, 200)}`);
+  }
+  return res.json();
+}
+
+// Place Details intermittently omits rating/userRatingCount for live listings
+// (verified: same placeId returns 4.5/164 via Text Search but nulls via Details).
+// Fall back to a name-scoped Text Search match — still Google data, never
+// invented — and record which source won so the UI stays honest.
+async function fetchPlaceDetailsWithRating(
+  placeId: string,
+  fieldMask: string,
+): Promise<{ data: any; ratingSource: string }> {
+  const data: any = await fetchPlaceDetails(placeId, fieldMask);
+  if (data.rating != null && data.userRatingCount != null) {
+    return { data, ratingSource: "google_places_details" };
+  }
+  const name: string = data.displayName?.text || "";
+  const city = cityFromAddress(data.formattedAddress || "");
+  const queries = [`${name}${city ? ` ${city}` : ""}`.trim(), name].filter(Boolean);
+  for (const q of queries.slice(0, 2)) {
+    try {
+      const results = await textSearch(q, 6);
+      const match =
+        results.find((r) => r.placeId === data.id || r.placeId === placeId) ||
+        results.find((r) => r.name && name && r.name.toLowerCase() === name.toLowerCase());
+      if (match && match.rating != null) {
+        return {
+          data: { ...data, rating: match.rating, userRatingCount: match.totalRatings ?? data.userRatingCount ?? null },
+          ratingSource: "google_places_search_fallback",
+        };
+      }
+    } catch (e) {
+      console.error("Rating fallback search failed:", e);
+    }
+  }
+  return { data, ratingSource: "google_places_details" };
+}
+
 // Shared Text Search helper (used by authed /search and public /search-public).
 // Throws on API failure so callers decide the status code.
 async function textSearch(query: string, maxResultCount: number): Promise<PlaceResult[]> {
@@ -120,18 +182,20 @@ router.get("/health-check", publicPlacesLimiter, async (req: Request, res: Respo
     const cached = getCache(cacheKey);
     if (cached) return res.json({ ...cached, cached: true });
 
-    const apiKey = getEnv().GOOGLE_PLACES_API_KEY;
-    if (!apiKey) return res.status(500).json({ error: "Health check unavailable right now" });
-
-    const selfRes = await fetch(`${PLACES_BASE}/places/${encodeURIComponent(placeId)}`, {
-      headers: {
-        "Content-Type": "application/json",
-        "X-Goog-Api-Key": apiKey,
-        "X-Goog-FieldMask": "id,displayName,formattedAddress,rating,userRatingCount,reviews,primaryType",
-      },
-    });
-    if (!selfRes.ok) return res.status(502).json({ error: "Could not find that Google listing" });
-    const selfData: any = await selfRes.json();
+    let selfData: any;
+    let ratingSource = "google_places_details";
+    try {
+      const fetched = await fetchPlaceDetailsWithRating(
+        placeId,
+        "id,displayName,formattedAddress,rating,userRatingCount,reviews,primaryType",
+      );
+      selfData = fetched.data;
+      ratingSource = fetched.ratingSource;
+    } catch (e: any) {
+      const msg = e.message || "";
+      if (msg.includes("API key not configured")) return res.status(500).json({ error: "Health check unavailable right now" });
+      return res.status(502).json({ error: "Could not find that Google listing" });
+    }
     const sample: any[] = selfData.reviews || [];
     let lastReviewAt: string | null = null;
     if (sample.length > 0) {
@@ -150,31 +214,36 @@ router.get("/health-check", publicPlacesLimiter, async (req: Request, res: Respo
     const selfName: string = selfData.displayName?.text || "";
     const selfAddr: string = selfData.formattedAddress || "";
     const typeLabel = (selfData.primaryType || "business").toString().replace(/_/g, " ");
-    const GENERIC_TYPES = new Set(["store", "point of interest", "establishment", "premise", "food", "health", "business"]);
-    function cityFromAddress(addr: string): string {
-      const parts = addr.split(",").map((s) => s.trim()).filter(Boolean);
-      if (parts.length >= 3) return parts[parts.length - 3].replace(/\d{6}.*$/, "").trim();
-      return "";
-    }
     const city = cityFromAddress(selfAddr);
     const nameTail = selfName.split(/\s+/).filter(Boolean).slice(-2).join(" ");
     // Generic primaryTypes ("store") match the wrong vertical — the business
     // name tail ("Auto Garage") is far more relevant, so it goes first.
-    const isGeneric = GENERIC_TYPES.has(typeLabel.toLowerCase());
-    const queries =
+    const isGeneric = GENERIC_PLACE_TYPES.has(typeLabel.toLowerCase());
+    const queryPlan: { q: string; basis: string }[] =
       isGeneric && nameTail && city
-        ? [`${nameTail} in ${city}`, `${typeLabel} in ${city}`, `${typeLabel} near ${selfAddr}`.trim()]
-        : [`${typeLabel} near ${selfAddr}`.trim(), ...(city ? [`${typeLabel} in ${city}`] : [])];
+        ? [
+            { q: `${nameTail} in ${city}`, basis: pluralizeType(nameTail) },
+            { q: `${typeLabel} in ${city}`, basis: pluralizeType(typeLabel) },
+            { q: `${typeLabel} near ${selfAddr}`.trim(), basis: pluralizeType(typeLabel) },
+          ]
+        : [
+            { q: `${typeLabel} near ${selfAddr}`.trim(), basis: pluralizeType(typeLabel) },
+            ...(city ? [{ q: `${typeLabel} in ${city}`, basis: pluralizeType(typeLabel) }] : []),
+          ];
     let competitors: PlaceResult[] = [];
-    let compQueryUsed = queries[0];
-    for (const q of queries.slice(0, 3)) {
+    let compQueryUsed = queryPlan[0]?.q || "";
+    let competitorBasis = queryPlan[0]?.basis || "businesses";
+    for (const t of queryPlan.slice(0, 3)) {
       try {
-        compQueryUsed = q;
-        competitors = (await textSearch(q, 10))
+        compQueryUsed = t.q;
+        competitors = (await textSearch(t.q, 10))
           .filter((c) => c.placeId !== selfId && c.rating != null)
           .sort((a, b) => (b.totalRatings || 0) - (a.totalRatings || 0))
           .slice(0, 3);
-        if (competitors.length >= 2) break;
+        if (competitors.length >= 2) {
+          competitorBasis = t.basis;
+          break;
+        }
       } catch (e) {
         console.error("Health-check competitors failed:", e);
       }
@@ -202,6 +271,7 @@ router.get("/health-check", publicPlacesLimiter, async (req: Request, res: Respo
         address: selfData.formattedAddress || "",
         rating,
         totalRatings: total,
+        ratingSource,
         lastReviewAt,
         daysSinceLastReview: daysSince,
         reviewSampleCount: sample.length,
@@ -209,6 +279,7 @@ router.get("/health-check", publicPlacesLimiter, async (req: Request, res: Respo
       competitors,
       competitorAverages: { avgRating: compAvgRating, avgTotal: compAvg },
       competitorQuery: compQueryUsed,
+      competitorBasis,
       gap,
       gapDeficit,
       // Honest locked teasers — unknowable without a connected account, and
@@ -243,23 +314,21 @@ router.get("/details", authRequired, async (req: Request, res: Response) => {
     const cached = getCache(cacheKey);
     if (cached) return res.json({ ...cached, cached: true });
 
-    const apiKey = getEnv().GOOGLE_PLACES_API_KEY;
-    if (!apiKey) return res.status(500).json({ error: "Google Places API key not configured" });
-
-    const url = `${PLACES_BASE}/places/${encodeURIComponent(placeId)}`;
-    const response = await fetch(url, {
-      headers: {
-        "Content-Type": "application/json",
-        "X-Goog-Api-Key": apiKey,
-        "X-Goog-FieldMask": "id,displayName,formattedAddress,rating,userRatingCount,reviews,location,primaryType",
-      },
-    });
-    if (!response.ok) {
-      const body = await response.text();
-      console.error("Places details error:", response.status, body);
-      return res.status(502).json({ error: "Places details failed", details: body.slice(0, 300) });
+    let data: any;
+    let ratingSource = "google_places_details";
+    try {
+      const fetched = await fetchPlaceDetailsWithRating(
+        placeId,
+        "id,displayName,formattedAddress,rating,userRatingCount,reviews,location,primaryType",
+      );
+      data = fetched.data;
+      ratingSource = fetched.ratingSource;
+    } catch (e: any) {
+      const msg = e.message || "";
+      if (msg.includes("API key not configured")) return res.status(500).json({ error: "Google Places API key not configured" });
+      console.error("Places details error:", msg);
+      return res.status(502).json({ error: "Places details failed" });
     }
-    const data: any = await response.json();
     const reviews: any[] = data.reviews || [];
     let lastReviewAt: string | null = null;
     if (reviews.length > 0) {
@@ -272,6 +341,7 @@ router.get("/details", authRequired, async (req: Request, res: Response) => {
       address: data.formattedAddress || "",
       rating: data.rating ?? null,
       totalRatings: data.userRatingCount ?? null,
+      ratingSource,
       lastReviewAt,
       reviewSampleCount: reviews.length,
       location: data.location || null,
@@ -347,19 +417,21 @@ router.get("/review-gap", authRequired, async (req: AuthRequest, res: Response) 
     if (!business) return res.status(404).json({ error: "Business not found" });
     if (!business.googlePlaceId) return res.status(400).json({ error: "No Google Place ID — select your Google listing in onboarding or settings first", code: "NO_PLACE_ID" });
 
-    const apiKey = getEnv().GOOGLE_PLACES_API_KEY;
-    if (!apiKey) return res.status(500).json({ error: "Google Places API key not configured" });
-
-    // 1. Self details (live)
-    const selfUrl = `${PLACES_BASE}/places/${encodeURIComponent(business.googlePlaceId)}`;
-    const selfRes = await fetch(selfUrl, {
-      headers: { "Content-Type": "application/json", "X-Goog-Api-Key": apiKey, "X-Goog-FieldMask": "id,displayName,formattedAddress,rating,userRatingCount,reviews,location" },
-    });
-    if (!selfRes.ok) {
-      const body = await selfRes.text();
-      return res.status(502).json({ error: "Failed to fetch your Google listing", details: body.slice(0, 300) });
+    // 1. Self details (live) — with search fallback when Details omits rating
+    let selfData: any;
+    let selfRatingSource = "google_places_details";
+    try {
+      const fetched = await fetchPlaceDetailsWithRating(
+        business.googlePlaceId,
+        "id,displayName,formattedAddress,rating,userRatingCount,reviews,location,primaryType",
+      );
+      selfData = fetched.data;
+      selfRatingSource = fetched.ratingSource;
+    } catch (e: any) {
+      const msg = e.message || "";
+      if (msg.includes("API key not configured")) return res.status(500).json({ error: "Google Places API key not configured" });
+      return res.status(502).json({ error: "Failed to fetch your Google listing" });
     }
-    const selfData: any = await selfRes.json();
     const selfReviews: any[] = selfData.reviews || [];
     let lastReviewAt: string | null = null;
     if (selfReviews.length > 0) {
@@ -383,27 +455,48 @@ router.get("/review-gap", authRequired, async (req: AuthRequest, res: Response) 
     const nameMismatch = googleName && business.name ? googleName.toLowerCase().trim() !== business.name.toLowerCase().trim() : false;
     const daysSinceLast = lastReviewAt ? Math.floor((Date.now() - new Date(lastReviewAt).getTime()) / 86400000) : null;
 
-    // 2. Competitors via Text Search: "{industry label} in {location}"
+    // 2. Competitors via Text Search — prefer the listing's own primaryType
+    // ("coffee shop") over the coarse industry label ("restaurant"), so a cafe
+    // is compared with cafes, not giant restaurants. First query with ≥2 hits wins.
+    const apiKey = getEnv().GOOGLE_PLACES_API_KEY;
+    if (!apiKey) return res.status(500).json({ error: "Google Places API key not configured" });
+    const ownType = (selfData.primaryType || "").toString().replace(/_/g, " ").toLowerCase();
     const industryLabel = (business.industry || "business").toLowerCase().replace(/_/g, " ");
-    const compQuery = `${industryLabel} in ${business.location || selfData.formattedAddress || ""}`.trim();
+    const loc = business.location || selfData.formattedAddress || "";
+    const city = cityFromAddress(selfData.formattedAddress || business.location || "");
+    const typeQueries: { q: string; basis: string }[] = [];
+    if (ownType && !GENERIC_PLACE_TYPES.has(ownType)) {
+      if (selfData.formattedAddress) typeQueries.push({ q: `${ownType} near ${selfData.formattedAddress}`.trim(), basis: pluralizeType(ownType) });
+      if (city) typeQueries.push({ q: `${ownType} in ${city}`, basis: pluralizeType(ownType) });
+    }
+    typeQueries.push({ q: `${industryLabel} in ${loc}`.trim(), basis: pluralizeType(industryLabel) });
     let competitors: any[] = [];
-    try {
-      const compRes = await fetch(`${PLACES_BASE}/places:searchText`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Goog-Api-Key": apiKey, "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.businessStatus" },
-        body: JSON.stringify({ textQuery: compQuery, languageCode: "en", maxResultCount: 10 }),
-      });
-      if (compRes.ok) {
-        const compData: any = await compRes.json();
-        competitors = ((compData.places || []) as any[])
-          .filter((p: any) => p.businessStatus === "OPERATIONAL" && p.id !== business.googlePlaceId)
-          .map((p: any) => ({ placeId: p.id, name: p.displayName?.text || "", address: p.formattedAddress || "", rating: p.rating ?? null, totalRatings: p.userRatingCount ?? null }))
-          .filter((c: any) => c.rating != null)
-          .sort((a: any, b: any) => (b.totalRatings || 0) - (a.totalRatings || 0))
-          .slice(0, 3);
+    let compQueryUsed = typeQueries[0]?.q || "";
+    let competitorBasis = typeQueries[0]?.basis || "businesses";
+    for (const t of typeQueries) {
+      try {
+        compQueryUsed = t.q;
+        const compRes = await fetch(`${PLACES_BASE}/places:searchText`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Goog-Api-Key": apiKey, "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.businessStatus" },
+          body: JSON.stringify({ textQuery: t.q, languageCode: "en", maxResultCount: 10 }),
+        });
+        if (compRes.ok) {
+          const compData: any = await compRes.json();
+          competitors = ((compData.places || []) as any[])
+            .filter((p: any) => p.businessStatus === "OPERATIONAL" && p.id !== business.googlePlaceId)
+            .map((p: any) => ({ placeId: p.id, name: p.displayName?.text || "", address: p.formattedAddress || "", rating: p.rating ?? null, totalRatings: p.userRatingCount ?? null }))
+            .filter((c: any) => c.rating != null)
+            .sort((a: any, b: any) => (b.totalRatings || 0) - (a.totalRatings || 0))
+            .slice(0, 3);
+          if (competitors.length >= 2) {
+            competitorBasis = t.basis;
+            break;
+          }
+        }
+      } catch (e) {
+        console.error("Review-gap competitors failed:", e);
       }
-    } catch (e) {
-      console.error("Review-gap competitors failed:", e);
     }
 
     // 3. Gap calculation — no hallucination, pure arithmetic on live numbers
@@ -477,10 +570,12 @@ router.get("/review-gap", authRequired, async (req: AuthRequest, res: Response) 
 
     res.json({
       business: { id: business.id, name: business.name, industry: business.industry, location: business.location, placeId: business.googlePlaceId },
-      you: { rating: yourRating, totalRatings: yourTotal, lastReviewAt, daysSinceLastReview: daysSinceLast, lastReviewSource, source: "google_places_details" },
-      googleListing: { name: googleName, address: googleAddress, nameMismatch, note: nameMismatch ? `Your Google listing is "${googleName}" but your BeyondVyu business is "${business.name}" — update the name or re-select the correct listing.` : null },
+      you: { rating: yourRating, totalRatings: yourTotal, lastReviewAt, daysSinceLastReview: daysSinceLast, lastReviewSource, ratingSource: selfRatingSource, source: "google_places_details" },
+      googleListing: { name: googleName, address: googleAddress, nameMismatch, note: nameMismatch ? `Name check: your Google listing is "${googleName}" but your business is "${business.name}" — often just a spelling variant. Confirm this address is your outlet: ${googleAddress || "address unavailable"}. If it's the wrong place, re-select in Settings.` : null },
       competitors,
       competitorAverages: { avgRating: compAvgRating != null ? Math.round(compAvgRating * 10) / 10 : null, avgTotal: compAvgTotal, maxTotal: compMaxTotal },
+      competitorBasis,
+      competitorQuery: compQueryUsed,
       gap,
       gapDeficit,
       // Six dimensions

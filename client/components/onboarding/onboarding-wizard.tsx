@@ -310,7 +310,7 @@ export function OnboardingWizard({ embedded, onComplete }: {
                       <p className="mt-1 text-xs text-muted-foreground">Your rating: <strong className="text-foreground">{selectedPlace.rating ?? "—"}</strong> · Your reviews: <strong className="text-foreground">{selectedPlace.totalRatings?.toLocaleString() ?? "—"}</strong></p>
                       {rivals.length > 0 && (
                         <div className="mt-2 space-y-1">
-                          <p className="text-xs font-medium">Nearby competitors:</p>
+                          <p className="text-xs font-medium">Similar nearby listings (same search):</p>
                           {rivals.map((r) => (
                             <p key={r.placeId} className="text-xs text-muted-foreground">{r.name} — <strong className="text-foreground">{r.rating}</strong> / {r.totalRatings?.toLocaleString()} reviews</p>
                           ))}

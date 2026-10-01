@@ -158,8 +158,9 @@ export default function HealthCheckPage() {
                   Recent activity: {check.place.lastReviewAt ? `last review ${daysLabel(check.place.daysSinceLastReview)}` : "no public recency signal"} ·
                   Gap vs competitors: <span className={`font-bold px-2 py-0.5 rounded-full text-white ${gapColor}`}>{check.gap}{check.gapDeficit ? ` · behind ${check.gapDeficit.toLocaleString()}` : ""}</span>
                 </p>
+                <div className="mt-3 text-[11px] uppercase tracking-widest text-slate-400">Nearby {check.competitorBasis || "businesses"}</div>
                 {check.competitors?.length > 0 && (
-                  <div className="mt-3 space-y-1.5">
+                  <div className="mt-2 space-y-1.5">
                     {check.competitors.map((c: any) => (
                       <div key={c.placeId} className="flex items-center justify-between text-xs bg-white/5 rounded-lg px-3 py-2">
                         <span className="truncate font-medium">{c.name}</span>

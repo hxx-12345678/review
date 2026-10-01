@@ -121,7 +121,7 @@ export function GoogleReviewGap({ businessId, compact }: { businessId: string; c
 
       {/* Competitors */}
       <div>
-        <div className="text-xs font-semibold mb-2">Nearby competitors — live Places data</div>
+        <div className="text-xs font-semibold mb-2">Nearby {data.competitorBasis || "businesses"} — live Places data</div>
         {data.competitors?.length === 0 ? (
           <p className="text-xs text-muted-foreground border rounded-lg p-3 bg-muted/30">No nearby competitors found for this query. Your gap is from recency/velocity, not competition.</p>
         ) : (

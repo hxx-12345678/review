@@ -124,7 +124,23 @@ export function SettingsForm({ business }: { business: any }) {
   const [searchResults, setSearchResults] = useState<any[]>([])
   const [selectedPlace, setSelectedPlace] = useState<any>(null)
   const [showManualGoogleFields, setShowManualGoogleFields] = useState(false)
+  // Currently-saved listing (so users can SEE what's connected, not just search blind)
+  const [currentListing, setCurrentListing] = useState<any>(null)
+  const [replacing, setReplacing] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    const pid = business?.googlePlaceId
+    if (!pid) {
+      setCurrentListing(null)
+      return
+    }
+    let cancelled = false
+    api.googlePlaces.details(pid)
+      .then((d) => { if (!cancelled) setCurrentListing(d) })
+      .catch(() => { if (!cancelled) setCurrentListing(null) })
+    return () => { cancelled = true }
+  }, [business?.id, business?.googlePlaceId])
 
   async function doSearch(query: string) {
     if (!query || query.length < 2) return
@@ -145,6 +161,7 @@ export function SettingsForm({ business }: { business: any }) {
     setGooglePlaceId(place.placeId)
     setGoogleUrl(`https://search.google.com/local/writereview?placeid=${place.placeId}`)
     setShowManualGoogleFields(false)
+    setReplacing(false)
   }
 
   function clearSelection() {
@@ -185,6 +202,12 @@ export function SettingsForm({ business }: { business: any }) {
         showPoweredBy,
       })
       toast.success("Settings saved")
+      setReplacing(false)
+      if (googlePlaceId) {
+        api.googlePlaces.details(googlePlaceId).then(setCurrentListing).catch(() => {})
+      } else {
+        setCurrentListing(null)
+      }
     } catch (err: any) {
       toast.error(err.message || "Failed to save settings")
     } finally {
@@ -296,8 +319,36 @@ export function SettingsForm({ business }: { business: any }) {
               </div>
             )}
 
+            {/* Currently-connected listing — so Settings actually fixes mismatches */}
+            {currentListing && !selectedPlace && !showManualGoogleFields && !replacing && (
+              <div className="rounded-lg border border-teal-500/30 bg-teal-500/5 p-3">
+                <div className="flex items-start gap-3">
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <MapPin className="size-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium text-teal-700 dark:text-teal-300">Connected listing</p>
+                    <p className="text-sm font-medium text-foreground">{currentListing.name}</p>
+                    <p className="text-xs text-muted-foreground">{currentListing.address}</p>
+                    {currentListing.rating && (
+                      <div className="mt-0.5 flex items-center gap-1 text-xs">
+                        <Star className="size-3 fill-amber-400 text-amber-400" />
+                        <span className="font-medium text-foreground">{currentListing.rating}</span>
+                        {currentListing.totalRatings && (
+                          <span className="text-muted-foreground">({currentListing.totalRatings} reviews)</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <button type="button" onClick={() => setReplacing(true)} className="text-xs text-muted-foreground underline-offset-2 hover:underline shrink-0">
+                    Change
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Search input */}
-            {(!selectedPlace || showManualGoogleFields) && (
+            {(!selectedPlace || showManualGoogleFields) && (!currentListing || replacing || showManualGoogleFields) && (
               <div className="space-y-2">
                 <div className="flex gap-2">
                   <Input
