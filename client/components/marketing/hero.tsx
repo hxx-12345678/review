@@ -54,7 +54,6 @@ export function Hero() {
                 ))}
               </div>
               <div className="text-sm text-white/60">
-                <span className="font-bold text-white">Built for restaurants, salons, clinics & gyms</span>
                 <span className="mt-0.5 block text-xs text-white/45">QR + WhatsApp + multilingual review flow · Made for India</span>
               </div>
             </div>
