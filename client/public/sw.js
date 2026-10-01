@@ -1,4 +1,4 @@
-const CACHE = "beyondvyu-v9"
+const CACHE = "beyondvyu-v10"
 const STATIC_ASSETS = [
   "/",
   "/offline",
@@ -56,19 +56,13 @@ self.addEventListener("fetch", (event) => {
     return
   }
 
-  if (
-    url.origin === self.location.origin &&
-    (url.pathname.startsWith("/_next/static/") ||
-      url.pathname.startsWith("/fonts/") ||
-      url.pathname.match(/\.(png|jpg|jpeg|gif|svg|ico|webp|woff2?|css|js)$/))
-  ) {
-    // Hashed filenames are immutable per deploy, but the HTML chunk manifest
-    // changes every deploy — stale-while-revalidate serves fast AND self-heals
-    // instead of serving mismatched chunks forever (cacheFirst caused
-    // "module factory not available" crashes on login/signup after deploys).
-    event.respondWith(staleWhileRevalidate(request))
-    return
-  }
+  // NOTE: /_next/static/* and other hashed app assets are deliberately NOT
+  // cached here. They are content-hashed (immutable) and served by the CDN
+  // with immutable cache headers — the browser HTTP cache handles them
+  // perfectly. Caching them in the SW caused cross-deploy chunk mismatches
+  // ("module factory not available" crashes) that no strategy fully fixes,
+  // because a fresh HTML shell can pair with a stale chunk graph.
+  // Only navigations (HTML, network-first above) and /api/ go through the SW.
 
   event.respondWith(networkFirstWithFallback(request, "/offline"))
 })
@@ -86,39 +80,6 @@ async function networkFirstWithFallback(request, fallbackUrl) {
     const cached = await caches.match(request)
     if (cached) return cached
     return caches.match(fallbackUrl)
-  }
-}
-
-async function cacheFirst(request) {
-  const cached = await caches.match(request)
-  if (cached) return cached
-  try {
-    const response = await fetch(request)
-    if (response.ok) {
-      const cache = await caches.open(CACHE)
-      cache.put(request, response.clone())
-    }
-    return response
-  } catch {
-    return new Response("", { status: 408, statusText: "Offline" })
-  }
-}
-
-async function staleWhileRevalidate(request) {
-  const cache = await caches.open(CACHE)
-  const cached = await cache.match(request)
-  const networkPromise = fetch(request)
-    .then((response) => {
-      if (response && response.ok) cache.put(request, response.clone())
-      return response
-    })
-    .catch(() => cached)
-  // Serve instantly from cache when available; otherwise wait for network
-  if (cached) return cached
-  try {
-    return await networkPromise
-  } catch {
-    return new Response("", { status: 408, statusText: "Offline" })
   }
 }
 
