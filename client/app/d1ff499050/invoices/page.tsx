@@ -65,7 +65,7 @@ export default function AdminInvoicesPage() {
                   <tr key={inv.id} className="border-b border-zinc-800/50 hover:bg-zinc-800/30">
                     <td className="p-3 font-mono text-xs text-zinc-500">{inv.id.slice(0, 8)}</td>
                     <td className="p-3 text-zinc-300">{inv.subscription?.user?.email || "—"}</td>
-                    <td className="p-3 text-zinc-100">{inv.subscription?.plan?.name || "—"}</td>
+                    <td className="p-3 text-zinc-100">{inv.kind === "topup" ? "Credit top-up" : inv.subscription?.plan?.name || "—"}</td>
                     <td className="p-3 text-zinc-100">₹{(inv.amount / 100).toLocaleString()}</td>
                     <td className="p-3">
                       <span className={`rounded-full px-2 py-0.5 text-xs ${
@@ -120,7 +120,7 @@ export default function AdminInvoicesPage() {
                 <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500">
                   <span className="font-mono">{inv.id.slice(0, 8)}</span>
                   <span>{inv.subscription?.user?.email || "—"}</span>
-                  <span>{inv.subscription?.plan?.name || "—"}</span>
+                  <span>{inv.kind === "topup" ? "Credit top-up" : inv.subscription?.plan?.name || "—"}</span>
                   <span>{new Date(inv.createdAt).toLocaleDateString()}</span>
                 </div>
               </div>

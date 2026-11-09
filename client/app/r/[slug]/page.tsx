@@ -48,11 +48,20 @@ export default async function FeedbackPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>
-  searchParams?: Promise<{ demo?: string }>
+  searchParams?: Promise<{ demo?: string; table?: string | string[]; staff?: string | string[]; touchpoint?: string | string[] }>
 }) {
   const { slug } = await params
   const sp = await searchParams
   const isDemo = sp?.demo === "true"
+  // Query params are user-controlled; take the first value and clamp it so a
+  // crafted or repeated link cannot push the payload past schema limits.
+  const firstParam = (value: string | string[] | undefined, max: number) => {
+    const raw = Array.isArray(value) ? value[0] : value
+    return raw?.trim().slice(0, max) || undefined
+  }
+  const table = firstParam(sp?.table, 60)
+  const staff = firstParam(sp?.staff, 60)
+  const touchpoint = firstParam(sp?.touchpoint, 30)
   const business = await getBusinessBySlug(slug)
 
   if (!business) {
@@ -61,15 +70,14 @@ export default async function FeedbackPage({
 
   const subscription = business.subscription
 
-  // Demo mode bypasses subscription check to allow previewing the flow
-  // Real check: active/authenticated status AND remaining credits (monthly + top-up) > 0
+  // Demo mode bypasses the subscription check so the flow can be previewed.
+  // Capture the review whenever the owner has an entitled plan, even with zero
+  // AI credits: writing and submitting a review is free, and blocking the QR
+  // page would punish the business's customers for the owner's AI quota. AI
+  // suggestions degrade gracefully inside the flow instead.
   const hasActivePlan =
     isDemo ||
-    (subscription &&
-      ["active", "authenticated"].includes(subscription.status) &&
-      (Math.max(0, (subscription.creditsLimit ?? 0) - (subscription.creditsUsed ?? 0)) +
-        (subscription.creditsTopUpBalance ?? 0) >
-        0))
+    (subscription && ["active", "authenticated", "past_due"].includes(subscription.status))
 
   if (!hasActivePlan) {
     return (
@@ -85,7 +93,7 @@ export default async function FeedbackPage({
 
   return (
     <main className="flex min-h-dvh min-w-0 flex-col overflow-hidden bg-muted/40">
-      <FeedbackFlow business={business} slug={slug} demo={isDemo} />
+      <FeedbackFlow business={business} slug={slug} demo={isDemo} table={table} staff={staff} touchpoint={touchpoint} />
     </main>
   )
 }

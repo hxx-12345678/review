@@ -15,6 +15,19 @@ import { api } from "@/lib/api"
 
 type FilterKey = "all" | "needs_reply" | "replied" | "negative"
 
+const TOUCHPOINT_LABELS: Record<string, string> = {
+  table: "Table stand",
+  bill: "Bill / checkout",
+  packaging: "Packaging",
+  reception: "Reception",
+  takeaway: "Takeaway counter",
+  whatsapp: "WhatsApp",
+  sms: "SMS",
+  email: "Email",
+  link: "Shared link",
+  other: "Other",
+}
+
 function getInitial(name: string) {
   return (name || "?").charAt(0).toUpperCase()
 }
@@ -87,18 +100,14 @@ export function ReviewInbox({ feedback, googleReviews, businessName, businessId 
       const tone = replyTones[item.id] || "professional"
 
       if (item.isGoogleReview) {
-        // For Google reviews, we generate a reply via the same AI endpoint
-        const res = await fetch(`/api/generate-reply`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            reviewText: reviewText,
-            rating: item.rating,
-            businessName,
-            tone,
-          }),
+        // Google reviews go through the authenticated, credit-metered server
+        // endpoint (previously a public Next.js route billed nothing).
+        const data = await api.ai.googleReviewReply({
+          businessId,
+          reviewText,
+          rating: item.rating,
+          tone,
         })
-        const data = await res.json()
         if (data.reply) {
           setDrafts((d) => ({ ...d, [item.id]: data.reply }))
         } else {
@@ -236,9 +245,12 @@ export function ReviewInbox({ feedback, googleReviews, businessName, businessId 
               {!item.isGoogleReview && (
                 <div className="mt-3 space-y-3">
                   {/* Customer summary (Highlights, topics, private message) */}
-                  {(item.liked || item.privateNote || item.purchaseInfo || item.improvement) && (
+                  {(item.liked || item.privateNote || item.purchaseInfo || item.improvement || item.touchpoint) && (
                     <div className="rounded-lg border border-dashed border-border/80 bg-card p-3 space-y-1.5 text-xs sm:text-sm">
                       <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Customer Input Details</div>
+                      {item.touchpoint && (
+                        <p><span className="font-semibold text-muted-foreground">Touchpoint:</span> {TOUCHPOINT_LABELS[item.touchpoint] || item.touchpoint}</p>
+                      )}
                       {item.purchaseInfo && (
                         <p><span className="font-semibold text-muted-foreground">Visited for:</span> {item.purchaseInfo}</p>
                       )}

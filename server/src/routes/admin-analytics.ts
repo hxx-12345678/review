@@ -79,7 +79,7 @@ router.get("/analytics/overview", async (_req: AdminRequest, res: Response) => {
         where: { status: "active" },
         select: { id: true, userId: true, plan: { select: { price: true, interval: true } }, createdAt: true },
       }),
-      prisma.invoice.findMany({ select: { amount: true, status: true, createdAt: true } }),
+      prisma.invoice.findMany({ where: { kind: "subscription" }, select: { amount: true, status: true, createdAt: true } }),
     ]);
 
     // ── NSM: weekly active businesses that collected a review ──
@@ -451,13 +451,13 @@ router.get("/analytics/churn", async (_req: AdminRequest, res: Response) => {
       prisma.session.findMany({ where: { createdAt: { gte: daysAgo(90) } }, select: { userId: true, createdAt: true } }),
       prisma.activityLog.findMany({ where: { createdAt: { gte: daysAgo(90) } }, select: { userId: true, action: true, createdAt: true } }),
       prisma.subscription.findMany({ select: { id: true, userId: true, status: true, cancelledAt: true, plan: { select: { name: true } } } }),
-      prisma.invoice.findMany({ select: { subscriptionId: true, status: true } }),
+      prisma.invoice.findMany({ where: { kind: "subscription" }, select: { subscriptionId: true, status: true } }),
     ]);
 
     const subIdToUserId = new Map(subscriptions.map((s) => [s.id, s.userId]));
     const failedPaymentsByUser = new Map<string, number>();
     for (const inv of invoices) {
-      if (inv.status === "failed" || inv.status === "refunded") {
+      if ((inv.status === "failed" || inv.status === "refunded") && inv.subscriptionId) {
         const uid = subIdToUserId.get(inv.subscriptionId);
         if (uid) failedPaymentsByUser.set(uid, (failedPaymentsByUser.get(uid) || 0) + 1);
       }

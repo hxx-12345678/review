@@ -76,7 +76,11 @@ function BillingPage() {
   const searchParams = useSearchParams();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [subscription, setSubscription] = useState<any>(null);
+  const [previousSubscription, setPreviousSubscription] = useState<any>(null);
   const [balance, setBalance] = useState<Balance | null>(null);
+  const [creditPacks, setCreditPacks] = useState<{ credits: number; amount: number; label: string }[]>([]);
+  const [topUpLoading, setTopUpLoading] = useState(false);
+  const [autoRechargeSaving, setAutoRechargeSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [subscribing, setSubscribing] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -94,17 +98,22 @@ function BillingPage() {
   const success = searchParams.get("success");
   const paymentId = searchParams.get("payment_id");
   const errorType = searchParams.get("error");
+  const topupResult = searchParams.get("topup");
+  const topupCredits = searchParams.get("credits");
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [plansRes, subRes, balanceRes] = await Promise.all([
+      const [plansRes, subRes, balanceRes, packsRes] = await Promise.all([
         api.payments.plans(),
         api.payments.subscription(),
         api.payments.creditBalance(),
+        api.payments.creditPacks().catch(() => ({ packs: [] })),
       ]);
       setPlans(plansRes.plans);
       setSubscription(subRes.subscription);
+      setPreviousSubscription(subRes.previous || null);
+      setCreditPacks(packsRes.packs || []);
       if (balanceRes.balance) {
         setBalance(balanceRes.balance);
       }
@@ -160,6 +169,22 @@ function BillingPage() {
     return plans.filter((p) => p.price > 0 && p.interval === "month");
   }, [plans]);
 
+  // Invoices can belong to the current subscription or a prior one (e.g. after
+  // upgrading). Merge both so history is never hidden.
+  const allInvoices = useMemo(() => {
+    const merged = [
+      ...(subscription?.invoices || []),
+      ...(previousSubscription?.invoices || []),
+    ];
+    const byId = new Map<string, any>();
+    for (const inv of merged) {
+      if (inv?.id) byId.set(inv.id, inv);
+    }
+    return Array.from(byId.values()).sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+  }, [subscription?.invoices, previousSubscription?.invoices]);
+
   const computeUsage = useCallback(() => {
     if (!balance) return { monthlyPct: 0, monthlyUsed: 0, monthlyLimit: 0, topUpBalance: 0, totalRemaining: 0 };
     const monthlyUsed = balance.creditsUsed ?? 0;
@@ -173,6 +198,13 @@ function BillingPage() {
   function formatPrice(paise: number) {
     if (paise === 0) return "Free";
     return `₹${(paise / 100).toLocaleString("en-IN")}`;
+  }
+
+  /** Monthly-equivalent price so yearly and monthly plans compare fairly. */
+  function monthlyEquivalent(paise: number, interval: string) {
+    const months =
+      interval === "year" ? 12 : interval === "quarter" ? 3 : interval === "week" ? 12 / 52 : interval === "day" ? 1 / 30 : 1;
+    return Math.round(paise / months);
   }
 
   async function handleSubscribeClick(planId: string) {
@@ -236,7 +268,8 @@ function BillingPage() {
 
       const rzp = new window.Razorpay(options);
       rzp.on("payment.failed", function (response: any) {
-        throw new Error(response.error?.description || "Payment failed");
+        // Throwing inside a Razorpay callback is swallowed — surface it.
+        setError(response.error?.description || "Payment failed. No money was taken.");
       });
       rzp.open();
     } catch (err: any) {
@@ -247,21 +280,9 @@ function BillingPage() {
   }
 
   async function handleCancel() {
-    if (subscription?.cancelledAt) {
-      if (!confirm("Undo scheduled cancellation and keep your plan active?")) return;
-      setCancelling(true);
-      setError("");
-      try {
-        const res = await api.payments.cancel();
-        setSuccessMsg(res.message || "Cancellation undone — plan stays active");
-        await loadData();
-      } catch (err: any) {
-        setError(err.message || "Failed to undo cancellation");
-      } finally {
-        setCancelling(false);
-      }
-      return;
-    }
+    // Razorpay cannot "un-cancel" a subscription, so there is no undo. The
+    // previous UI called cancel() from the undo path, which just cancelled
+    // again. We only open the confirmation dialog here.
     setCancelReason("");
     setCancelOther("");
     setCancelDialogOpen(true);
@@ -276,7 +297,7 @@ function BillingPage() {
     setError("");
     try {
       const res = await api.payments.cancel();
-      setSuccessMsg(res.message || `Subscription cancelled — access until ${subscription?.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" }) : "period end"}. ${isWithinRefundWindow ? "Full refund will be processed in 5–14 days." : "No prorated refund — next charge stopped. Credits remain until period end."}`);
+      setSuccessMsg(res.message || `Subscription cancelled — access until ${subscription?.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" }) : "period end"}. ${isWithinRefundWindow ? "Full refund will be processed in 5–10 business days." : "No prorated refund — future charges are stopped."} Any prepaid top-up credits remain on your account.`);
       setCancelDialogOpen(false);
       await loadData();
       // log reason for analytics / retention
@@ -289,10 +310,58 @@ function BillingPage() {
   }
 
   const isWithinRefundWindow = useMemo(() => {
-    if (!subscription?.currentPeriodStart) return false;
-    const start = new Date(subscription.currentPeriodStart).getTime();
-    return Date.now() - start <= 7 * 24 * 60 * 60 * 1000;
-  }, [subscription?.currentPeriodStart]);
+    // Match the server: the window runs from the most recent captured
+    // *subscription* charge (top-up invoices are a separate purchase).
+    const latestCaptured = subscription?.invoices?.find(
+      (inv: any) => (inv.kind ?? "subscription") === "subscription" && inv.status === "captured",
+    );
+    const chargeAt = latestCaptured?.createdAt || subscription?.currentPeriodStart;
+    if (!chargeAt) return false;
+    return Date.now() - new Date(chargeAt).getTime() <= 7 * 24 * 60 * 60 * 1000;
+  }, [subscription?.invoices, subscription?.currentPeriodStart]);
+
+  // The "Receipt" shortcut must never point at a credit top-up payment.
+  const latestReceiptInvoice = useMemo(
+    () =>
+      subscription?.invoices?.find(
+        (inv: any) => (inv.kind ?? "subscription") === "subscription" && inv.razorpayPaymentId,
+      ) ?? null,
+    [subscription?.invoices],
+  );
+
+  async function handleTopUp(credits: number) {
+    setTopUpLoading(true);
+    setError("");
+    try {
+      const res = await api.payments.createTopUp(credits);
+      if (res.shortUrl) {
+        window.location.href = res.shortUrl;
+      } else {
+        await loadData();
+      }
+    } catch (err: any) {
+      setError(err.message || "Failed to start the top-up");
+    } finally {
+      setTopUpLoading(false);
+    }
+  }
+
+  async function toggleAutoRecharge(enabled: boolean) {
+    setAutoRechargeSaving(true);
+    setError("");
+    try {
+      await api.payments.autoRecharge({
+        enabled,
+        threshold: balance?.autoRechargeThreshold ?? 20,
+        amount: balance?.autoRechargeAmount ?? 100,
+      });
+      await loadData();
+    } catch (err: any) {
+      setError(err.message || "Failed to update auto-recharge");
+    } finally {
+      setAutoRechargeSaving(false);
+    }
+  }
 
   async function handleChangePlan(planId: string) {
     setChangingPlan(true);
@@ -304,7 +373,6 @@ function BillingPage() {
         upgrade: res.upgrade,
         immediate: res.immediate,
         scheduledDate: res.scheduledDate,
-        upiNote: res.upiNote,
       });
       // Close the dialog on success — the result banner below confirms what
       // happened. Leaving it open made users re-click plans thinking nothing ran.
@@ -385,12 +453,25 @@ function BillingPage() {
                 Scheduled for {new Date(changePlanResult.scheduledDate).toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" })}
               </p>
             )}
-            {changePlanResult.upiNote && (
-              <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-800">
-                {changePlanResult.upiNote}
-              </p>
-            )}
             <button onClick={() => setChangePlanResult(null)} className="mt-1 text-xs underline opacity-70 hover:opacity-100">Dismiss</button>
+          </div>
+        )}
+
+        {topupResult === "success" && (
+          <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">
+            <p className="flex items-center gap-2 font-medium">
+              <Check className="size-4" />
+              Top-up complete{topupCredits ? ` — ${Number(topupCredits).toLocaleString()} credits added` : ""}.
+            </p>
+          </div>
+        )}
+
+        {topupResult === "error" && (
+          <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+            <p className="flex items-center gap-2 font-medium">
+              <AlertCircle className="size-4" />
+              We couldn&apos;t confirm your top-up. If you were charged, the credits will be added automatically — or contact support.
+            </p>
           </div>
         )}
 
@@ -465,9 +546,9 @@ function BillingPage() {
                     <ArrowUpDown className="size-3.5" />
                     Change Plan
                   </Button>
-                  {subscription?.invoices?.length > 0 && subscription.invoices[0]?.razorpayPaymentId && (
+                  {latestReceiptInvoice && (
                     <Button variant="outline" size="sm" className="flex-1 gap-1.5"
-                      onClick={() => window.open(`/api/payments/receipt/${subscription.invoices[0].razorpayPaymentId}`, "_blank")}>
+                      onClick={() => window.open(`/api/payments/receipt/${latestReceiptInvoice.razorpayPaymentId}`, "_blank")}>
                       <Receipt className="size-3.5" />
                       Receipt
                     </Button>
@@ -475,6 +556,69 @@ function BillingPage() {
                 </div>
               </CardFooter>
             )}
+          </Card>
+        )}
+
+        {/* ── CREDIT TOP-UP ── */}
+        {creditPacks.length > 0 && (
+          <Card id="topup" className="scroll-mt-24">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Sparkles className="size-5 text-primary" />
+                Need more credits?
+              </CardTitle>
+              <CardDescription>
+                One-time top-ups are used after your monthly allowance. They don&apos;t expire while your account is active.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-2 sm:grid-cols-2">
+                {creditPacks.map((pack) => (
+                  <Button
+                    key={pack.credits}
+                    variant="outline"
+                    className="justify-between"
+                    onClick={() => handleTopUp(pack.credits)}
+                    disabled={topUpLoading}
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <IndianRupee className="size-3.5" />
+                      {pack.credits.toLocaleString()} credits
+                    </span>
+                    <span className="font-semibold">{formatPrice(pack.amount)}</span>
+                  </Button>
+                ))}
+              </div>
+              {balance && (
+                <div className="flex flex-col gap-3 rounded-lg border p-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="font-medium">Auto top-up reminder</p>
+                    <p className="text-xs text-muted-foreground">
+                      When you drop below {balance.autoRechargeThreshold} credits, we&apos;ll email you a secure payment link to add {balance.autoRechargeAmount}.
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant={balance.autoRechargeEnabled ? "default" : "outline"}
+                    onClick={() => toggleAutoRecharge(!balance.autoRechargeEnabled)}
+                    disabled={autoRechargeSaving}
+                  >
+                    {autoRechargeSaving ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : balance.autoRechargeEnabled ? (
+                      "On"
+                    ) : (
+                      "Off"
+                    )}
+                  </Button>
+                </div>
+              )}
+              {topUpLoading && (
+                <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Loader2 className="size-3.5 animate-spin" /> Opening secure payment…
+                </p>
+              )}
+            </CardContent>
           </Card>
         )}
 
@@ -513,7 +657,7 @@ function BillingPage() {
                     style={{ width: `${Math.min(100, Math.round((businesses.length / subscription.businessLimit) * 100))}%` }}
                   />
                 </div>
-                {subscription.currentPeriodEnd && (
+                {subscription.currentPeriodEnd && subscription.plan.slug !== "free" && (
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">{subscription.cancelledAt ? "Access until" : "Current period ends"}</span>
                     <span className="font-medium">{new Date(subscription.currentPeriodEnd).toLocaleDateString()}</span>
@@ -535,7 +679,7 @@ function BillingPage() {
               </div>
             </CardContent>
             <CardFooter className="flex-col gap-3">
-              {subscription.currentPeriodEnd && !subscription.cancelledAt && (
+              {subscription.currentPeriodEnd && !subscription.cancelledAt && subscription.plan.slug !== "free" && (
                 <div className="flex items-center justify-between text-xs text-muted-foreground px-1 pb-1 border-b w-full">
                   <span>Next billing date</span>
                   <span className="font-medium text-foreground">
@@ -545,10 +689,16 @@ function BillingPage() {
               )}
               <div className="flex gap-3 w-full">
                 {subscription.plan.slug !== "free" && !subscription.cancelledAt && (
-                  <Button variant="destructive" onClick={handleCancel} disabled={cancelling} className={cn(subscription.cancelledAt ? "" : "flex-1")}>
+                  <Button variant="destructive" onClick={handleCancel} disabled={cancelling} className="flex-1">
                     {cancelling ? <Loader2 className="size-4 animate-spin" /> : null}
-                    {subscription.cancelledAt ? "Undo Cancel" : "Cancel Subscription"}
+                    Cancel Subscription
                   </Button>
+                )}
+                {subscription.cancelledAt && (
+                  <p className="w-full rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                    Your subscription is set to cancel at the end of the current period. To reverse it, contact{" "}
+                    <a href="mailto:support@beyondvyu.com" className="underline">support@beyondvyu.com</a> before then.
+                  </p>
                 )}
               </div>
             </CardFooter>
@@ -560,9 +710,16 @@ function BillingPage() {
           <h2 className="mb-4 text-lg font-medium">Available Plans</h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {displayPlans.map((plan) => {
-              const isCurrentPlan = subscription?.planId === plan.id && subscription?.status !== "created";
+              const baseSlug = (s: string) => s.replace(/-yearly$/, "");
+              // Compare by plan family, not row id: an annual subscriber must see
+              // their plan as "Current" (and be unable to accidentally switch to
+              // the monthly row and forfeit the prepaid year).
+              const isCurrentPlan = !!subscription && baseSlug(subscription.plan.slug) === baseSlug(plan.slug);
               const hasSubscription = !!subscription && subscription.plan.slug !== "free";
-              const isDowngrade = hasSubscription && plan.price < subscription!.plan.price;
+              const currentMonthly = hasSubscription
+                ? monthlyEquivalent(subscription!.plan.price, subscription!.plan.interval)
+                : 0;
+              const isDowngrade = hasSubscription && !isCurrentPlan && plan.price < currentMonthly;
               return (
                 <Card key={plan.id} className={cn(isCurrentPlan && "border-primary ring-1 ring-primary")}>
                   <CardHeader>
@@ -628,7 +785,7 @@ function BillingPage() {
                 <span className="text-muted-foreground"> credits &amp; businesses</span>
               </div>
               <ul className="space-y-2">
-                {["Unlimited credits & businesses", "Dedicated account manager", "Custom AI training on your data", "Custom integrations & API access", "SLA guarantee", "Priority 24/7 phone & email support", "Custom contract & invoicing"].map((f) => (
+                {["Custom credits & locations", "Dedicated account manager", "Custom AI training on your data", "Custom integrations & API access", "Custom SLA", "Priority phone & email support", "Custom contract & invoicing"].map((f) => (
                   <li key={f} className="flex items-start gap-2 text-sm text-muted-foreground">
                     <Check className="mt-0.5 size-4 shrink-0 text-primary" />
                     {f}
@@ -650,7 +807,7 @@ function BillingPage() {
         </div>
 
         {/* ── INVOICE HISTORY ── */}
-        {subscription && subscription.invoices?.length > 0 && (
+        {allInvoices.length > 0 && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -660,15 +817,17 @@ function BillingPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                {subscription.invoices.map((inv: any) => (
+                {allInvoices.map((inv: any) => (
                   <div key={inv.id} className="flex items-center justify-between rounded-lg border p-3 text-sm">
                     <div>
                       <p className="font-medium">₹{(inv.amount / 100).toLocaleString("en-IN")}</p>
-                      <p className="text-muted-foreground">{new Date(inv.createdAt).toLocaleDateString()}</p>
+                      <p className="text-muted-foreground">
+                        {inv.kind === "topup" ? "Credits top-up" : "Subscription"} · {new Date(inv.createdAt).toLocaleDateString()}
+                      </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge variant={inv.status === "captured" ? "default" : "secondary"}>
-                        {inv.status}
+                      <Badge variant={inv.status === "captured" || inv.status === "paid" ? "default" : inv.status === "failed" ? "destructive" : "secondary"}>
+                        {inv.status === "captured" || inv.status === "paid" ? "Paid" : inv.status.charAt(0).toUpperCase() + inv.status.slice(1)}
                       </Badge>
                       {inv.razorpayPaymentId && (
                         <button
@@ -698,7 +857,7 @@ function BillingPage() {
           <CardContent className="space-y-3 text-xs text-amber-700">
             <p><strong>E-Mandate Registration:</strong> By subscribing, you authorize BEYONDVYU to collect recurring payments via Razorpay. The first payment requires your authentication via OTP (AFA) as per RBI guidelines. Subsequent recurring charges under ₹15,000 are processed without additional AFA.</p>
             <p><strong>Pre-debit Notification:</strong> Your card issuer will send a notification at least 24 hours before each recurring debit with merchant name, amount, date, and e-mandate reference.</p>
-            <p><strong>Opt-out Facility:</strong> You may cancel or modify this mandate at any time via your billing dashboard. Cancellation prior to a debit date will stop that charge. Razorpay or your bank may require additional authentication (AFA) to process opt-out or mandate modifications.</p>
+            <p><strong>Opt-out Facility:</strong> You may cancel your subscription at any time from this billing dashboard, which stops all future debits. Cancellation takes effect at the end of the current billing period (or immediately with a full refund if you are within 7 days of your last charge). A registered UPI/card mandate can also be revoked through your bank or UPI app. Your bank may require additional authentication (AFA) for mandate changes.</p>
             <p><strong>Mandate Validity:</strong> This e-mandate is valid for the duration of your subscription. The validity period is specified in your Razorpay mandate confirmation.</p>
             <p><strong>No Additional Charges:</strong> No charges are levied by BEYONDVYU for the e-mandate facility. Standard bank/internet charges may apply per your card issuer's terms.</p>
             <p><strong>Grievance Redressal:</strong> For disputes or questions, contact us at support@beyondvyu.com or visit our <a href="/contact" className="underline hover:text-amber-900">Contact page</a>. See our <a href="/refund" className="underline hover:text-amber-900">Refund Policy</a> for cancellation and chargeback terms.</p>
@@ -726,8 +885,8 @@ function BillingPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 py-2">
-            {displayPlans.filter((p) => p.id !== subscription?.planId).map((plan) => {
-              const isUpgrade = subscription && plan.price >= subscription.plan.price;
+            {displayPlans.filter((p) => !subscription || p.slug.replace(/-yearly$/, "") !== subscription.plan.slug.replace(/-yearly$/, "")).map((plan) => {
+              const isUpgrade = subscription && plan.price >= monthlyEquivalent(subscription.plan.price, subscription.plan.interval);
               return (
                 <button
                   key={plan.id}
@@ -761,15 +920,19 @@ function BillingPage() {
           <DialogHeader>
             <DialogTitle>Cancel subscription?</DialogTitle>
             <DialogDescription>
-              You will keep access until <strong>{subscription?.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" }) : "period end"}</strong>. Next charge will be stopped. No prorated refund except within 7 days of last charge.
+              {isWithinRefundWindow ? (
+                <>You are within 7 days of your most recent charge, so cancelling now gives you a <strong>full refund</strong> and your account moves to Free right away.</>
+              ) : (
+                <>You will keep access until <strong>{subscription?.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" }) : "period end"}</strong>. The next charge is stopped and no further payment is taken.</>
+              )}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className={`rounded-lg border p-3 text-xs ${isWithinRefundWindow ? "border-green-200 bg-green-50 text-green-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
               {isWithinRefundWindow ? (
-                <p><strong>Refund eligible:</strong> You are within 7 days of {subscription?.currentPeriodStart ? new Date(subscription.currentPeriodStart).toLocaleDateString() : "period start"} — full refund will be processed in 5–14 days to original payment method.</p>
+                <p><strong>Refund eligible:</strong> You are within 7 days of your most recent charge — a full refund will be processed to the original payment method in 5–10 business days.</p>
               ) : (
-                <p><strong>No prorated refund:</strong> You keep {balance?.totalRemaining ?? 0} credits and {businesses.length} business(es) until period end. Downgrade to Free keeps data 30 days.</p>
+                <p><strong>No prorated refund:</strong> You keep {businesses.length} business(es) until period end. After that your account moves to Free and monthly credits reset to the Free allowance. Prepaid top-up credits stay on your account, and your data is not deleted.</p>
               )}
             </div>
             <div>
@@ -790,10 +953,14 @@ function BillingPage() {
               <p className="font-medium">Consider instead:</p>
               <ul className="mt-1 list-disc ml-4 space-y-0.5">
                 <li><button onClick={() => { setCancelDialogOpen(false); setChangePlanOpen(true); }} className="underline">Switch to a cheaper paid plan</button> at period end — or cancel and continue on Free (30 credits/mo)</li>
-                <li>Pause — keep businesses, skip next charge (contact support@beyondvyu.com)</li>
               </ul>
             </div>
-            <p className="text-xs text-muted-foreground">Confirmation will be emailed immediately. You can undo until period end. See <a href="/refund" className="underline">Refund Policy</a> and <a href="/contact" className="underline">Contact</a>.</p>
+            <p className="text-xs text-muted-foreground">
+              {isWithinRefundWindow
+                ? "Cancellation is immediate and cannot be reversed. Your refund is processed to the original payment method in 5–10 business days."
+                : "Cancellation takes effect at the end of the current period. Razorpay cannot reverse it, so contact support before then if you change your mind."}{" "}
+              See <a href="/refund" className="underline">Refund Policy</a> and <a href="/contact" className="underline">Contact</a>.
+            </p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCancelDialogOpen(false)} disabled={cancelling}>Keep subscription</Button>

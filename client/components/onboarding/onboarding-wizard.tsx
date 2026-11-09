@@ -139,7 +139,9 @@ export function OnboardingWizard({ embedded, onComplete }: {
         googleReviewUrl: googleUrl.trim() || undefined,
         googlePlaceId: googlePlaceId.trim() || undefined,
         location: location.trim() || undefined,
-        promptTopics: topics,
+        // These are question prompts ("What stood out?"), not dish names.
+        // Signature dishes are added in dashboard settings.
+        customReviewTopics: topics,
       });
       toast.success("Business added");
       if (onComplete) {
@@ -451,11 +453,12 @@ export function OnboardingWizard({ embedded, onComplete }: {
         )}
 
         {step === 2 && (
-          <StepShell title="What should we ask your guests?" subtitle="Food topics we'll ask about after their meal. Add or remove any — these shape the review flow.">
+          <StepShell title="What should we ask your guests?" subtitle="Topics guests can tap after their visit. Add or remove any — these shape the review flow for your business.">
             <div>
-              <Label>Food topics</Label>
+              <Label>Review topics</Label>
               <p className="mt-1 text-xs text-muted-foreground">
-                These prompts jog your guests&apos; memory about taste, service, ambience and value.
+                These prompts jog your guests&apos; memory about taste, service, ambience and value. You can add
+                signature dishes and fine-tune the option groups later in Settings.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {topics.map((t) => (

@@ -37,7 +37,7 @@ const PLANS = [
     period: "/ month",
     tagline: "For growing businesses and small chains.",
     cta: "Choose Growth",
-    features: ["Up to 3 business locations", "1,500 AI credits / month", "Everything in Starter", "Google Business Profile sync", "Team roles (5 users)", "Priority support"],
+    features: ["Up to 3 business locations", "1,500 AI credits / month", "Everything in Starter", "Google Business Profile sync", "Priority support"],
   },
   {
     name: "Pro",
@@ -45,7 +45,7 @@ const PLANS = [
     period: "/ month",
     tagline: "For multi-location businesses.",
     cta: "Choose Pro",
-    features: ["Up to 10 business locations", "5,000 AI credits / month", "Everything in Growth", "WhatsApp review collection*", "Google Business Profile sync", "Team roles (15 users)", "Dedicated support"],
+    features: ["Up to 10 business locations", "5,000 AI credits / month", "Everything in Growth", "WhatsApp review collection*", "Google Business Profile sync", "Dedicated support"],
   },
 ]
 
@@ -60,8 +60,8 @@ export default function PricingPage() {
             Simple pricing per location, not per seat
           </h1>
           <p className="speakable mt-4 text-lg text-muted-foreground">
-            Start free. Upgrade when review volume grows. Yearly plans save roughly 2 months.
-            Pay with UPI or cards via Razorpay. Prices exclusive of GST — GST invoice included.
+            Start free. Upgrade when review volume grows. Annual billing is available on every paid plan.
+            Pay with UPI or cards via Razorpay. Prices include GST — a tax invoice is provided for every payment.
           </p>
         </div>
 

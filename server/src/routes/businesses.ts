@@ -3,29 +3,24 @@ import { z } from "zod";
 import { prisma } from "../config/database";
 import { authRequired, AuthRequest } from "../middleware/auth";
 import { syncPlacesApiReviews } from "../services/google-business-api";
+import { loadEntitledSubscription } from "../services/subscriptions";
+import {
+  sanitizeCustomReviewTopics,
+  sanitizeEnabledCategories,
+} from "../utils/review-options";
 
 const router = Router();
 
-async function getEffectiveBusinessLimit(userId: string): Promise<number> {
-  const sub = await prisma.subscription.findFirst({
-    where: { userId, status: { in: ["authenticated", "active", "created"] } },
-    orderBy: { createdAt: "desc" },
-  });
+async function getEffectiveBusinessLimit(userId: string, client: any = prisma): Promise<number> {
+  // Only a subscription that actually grants entitlements may raise the limit.
+  // The old fallback to "any subscription" let a cancelled/halted Pro plan
+  // keep its business limit forever (and a `created` row granted it before
+  // payment). Expired cycle-end cancellations are reconciled by the helper.
+  const sub = await loadEntitledSubscription(userId, { client });
 
   if (sub?.businessLimit) return sub.businessLimit;
 
-  // If no active subscription, try to find any subscription to use its limit
-  // (e.g., completed subscription that hasn't been replaced yet)
-  const anySub = await prisma.subscription.findFirst({
-    where: { userId },
-    orderBy: { createdAt: "desc" },
-    include: { plan: true },
-  });
-
-  if (anySub?.plan?.businessLimit) return anySub.plan.businessLimit;
-  if (anySub?.businessLimit) return anySub.businessLimit;
-
-  const freePlan = await prisma.subscriptionPlan.findUnique({ where: { slug: "free" } });
+  const freePlan = await client.subscriptionPlan.findUnique({ where: { slug: "free" } });
   return freePlan?.businessLimit ?? 1;
 }
 
@@ -37,7 +32,9 @@ const createBusinessSchema = z.object({
   location: z.string().max(500).optional().or(z.literal("")),
   phoneNumber: z.string().max(20).optional().or(z.literal("")),
   website: z.string().url().optional().or(z.literal("")),
-  promptTopics: z.array(z.string()).optional(),
+  promptTopics: z.array(z.string().max(80)).max(30).optional(),
+  enabledCategories: z.array(z.string().max(50)).max(30).optional(),
+  customReviewTopics: z.array(z.string().max(80)).max(20).optional(),
 });
 
 const updateBusinessSchema = z.object({
@@ -48,7 +45,9 @@ const updateBusinessSchema = z.object({
   location: z.string().max(500).optional().or(z.literal("")),
   phoneNumber: z.string().max(20).optional().or(z.literal("")),
   website: z.string().url().optional().or(z.literal("")),
-  promptTopics: z.array(z.string()).optional(),
+  promptTopics: z.array(z.string().max(80)).max(30).optional(),
+  enabledCategories: z.array(z.string().max(50)).max(30).optional(),
+  customReviewTopics: z.array(z.string().max(80)).max(20).optional(),
   emailTemplate: z.string().max(500).optional().or(z.literal("")),
   smsTemplate: z.string().max(300).optional().or(z.literal("")),
   // Branding
@@ -188,7 +187,7 @@ router.post("/", authRequired, async (req: AuthRequest, res: Response) => {
     const data = createBusinessSchema.parse(req.body);
 
     const result = await prisma.$transaction(async (tx) => {
-      const limit = await getEffectiveBusinessLimit(req.userId!);
+      const limit = await getEffectiveBusinessLimit(req.userId!, tx);
 
       const count = await tx.business.count({
         where: { userId: req.userId },
@@ -259,6 +258,8 @@ router.post("/", authRequired, async (req: AuthRequest, res: Response) => {
           phoneNumber: data.phoneNumber || null,
           website: data.website || null,
           promptTopics: data.promptTopics || [],
+          enabledCategories: sanitizeEnabledCategories(data.industry, data.enabledCategories),
+          customReviewTopics: sanitizeCustomReviewTopics(data.customReviewTopics),
         },
       });
 
@@ -322,6 +323,20 @@ router.patch("/:id", authRequired, async (req: AuthRequest, res: Response) => {
 
     if (!business) {
       return res.status(404).json({ error: "Business not found" });
+    }
+
+    // Review-option config is industry-scoped: drop IDs from another industry,
+    // and reset to defaults when the owner changes the industry elsewhere.
+    if (data.enabledCategories !== undefined) {
+      cleaned.enabledCategories = sanitizeEnabledCategories(
+        data.industry ?? business.industry,
+        data.enabledCategories,
+      );
+    } else if (data.industry !== undefined && data.industry !== business.industry) {
+      cleaned.enabledCategories = [];
+    }
+    if (data.customReviewTopics !== undefined) {
+      cleaned.customReviewTopics = sanitizeCustomReviewTopics(data.customReviewTopics);
     }
 
     // ── Guard: prevent updating googlePlaceId to one already owned by another business ──

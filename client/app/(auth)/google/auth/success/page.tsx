@@ -53,11 +53,19 @@ function GoogleAuthSuccessHandler() {
   }, [router]);
 
   useEffect(() => {
-    const rawToken: string | null = searchParams.get("token");
+    // Preferred: token in the URL fragment (never sent to servers/logs).
+    // Fallback: legacy `?token=` links so in-flight logins survive a deploy.
+    const hash = typeof window !== "undefined" ? window.location.hash.replace(/^#/, "") : "";
+    const rawToken: string | null = new URLSearchParams(hash).get("token") || searchParams.get("token");
     if (!rawToken) {
       setError("Authentication failed — no token received");
       setProcessing(false);
       return;
+    }
+
+    // Remove the token from the address bar/history as soon as it is read.
+    if (typeof window !== "undefined") {
+      window.history.replaceState(null, "", window.location.pathname);
     }
 
     const token: string = rawToken;

@@ -87,7 +87,7 @@ router.post("/send-email", authRequired, async (req: AuthRequest, res: Response)
     }
 
     const env = getEnv();
-    const reviewUrl = `${env.FRONTEND_URL.split(",")[0].trim()}/r/${business.slug}`;
+    const reviewUrl = `${env.FRONTEND_URL.split(",")[0].trim()}/r/${business.slug}?touchpoint=email`;
     const templateToUse = data.customMessage || business.emailTemplate || undefined;
 
     const result = await sendReviewRequestEmail({
@@ -132,7 +132,7 @@ router.post("/send-sms", authRequired, async (req: AuthRequest, res: Response) =
     }
 
     const env = getEnv();
-    const reviewUrl = `${env.FRONTEND_URL.split(",")[0].trim()}/r/${business.slug}`;
+    const reviewUrl = `${env.FRONTEND_URL.split(",")[0].trim()}/r/${business.slug}?touchpoint=sms`;
 
     let message: string;
     if (data.customMessage) {
@@ -222,10 +222,14 @@ router.post("/whatsapp-report", authRequired, async (req: AuthRequest, res: Resp
     const days = data.frequency === "weekly" ? 7 : data.frequency === "monthly" ? 30 : 7;
     const since = new Date(Date.now() - days * 86400000);
 
-    const [recentFeedback, reviewClicks, prevFeedback] = await Promise.all([
+    const [recentFeedback, reviewClicks, prevFeedback, openTasks, escalatedTasks] = await Promise.all([
       prisma.feedback.findMany({ where: { businessId: business.id, createdAt: { gte: since } }, orderBy: { createdAt: "desc" } }),
       prisma.reviewClick.count({ where: { businessId: business.id, createdAt: { gte: since } } }),
       prisma.feedback.findMany({ where: { businessId: business.id, createdAt: { gte: new Date(since.getTime() - days * 86400000), lt: since } } }),
+      prisma.reviewTask.count({
+        where: { businessId: business.id, status: { in: ["pending", "in_progress", "overdue", "escalated"] } },
+      }),
+      prisma.reviewTask.count({ where: { businessId: business.id, status: "escalated" } }),
     ]);
 
     const totalFeedback = recentFeedback.length;
@@ -238,6 +242,15 @@ router.post("/whatsapp-report", authRequired, async (req: AuthRequest, res: Resp
     const conversion = totalFeedback > 0 ? Number(((reviewClicks / totalFeedback) * 100).toFixed(1)) : 0;
     const dist = [5, 4, 3, 2, 1].map((r) => ({ rating: r, count: recentFeedback.filter((f) => f.rating === r).length }));
     const unresolved = recentFeedback.filter((f) => f.rating <= 2).length;
+    const touchpointMap = new Map<string, number>();
+    for (const feedback of recentFeedback) {
+      const key = feedback.touchpoint || "unattributed";
+      touchpointMap.set(key, (touchpointMap.get(key) || 0) + 1);
+    }
+    const topTouchpoints = Array.from(touchpointMap.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 4)
+      .map(([touchpoint, count]) => `${touchpoint} ×${count}`);
     const praises = topKeywords(recentFeedback.filter((f) => f.rating >= 4).map((f) => `${f.liked ?? ""} ${f.improvement ?? ""}`.trim()).filter(Boolean), 3);
     const complaints = topKeywords(recentFeedback.filter((f) => f.rating <= 3).map((f) => `${f.improvement ?? ""} ${f.liked ?? ""}`.trim()).filter(Boolean), 3);
 
@@ -247,10 +260,12 @@ router.post("/whatsapp-report", authRequired, async (req: AuthRequest, res: Resp
       `Avg rating: ${avgRating ?? "—"}${ratingDelta != null ? ` (${ratingDelta >= 0 ? "+" : ""}${ratingDelta} vs prior)` : ""}`,
       `Google-post taps: ${reviewClicks} (${conversion}% of feedback)`,
       `Rating split: ${dist.map((d) => `${d.rating}★:${d.count}`).join(" ")}`,
+      topTouchpoints.length ? `Top touchpoints: ${topTouchpoints.join(", ")}` : null,
+      `Open issues: ${openTasks}${escalatedTasks > 0 ? ` · ${escalatedTasks} escalated` : ""}`,
       praises.length ? `Top praise: ${praises.map((p) => `${p.phrase} (×${p.count})`).join(", ")}` : `Top praise: —`,
       complaints.length ? `Top issue: ${complaints.map((p) => `${p.phrase} (×${p.count})`).join(", ")}` : `Top issue: —`,
       unresolved > 0 ? `Action: ${unresolved} low-rating (1–2★) feedback needs follow-up` : `Action: no unresolved low ratings. Keep the QR visible at billing/checkout.`,
-    ];
+    ].filter((line): line is string => Boolean(line));
     if (data.test) lines.push(`(Preview — not an auto-delivery)`);
     const report = lines.join("\n");
 
@@ -287,7 +302,7 @@ router.post("/whatsapp-report", authRequired, async (req: AuthRequest, res: Resp
     res.json({
       success: true,
       report,
-      metrics: { totalFeedback, avgRating, ratingDelta, velocityPerMonth, reviewClicks, conversion, dist, unresolved, praises, complaints },
+      metrics: { totalFeedback, avgRating, ratingDelta, velocityPerMonth, reviewClicks, conversion, dist, unresolved, praises, complaints, openTasks, escalatedTasks, touchpoints: Object.fromEntries(touchpointMap) },
       whatsappConfigured,
       deliveredVia,
       message:

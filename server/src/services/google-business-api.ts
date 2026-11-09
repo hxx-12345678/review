@@ -235,7 +235,9 @@ export async function replyToGoogleReview(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      comment: { text: replyText },
+      // GBP v4 ReviewReply: the body is `{ comment: "<text>" }`, not a nested
+      // object — the previous shape was rejected with HTTP 400.
+      comment: replyText,
     }),
   });
 

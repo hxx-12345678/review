@@ -82,9 +82,15 @@ async function run() {
 
   // ── 1. Login ──────────────────────────────────────────────────────────────
   heading("1. Login");
+  const testEmail = process.env.TEST_EMAIL;
+  const testPassword = process.env.TEST_PASSWORD;
+  if (!testEmail || !testPassword) {
+    console.log(`${RED}Set TEST_EMAIL and TEST_PASSWORD to run this test.${RESET}`);
+    process.exit(1);
+  }
   let r = await apiCall("POST", "/auth/login", {
-    email: "cptjacksprw@gmail.com",
-    password: "Player@123",
+    email: testEmail,
+    password: testPassword,
   });
   if (r.status === 200 && r.data?.token) {
     token = r.data.token;

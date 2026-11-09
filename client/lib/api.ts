@@ -143,6 +143,8 @@ export const api = {
       phoneNumber?: string;
       website?: string;
       promptTopics?: string[];
+      enabledCategories?: string[];
+      customReviewTopics?: string[];
     }) =>
       request<{ business: any }>("/businesses", {
         method: "POST",
@@ -176,6 +178,8 @@ export const api = {
       customerEmail?: string;
       privateNote?: string;
       selectedSubOptions?: string[];
+      selectedSubOptionLabels?: string[];
+      touchpoint?: string;
     }) =>
       request<{ feedback: any }>("/feedback/submit", {
         method: "POST",
@@ -192,7 +196,7 @@ export const api = {
       return request<{ feedback: any[]; pagination: any }>(`/feedback/business/${businessId}${qs ? `?${qs}` : ""}`);
     },
     public: (slug: string) =>
-      request<{ business: { id: string; name: string; slug: string; googleReviewUrl: string | null; industry: string } }>(`/feedback/public/${slug}`),
+      request<{ business: { id: string; name: string; slug: string; googleReviewUrl: string | null; industry: string; promptTopics?: string[]; enabledCategories?: string[]; customReviewTopics?: string[] } }>(`/feedback/public/${slug}`),
   },
   reviews: {
     generateDraft: (data: { feedbackId: string; businessId: string }) =>
@@ -255,14 +259,20 @@ export const api = {
   qr: {
     list: (businessId: string) =>
       request<{ qrCodes: any[] }>(`/qr/${businessId}`),
-    generate: (businessId: string) =>
+    generate: (businessId: string, data?: { touchpoint?: string; label?: string; table?: string; staff?: string }) =>
       request<{ qrCode: any; pngDataUrl: string; svgString: string; reviewUrl: string }>(`/qr/generate/${businessId}`, {
         method: "POST",
+        body: JSON.stringify(data || {}),
       }),
   },
   ai: {
     generateReply: (data: { feedbackId: string; businessId: string; tone: string; content?: string }) =>
       request<{ reply: any }>("/ai/generate-reply", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    googleReviewReply: (data: { businessId: string; reviewText: string; rating?: number; tone?: string }) =>
+      request<{ reply: string; provider?: string }>("/ai/google-review-reply", {
         method: "POST",
         body: JSON.stringify(data),
       }),
@@ -286,14 +296,6 @@ export const api = {
     list: (businessId: string) => request<{ checks: any[] }>(`/ai/visibility-check/${businessId}`),
     share: (shareSlug: string) => fetch(`${API_URL}/ai/visibility-check/share/${shareSlug}`).then((r) => r.json() as Promise<{ check: any }>),
     fix: (id: string, fixIndex: number) => request<{ check: any }>(`/ai/visibility-check/${id}/fix`, { method: "POST", body: JSON.stringify({ fixIndex }) }),
-  },
-  nextAi: {
-    generateReply: (data: { reviewText: string; rating: number; businessName: string; tone?: string }) =>
-      fetch("/api/generate-reply", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      }).then((res) => res.json() as Promise<{ reply: string; fallback?: boolean }>),
   },
   communications: {
     sendEmail: (data: { businessId: string; toEmail: string; customMessage?: string }) =>
@@ -391,12 +393,12 @@ export const api = {
         const query = qs.toString();
         return request<{ tasks: any[] }>(`/v2/tasks/tasks/${businessId}${query ? `?${query}` : ""}`);
       },
-      create: (data: { businessId: string; title: string; description?: string; taskType?: string; priority?: string; source?: string; referenceId?: string; dueAt?: string; assignedTo?: string }) =>
+      create: (data: { businessId: string; title: string; description?: string; taskType?: string; priority?: string; source?: string; referenceId?: string; category?: string; dueAt?: string; assignedTo?: string }) =>
         request<{ success: boolean; task: any }>("/v2/tasks/tasks", {
           method: "POST",
           body: JSON.stringify(data),
         }),
-      update: (taskId: string, data: { title?: string; description?: string; priority?: string; status?: string; assignedTo?: string; dueAt?: string }) =>
+      update: (taskId: string, data: { title?: string; description?: string; priority?: string; status?: string; category?: string; assignedTo?: string | null; resolutionNotes?: string | null; dueAt?: string | null }) =>
         request<{ success: boolean; task: any }>(`/v2/tasks/tasks/${taskId}`, {
           method: "PATCH",
           body: JSON.stringify(data),
@@ -406,7 +408,51 @@ export const api = {
       autoGenerate: (businessId: string) =>
         request<{ success: boolean; created: number; tasks: any[] }>(`/v2/tasks/auto-generate/${businessId}`, { method: "POST" }),
       stats: (businessId: string) =>
-        request<{ total: number; pending: number; overdue: number; done: number; highPriority: number }>(`/v2/tasks/stats/${businessId}`),
+        request<{ total: number; pending: number; inProgress: number; overdue: number; escalated: number; done: number; highPriority: number; recurring: number }>(`/v2/tasks/stats/${businessId}`),
+      report: (businessId: string, days = 30) =>
+        request<{
+          report: {
+            windowDays: number;
+            totalIssues: number;
+            openIssues: number;
+            resolvedIssues: number;
+            overdueIssues: number;
+            escalatedIssues: number;
+            highPriorityOpen: number;
+            recurringIssuesOpen: number;
+            resolutionRate: number;
+            avgResolutionHours: number | null;
+            recurringIssues: {
+              issueKey: string;
+              category: string;
+              label: string;
+              taskCount: number;
+              occurrences: number;
+              openCount: number;
+              resolvedCount: number;
+              lastSeenAt: string;
+            }[];
+            recentResolutions: {
+              id: string;
+              title: string;
+              category: string;
+              label: string;
+              resolutionNotes: string;
+              assignedTo: string | null;
+              completedAt: string;
+            }[];
+            needsAttention: {
+              id: string;
+              title: string;
+              category: string;
+              label: string;
+              status: string;
+              priority: string;
+              dueAt: string | null;
+              occurrenceCount: number;
+            }[];
+          };
+        }>(`/v2/tasks/report/${businessId}?days=${days}`),
     },
     // Instagram @Mentions
     instagram: {
@@ -463,7 +509,7 @@ export const api = {
     plans: () =>
       request<{ plans: any[] }>("/payments/plans"),
     subscription: () =>
-      request<{ subscription: any | null }>("/payments/subscription"),
+      request<{ subscription: any | null; previous?: any | null }>("/payments/subscription"),
     createSubscription: (planId: string) =>
       request<{ subscription: any; shortUrl: string | null; keyId?: string; razorpaySubscriptionId?: string }>("/payments/create-subscription", {
         method: "POST",

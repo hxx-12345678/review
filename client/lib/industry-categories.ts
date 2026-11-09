@@ -130,6 +130,16 @@ export const INDUSTRY_CATEGORIES: Record<IndustryKey, Category[]> = {
         { id: "drink_coffee", label: "Coffee & Tea", keywords: ["coffee", "tea", "espresso", "cappuccino"] },
       ],
     },
+    {
+      id: "operations",
+      label: "Order & Timeliness",
+      icon: "Clock",
+      subOptions: [
+        { id: "op_wait_time", label: "Wait Time", keywords: ["wait", "seated", "line", "delay", "queue", "slow"] },
+        { id: "op_accuracy", label: "Order Accuracy", keywords: ["correct", "missing", "wrong", "accurate", "special request"] },
+        { id: "op_delivery", label: "Takeout / Delivery", keywords: ["packaging", "delivery", "takeout", "spill", "container"] },
+      ],
+    },
   ],
 
   DENTAL: [
@@ -680,61 +690,203 @@ export function getCategoriesForIndustry(industry: string): Category[] {
   return INDUSTRY_CATEGORIES[key] || INDUSTRY_CATEGORIES.OTHER
 }
 
+/** All category IDs that exist for an industry (order follows the UI taxonomy). */
+export function getAllCategoryIds(industry: string): string[] {
+  return getCategoriesForIndustry(industry).map((c) => c.id)
+}
+
 /**
- * Builds the MCQ categories shown to a customer. Starts from the industry
- * defaults, then appends any custom topics the business owner configured in
- * onboarding/settings as a dedicated "Other things you'd like to mention"
- * category so their choices are always reflected in the review flow.
+ * "Drinks & Bar" is opt-in for restaurants. Most Indian family restaurants do
+ * not serve alcohol, so cocktails/wine/beer should not appear by default.
+ * Bars/pubs/breweries opt in in settings, or are inferred from their own name
+ * or signature items (e.g. "House IPA").
  */
-export function getMCQCategories(industry: string, promptTopics: string[] = []): Category[] {
-  const base = getCategoriesForIndustry(industry)
-  const existingLabels = new Set(base.flatMap((c) => c.subOptions.map((s) => s.label.toLowerCase())))
-  // Google April 2026 policy: never prompt customers to mention staff names.
-  // Filter owner-configured topics that look like person-name prompts. All
-  // patterns are end-anchored and narrow so legit food topics like
-  // "Ask for Jain options" still pass while "Ask for Rajesh" is dropped.
-  const personLike = [
-    /^(dr|mr|ms|mrs|miss|sir|madam)\b/i,
-    /\bask\s+for\s+[A-Z][a-z]+(\s+[A-Z][a-z]+)?\s*$/i,
-    /\bstaff\s+names?\b/i,
-  ]
-  const custom = promptTopics
-    .map((t) => t.trim())
-    .filter((t) => t.length > 1 && !existingLabels.has(t.toLowerCase()) && !personLike.some((re) => re.test(t)))
+const RESTAURANT_DEFAULT_CATEGORY_IDS = ["food", "service", "ambience", "value", "operations"]
 
-  if (custom.length === 0) return base
+const ALCOHOL_SIGNAL =
+  /\b(bar|pub|brewery|brewhouse|brewpub|cocktail|wine|beer|ipa|liquor|whisk(?:y|ey)|spirits|taproom)\b/i
 
-  // Content-stable IDs: index-based ids (custom_topic_0) silently change meaning
-  // when the owner reorders/adds/removes topics, corrupting stored analytics.
-  // Slug-based ids stay bound to the topic text itself.
+// A dish such as "Beer Battered Fish" or "Cocktail Prawns" contains an alcohol
+// word without the business running a bar programme. Treat food-context phrases
+// as non-signals so family restaurants keep the bar category hidden.
+const FOOD_CONTEXT =
+  /\b(fish|chicken|prawns?|shrimps?|mutton|lamb|beef|pork|paneer|veg|burger|pizza|pasta|curry|rice|biryani|noodles?|sandwich|salad|soup|dessert|cake|tikka|kebab|wings?|fries|fry|batter|battered|grilled|roast|steak|masala|thali|dosa|idli|roll|wrap|platter|seafood)\b/i
+
+export function businessServesAlcohol(name?: string | null, promptTopics?: string[] | null): boolean {
+  const businessName = name || ""
+  if (ALCOHOL_SIGNAL.test(businessName) && !FOOD_CONTEXT.test(businessName)) {
+    return true
+  }
+  return (promptTopics || []).some((topic) => {
+    const trimmed = topic.trim()
+    return (
+      trimmed.split(/\s+/).length <= 4 &&
+      ALCOHOL_SIGNAL.test(trimmed) &&
+      !FOOD_CONTEXT.test(trimmed)
+    )
+  })
+}
+
+export function getDefaultCategoryIds(
+  industry: string,
+  opts?: { name?: string | null; promptTopics?: string[] | null },
+): string[] {
+  const key = normalizeIndustry(industry)
+  if (key === "RESTAURANT") {
+    return businessServesAlcohol(opts?.name, opts?.promptTopics)
+      ? getAllCategoryIds(industry)
+      : [...RESTAURANT_DEFAULT_CATEGORY_IDS]
+  }
+  return getAllCategoryIds(industry)
+}
+
+/**
+ * Resolve the owner's saved selection against the current industry. Empty or
+ * stale selections fall back to the industry defaults, so changing industry
+ * never leaves a business with an empty questionnaire.
+ */
+export function getEffectiveCategoryIds(
+  industry: string,
+  enabledCategoryIds?: string[] | null,
+  opts?: { name?: string | null; promptTopics?: string[] | null },
+): string[] {
+  const all = getAllCategoryIds(industry)
+  const selected = (enabledCategoryIds || []).filter((id) => all.includes(id))
+  if (selected.length > 0) return Array.from(new Set(selected))
+  return getDefaultCategoryIds(industry, opts)
+}
+
+// Google policy: never prompt customers to mention individual staff names.
+// Both patterns are narrow so legitimate prompts like "Ask for Jain options"
+// still pass while "Ask for Rajesh" is dropped.
+const PERSON_LIKE_PATTERNS: RegExp[] = [
+  /^(dr|mr|ms|mrs|miss|sir|madam)\b/i,
+  /\bask\s+for\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?\s*$/i,
+  /\bstaff\s+names?\b/i,
+]
+
+export function isPersonLikePrompt(label: string): boolean {
+  return PERSON_LIKE_PATTERNS.some((re) => re.test(label))
+}
+
+/**
+ * Legacy onboarding stored generic question prompts ("A standout dish",
+ * "Service speed", "Wait time") in the signature-items field. They are not
+ * dishes, so keep them out of the one-tap dish chips.
+ */
+const LEGACY_GENERIC_TOPICS = new Set(
+  [
+    ...INDUSTRY_OPTIONS.flatMap((option) => option.topics),
+    "quality",
+    "friendly staff",
+    "clean facility",
+    "wait time",
+    "pain management",
+    "service & staff",
+    "overall experience",
+    "great service",
+    "good food",
+  ].map((label) => label.toLowerCase().trim()),
+)
+
+/**
+ * Signature menu items / popular services. Unlike review-question topics,
+ * these must be concrete things a guest actually experienced.
+ */
+export function getSignatureItems(topics?: string[] | null): string[] {
   const seen = new Set<string>()
-  const baseIds = new Set(base.flatMap((c) => c.subOptions.map((s) => s.id)))
-  const subOptions = custom.map((label) => {
-    let slug = label
+  const out: string[] = []
+  for (const raw of topics || []) {
+    if (typeof raw !== "string") continue
+    const label = raw.trim().replace(/\s+/g, " ")
+    if (label.length < 2 || label.length > 60) continue
+    const key = label.toLowerCase()
+    if (LEGACY_GENERIC_TOPICS.has(key) || seen.has(key) || isPersonLikePrompt(label)) continue
+    seen.add(key)
+    out.push(label)
+    if (out.length >= 12) break
+  }
+  return out
+}
+
+/** Content-stable IDs: slug-based ids stay bound to the topic text. */
+function customTopicSubOption(label: string, usedIds: Set<string>): SubOption {
+  const slug =
+    label
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "")
       .slice(0, 40) || "topic"
-    let id = `custom_topic_${slug}`
-    let n = 2
-    while (seen.has(id) || baseIds.has(id)) {
-      id = `custom_topic_${slug}-${n++}`
-    }
-    seen.add(id)
-    return {
-      id,
-      label,
-      keywords: label.toLowerCase().split(/\s+/),
-    }
+  let id = `custom_topic_${slug}`
+  let n = 2
+  while (usedIds.has(id)) id = `custom_topic_${slug}-${n++}`
+  usedIds.add(id)
+  return {
+    id,
+    label,
+    keywords: label.toLowerCase().split(/\s+/).filter(Boolean),
+  }
+}
+
+export interface MCQConfig {
+  /** Category IDs the owner enabled. Empty/undefined = industry defaults. */
+  enabledCategoryIds?: string[] | null
+  /** Owner-defined extra options (e.g. "Jain options", "Parking"). */
+  customTopics?: string[] | null
+  /** Used to infer a bar programme for restaurants. */
+  businessName?: string | null
+  /** Signature items also help infer the restaurant format. */
+  promptTopics?: string[] | null
+}
+
+/**
+ * Builds the option list shown to a customer for one particular business:
+ *  1. the industry taxonomy, narrowed to the categories this owner enabled;
+ *  2. the owner's custom topics, appended as a final category.
+ *
+ * Generic signature items are never treated as question categories, and
+ * custom topics never leak into the dish chips.
+ */
+export function getMCQCategories(industry: string, config: MCQConfig = {}): Category[] {
+  const base = getCategoriesForIndustry(industry)
+  const effectiveIds = getEffectiveCategoryIds(industry, config.enabledCategoryIds, {
+    name: config.businessName,
+    promptTopics: config.promptTopics,
   })
+  const visible = base.filter((category) => effectiveIds.includes(category.id))
+  // Never return an empty questionnaire, even if an old config is stale.
+  const categories = visible.length > 0 ? visible : base
+
+  const existingLabels = new Set(
+    categories.flatMap((category) => [
+      category.label.toLowerCase(),
+      ...category.subOptions.map((sub) => sub.label.toLowerCase()),
+    ]),
+  )
+  const usedIds = new Set(base.flatMap((category) => category.subOptions.map((sub) => sub.id)))
+  const seenLabels = new Set<string>()
+  const custom: SubOption[] = []
+
+  for (const raw of config.customTopics || []) {
+    if (typeof raw !== "string") continue
+    const label = raw.trim().replace(/\s+/g, " ")
+    if (label.length < 2 || label.length > 80) continue
+    const key = label.toLowerCase()
+    if (existingLabels.has(key) || seenLabels.has(key) || isPersonLikePrompt(label)) continue
+    seenLabels.add(key)
+    custom.push(customTopicSubOption(label, usedIds))
+    if (custom.length >= 20) break
+  }
+
+  if (custom.length === 0) return categories
 
   return [
-    ...base,
+    ...categories,
     {
       id: "custom_topics",
-      label: "Other things to mention",
+      label: "Also worth mentioning",
       icon: "Sparkles",
-      subOptions,
+      subOptions: custom,
     },
   ]
 }
@@ -750,4 +902,56 @@ export function getSubOptionsByIds(industry: string, ids: string[]): SubOption[]
 export function flattenCategoryLabels(industry: string, selectedSubOptionIds: string[]): string[] {
   const allSubOptions = getCategoriesForIndustry(industry).flatMap((c) => c.subOptions)
   return selectedSubOptionIds.map((id) => allSubOptions.find((s) => s.id === id)?.label || id)
+}
+
+export function getSignatureItemsLabel(industry: string): string {
+  const norm = normalizeIndustry(industry)
+  switch (norm) {
+    case "RESTAURANT":
+      return "Dishes you tried or loved:"
+    case "DENTAL":
+      return "Treatments or procedures received:"
+    case "SALON":
+      return "Services or styling you had:"
+    case "FITNESS":
+      return "Workouts, classes, or amenities used:"
+    case "AUTO":
+      return "Repairs or services done:"
+    case "AUTO_DEALER":
+      return "Vehicles or models you explored:"
+    case "MEDICAL":
+      return "Consultations or care received:"
+    case "ELECTRONICS":
+      return "Products or repairs you checked:"
+    case "HOME_SERVICES":
+      return "Services or repairs completed:"
+    default:
+      return "Services or highlights experienced:"
+  }
+}
+
+export function getSpecialMentionPlaceholder(industry: string, moodKey: "positive" | "neutral" | "negative"): string {
+  const norm = normalizeIndustry(industry)
+  if (moodKey === "positive") {
+    switch (norm) {
+      case "RESTAURANT":
+        return "Any specific moments, dishes, or staff that made it great..."
+      case "DENTAL":
+      case "MEDICAL":
+        return "Any specific doctors, treatments, or comfort highlights..."
+      case "SALON":
+        return "Any specific stylists, services, or atmosphere highlights..."
+      case "AUTO":
+      case "AUTO_DEALER":
+        return "Any specific advisors, vehicles, or service details..."
+      case "FITNESS":
+        return "Any specific trainers, workouts, or equipment highlights..."
+      default:
+        return "Any specific moments, staff, or services that made it great..."
+    }
+  } else if (moodKey === "neutral") {
+    return "What could have been better or what stood out?"
+  } else {
+    return "What went wrong? Tell us what happened so we can make it right..."
+  }
 }

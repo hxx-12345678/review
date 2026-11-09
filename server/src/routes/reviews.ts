@@ -232,6 +232,31 @@ router.get("/stats/:businessId", authRequired, async (req: AuthRequest, res: Res
       ? Math.round((totalClicks / totalFeedback) * 100)
       : 0;
 
+    // Per-touchpoint funnel (last 90 days). ReviewClick belongs to a Feedback
+    // row, so we can report feedback volume and Google-post taps per placement.
+    const ninetyDaysAgo = new Date(Date.now() - 90 * 86400000);
+    const touchpointRows = await prisma.feedback.findMany({
+      where: { businessId: business.id, createdAt: { gte: ninetyDaysAgo } },
+      select: { touchpoint: true, _count: { select: { reviewClicks: true } } },
+    });
+    const touchpointMap = new Map<string, { feedback: number; clicks: number }>();
+    for (const row of touchpointRows) {
+      const key = row.touchpoint || "unattributed";
+      const current = touchpointMap.get(key) || { feedback: 0, clicks: 0 };
+      current.feedback += 1;
+      current.clicks += row._count.reviewClicks;
+      touchpointMap.set(key, current);
+    }
+    const touchpointBreakdown = Array.from(touchpointMap.entries())
+      .map(([touchpoint, counts]) => ({
+        touchpoint,
+        feedback: counts.feedback,
+        clicks: counts.clicks,
+        conversionRate:
+          counts.feedback > 0 ? Math.round((counts.clicks / counts.feedback) * 100) : 0,
+      }))
+      .sort((a, b) => b.feedback - a.feedback);
+
     res.json({
       stats: {
         totalFeedback,
@@ -242,6 +267,7 @@ router.get("/stats/:businessId", authRequired, async (req: AuthRequest, res: Res
           rating: r.rating,
           count: r._count,
         })),
+        touchpointBreakdown,
       },
       recentFeedback,
       recentGoogleReviews,

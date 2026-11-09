@@ -1,4 +1,5 @@
 import express from "express";
+import crypto from "crypto";
 import path from "path";
 import fs from "fs";
 import cors from "cors";
@@ -19,7 +20,8 @@ import communicationRoutes from "./routes/communications";
 import googleReviewsRoutes from "./routes/google-reviews";
 import googlePlacesRoutes from "./routes/google-places";
 import uploadRoutes from "./routes/upload";
-import paymentsRoutes from "./routes/payments";
+import paymentsRoutes, { handleTopUpWebhook, applyTopUpEvent, recordInvoice } from "./routes/payments";
+import { promoteSubscription, ensureFreeSubscription } from "./services/subscriptions";
 import adminRoutes from "./routes/admin";
 import adminAnalyticsRoutes from "./routes/admin-analytics";
 import consentRoutes from "./routes/consent";
@@ -110,17 +112,26 @@ app.options("*", cors({
 app.post("/api/payments/webhook", express.raw({ type: "application/json" }), async (req, res) => {
   try {
     const env = loadEnv();
-    const signature = req.headers["x-razorpay-signature"] as string;
+    const signature = req.headers["x-razorpay-signature"] as string | undefined;
     const body = req.body instanceof Buffer ? req.body.toString("utf8") : JSON.stringify(req.body);
 
-    if (env.NODE_ENV === "production" && (!env.RAZORPAY_WEBHOOK_SECRET || !signature)) {
-      return res.status(400).json({ error: "Missing webhook signature" });
-    }
-
-    if (env.RAZORPAY_WEBHOOK_SECRET && signature) {
-      const crypto = require("crypto");
-      const expected = crypto.createHmac("sha256", env.RAZORPAY_WEBHOOK_SECRET).update(body).digest("hex");
-      if (expected !== signature) {
+    // Fail closed: whenever a secret is configured, the signature is required.
+    // In production the secret itself is required.
+    const secret = env.RAZORPAY_WEBHOOK_SECRET;
+    if (!secret) {
+      if (env.NODE_ENV === "production") {
+        console.error("Webhook rejected: RAZORPAY_WEBHOOK_SECRET is not configured");
+        return res.status(503).json({ error: "Webhook not configured" });
+      }
+      console.warn("RAZORPAY_WEBHOOK_SECRET not set — signature check skipped (development only)");
+    } else {
+      if (!signature) {
+        return res.status(400).json({ error: "Missing webhook signature" });
+      }
+      const expected = crypto.createHmac("sha256", secret).update(body).digest("hex");
+      const a = Buffer.from(expected, "utf8");
+      const b = Buffer.from(signature, "utf8");
+      if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
         console.error("Webhook signature mismatch");
         return res.status(400).json({ error: "Invalid signature" });
       }
@@ -128,82 +139,160 @@ app.post("/api/payments/webhook", express.raw({ type: "application/json" }), asy
 
     const event = JSON.parse(body);
     const razorpaySub = event.payload?.subscription?.entity;
-    if (!razorpaySub) return res.json({ status: "skipped" });
+
+    // Payment-link / top-up events carry no subscription entity. Handle them
+    // here too: Razorpay may be configured with only this webhook URL, and
+    // without this a customer who pays a top-up but closes the tab before the
+    // redirect would never receive credits. Idempotent on both sides.
+    if (!razorpaySub) {
+      if (event.event === "payment_link.paid" || event.event === "payment.captured") {
+        await applyTopUpEvent(event).catch((e) => console.error("Top-up event handling failed:", e));
+      }
+      // A late `payment.captured` upgrades an invoice we first saw as
+      // authorized. Only touch `created` rows so a refunded invoice can never
+      // be flipped back to captured by a replayed webhook.
+      if (event.event === "payment.captured") {
+        const capturedId = event.payload?.payment?.entity?.id;
+        if (capturedId) {
+          await prisma.invoice
+            .updateMany({
+              where: { razorpayPaymentId: capturedId, status: "created" },
+              data: { status: "captured" },
+            })
+            .catch((e) => console.error("Failed to mark invoice captured:", e));
+        }
+      }
+      return res.json({ status: "skipped" });
+    }
 
     const dbSub = await prisma.subscription.findFirst({
       where: { razorpaySubscriptionId: razorpaySub.id },
+      include: { plan: { select: { name: true } } },
     });
     if (!dbSub) return res.json({ status: "not_found" });
-    if (dbSub.status === "cancelled") return res.json({ status: "skipped_cancelled" });
+    if (dbSub.status === "cancelled") {
+      // A charge after the local cancellation means the user paid for a plan we
+      // do not grant. Never promote (that would ignore their cancellation), but
+      // record the payment so finance can refund/reconcile it.
+      if (event.event === "subscription.charged") {
+        const strayPayment = event.payload?.payment?.entity;
+        console.error(
+          `Razorpay charged a locally-cancelled subscription ${dbSub.id} (rzp ${razorpaySub.id}, payment ${strayPayment?.id ?? "unknown"}) — refund/reconciliation required`,
+        );
+        if (strayPayment?.id && (strayPayment.status === "captured" || strayPayment.captured === "1")) {
+          await recordInvoice({
+            subscriptionId: dbSub.id,
+            planId: dbSub.planId,
+            paymentId: strayPayment.id,
+            amount: strayPayment.amount || 0,
+            status: "captured",
+            description: "Charge received after cancellation (needs refund)",
+            customerEmail: null,
+            customerName: null,
+          }).catch((e) => console.error("Failed to record post-cancellation charge:", e));
+        }
+      }
+      return res.json({ status: "skipped_cancelled" });
+    }
 
     switch (event.event) {
       case "subscription.authenticated": {
-        // First payment authorization succeeded (mandate registered)
-        await prisma.subscription.update({
-          where: { id: dbSub.id },
-          data: {
-            status: "authenticated",
-            razorpayCustomerId: razorpaySub.customer_id || dbSub.razorpayCustomerId,
-          },
+        // First payment authorization succeeded (mandate registered). Promote
+        // and retire any Free/old row so exactly one plan is in force.
+        await promoteSubscription(dbSub.id, {
+          status: "authenticated",
+          razorpayCustomerId: razorpaySub.customer_id || dbSub.razorpayCustomerId,
         });
         break;
       }
       case "subscription.activated": {
         // Billing cycle started - subscription is now active
-        await prisma.subscription.update({
-          where: { id: dbSub.id },
-          data: {
-            status: "active",
-            currentPeriodStart: razorpaySub.current_start ? new Date(razorpaySub.current_start * 1000) : undefined,
-            currentPeriodEnd: razorpaySub.current_end ? new Date(razorpaySub.current_end * 1000) : undefined,
-          },
-        });
-        // Create invoice for authentication payment if payment entity exists
         const authPayment = event.payload?.payment?.entity;
-        if (authPayment && (authPayment.status === "captured" || authPayment.captured === "1")) {
-          try {
-            await prisma.invoice.create({
-              data: {
-                subscriptionId: dbSub.id,
-                razorpayPaymentId: authPayment.id,
-                amount: authPayment.amount || 0,
-                currency: authPayment.currency || "INR",
-                status: "captured",
-                description: `Initial payment for ${razorpaySub.plan_id}`,
-              },
-            }).catch(() => {});
-          } catch (_) {}
+        await promoteSubscription(dbSub.id, {
+          status: "active",
+          currentPeriodStart: razorpaySub.current_start ? new Date(razorpaySub.current_start * 1000) : undefined,
+          currentPeriodEnd: razorpaySub.current_end ? new Date(razorpaySub.current_end * 1000) : undefined,
+        });
+        // Create invoice for the authentication payment if present (idempotent
+        // by Razorpay payment id).
+        if (authPayment && authPayment.id && (authPayment.status === "captured" || authPayment.captured === "1")) {
+          const customer = await prisma.user.findUnique({
+            where: { id: dbSub.userId },
+            select: { name: true, email: true },
+          });
+          await recordInvoice({
+            subscriptionId: dbSub.id,
+            planId: dbSub.planId,
+            paymentId: authPayment.id,
+            amount: authPayment.amount || 0,
+            status: "captured",
+            description: `Initial payment for ${dbSub.plan?.name || razorpaySub.plan_id || "subscription"}`,
+            periodStart: razorpaySub.current_start ? new Date(razorpaySub.current_start * 1000) : null,
+            periodEnd: razorpaySub.current_end ? new Date(razorpaySub.current_end * 1000) : null,
+            customerEmail: customer?.email ?? null,
+            customerName: customer?.name ?? null,
+          }).catch((e) => console.error("Failed to create invoice record:", e));
         }
         break;
       }
       case "subscription.charged": {
         // Recurring charge succeeded - update period and create invoice
-        await prisma.subscription.update({
-          where: { id: dbSub.id },
-          data: {
-            status: "active",
-            currentPeriodStart: razorpaySub.current_start ? new Date(razorpaySub.current_start * 1000) : undefined,
-            currentPeriodEnd: razorpaySub.current_end ? new Date(razorpaySub.current_end * 1000) : undefined,
-          },
-        });
         const payment = event.payload?.payment?.entity;
-        if (payment && payment.id) {
-          try {
-            await prisma.invoice.upsert({
-              where: { razorpayPaymentId: payment.id },
-              create: {
-                subscriptionId: dbSub.id,
-                razorpayPaymentId: payment.id,
-                amount: payment.amount || 0,
-                currency: payment.currency || "INR",
-                status: payment.status === "captured" || payment.captured === "1" ? "captured" : "created",
-                description: `Recurring charge for ${razorpaySub.plan_id}`,
-              },
-              update: { status: payment.status === "captured" || payment.captured === "1" ? "captured" : "created" },
-            });
-          } catch (invoiceErr) {
-            console.error("Failed to create invoice record:", invoiceErr);
+
+        // If the user already scheduled cancellation, a charge means Razorpay
+        // and our local state disagree. Never clear the cancellation (that
+        // would silently re-enable auto-renewal); record it for reconciliation.
+        if (dbSub.cancelledAt) {
+          console.error(
+            `Razorpay charged subscription ${dbSub.id} after cancellation was scheduled (rzp ${razorpaySub.id}, payment ${payment?.id ?? "unknown"}) — refund/reconciliation required`,
+          );
+          if (payment?.id && (payment.status === "captured" || payment.captured === "1")) {
+            await recordInvoice({
+              subscriptionId: dbSub.id,
+              planId: dbSub.planId,
+              paymentId: payment.id,
+              amount: payment.amount || 0,
+              status: "captured",
+              description: "Charge received after cancellation was scheduled (needs review)",
+              customerEmail: null,
+              customerName: null,
+            }).catch((e) => console.error("Failed to record post-cancellation charge:", e));
           }
+          break;
+        }
+
+        await promoteSubscription(dbSub.id, {
+          status: "active",
+          currentPeriodStart: razorpaySub.current_start ? new Date(razorpaySub.current_start * 1000) : undefined,
+          currentPeriodEnd: razorpaySub.current_end ? new Date(razorpaySub.current_end * 1000) : undefined,
+        });
+        if (payment && payment.id) {
+          const customer = await prisma.user.findUnique({
+            where: { id: dbSub.userId },
+            select: { name: true, email: true },
+          });
+          // A scheduled downgrade takes effect with this charge. The GST
+          // invoice must name the plan the customer actually paid for, not the
+          // one that is about to be replaced.
+          const chargedPlan =
+            dbSub.pendingPlanId && dbSub.pendingPlanId !== dbSub.planId
+              ? await prisma.subscriptionPlan.findUnique({
+                  where: { id: dbSub.pendingPlanId },
+                  select: { id: true, name: true },
+                })
+              : null;
+          await recordInvoice({
+            subscriptionId: dbSub.id,
+            planId: chargedPlan?.id ?? dbSub.planId,
+            paymentId: payment.id,
+            amount: payment.amount || 0,
+            status: payment.status === "captured" || payment.captured === "1" ? "captured" : "created",
+            description: `Recurring charge for ${chargedPlan?.name || dbSub.plan?.name || "subscription"}`,
+            periodStart: razorpaySub.current_start ? new Date(razorpaySub.current_start * 1000) : null,
+            periodEnd: razorpaySub.current_end ? new Date(razorpaySub.current_end * 1000) : null,
+            customerEmail: customer?.email ?? null,
+            customerName: customer?.name ?? null,
+          }).catch((invoiceErr) => console.error("Failed to create invoice record:", invoiceErr));
         }
         // Apply pending plan change (downgrade scheduled at cycle end)
         if (dbSub.pendingPlanId && dbSub.pendingPlanId !== dbSub.planId) {
@@ -233,36 +322,19 @@ app.post("/api/payments/webhook", express.raw({ type: "application/json" }), asy
       case "subscription.cancelled": {
         await prisma.subscription.update({
           where: { id: dbSub.id },
-          data: { status: "cancelled", cancelledAt: new Date() },
+          data: { status: "cancelled", cancelledAt: new Date(), pendingPlanId: null, scheduledChangeAt: null },
         });
-        const fb = await prisma.subscriptionPlan.findUnique({ where: { slug: "free" } });
-        if (fb) {
-          await prisma.subscription.create({
-            data: {
-              userId: dbSub.userId, planId: fb.id, status: "active",
-              creditsLimit: fb.creditsLimit, businessLimit: fb.businessLimit,
-              currentPeriodStart: new Date(), currentPeriodEnd: new Date(Date.now() + 365 * 86400000),
-            },
-          });
-        }
+        // Idempotent: reuses an existing Free row instead of stacking duplicates.
+        await ensureFreeSubscription(dbSub.userId);
         break;
       }
       case "subscription.completed": {
         await prisma.subscription.update({
           where: { id: dbSub.id },
-          data: { status: "completed" },
+          data: { status: "completed", cancelledAt: new Date() },
         });
         // Downgrade to free plan when subscription completes
-        const freePlan = await prisma.subscriptionPlan.findUnique({ where: { slug: "free" } });
-        if (freePlan && dbSub.planId !== freePlan.id) {
-          await prisma.subscription.create({
-            data: {
-              userId: dbSub.userId, planId: freePlan.id, status: "active",
-              creditsLimit: freePlan.creditsLimit, businessLimit: freePlan.businessLimit,
-              currentPeriodStart: new Date(), currentPeriodEnd: new Date(Date.now() + 365 * 86400000),
-            },
-          });
-        }
+        await ensureFreeSubscription(dbSub.userId);
         break;
       }
       case "subscription.pending": {
@@ -274,11 +346,13 @@ app.post("/api/payments/webhook", express.raw({ type: "application/json" }), asy
         break;
       }
       case "subscription.halted": {
-        // All retries exhausted - mark as halted
+        // All retries exhausted - mark as halted, then fall back to Free so the
+        // user still has a usable plan instead of being locked out entirely.
         await prisma.subscription.update({
           where: { id: dbSub.id },
           data: { status: "halted" },
         });
+        await ensureFreeSubscription(dbSub.userId);
         break;
       }
       case "subscription.paused": {
@@ -287,26 +361,60 @@ app.post("/api/payments/webhook", express.raw({ type: "application/json" }), asy
           where: { id: dbSub.id },
           data: { status: "paused" },
         });
+        await ensureFreeSubscription(dbSub.userId);
         break;
       }
       case "subscription.resumed": {
-        // User manually resumed from dashboard
-        await prisma.subscription.update({
-          where: { id: dbSub.id },
-          data: { status: "active" },
+        // User manually resumed from dashboard. Razorpay shifts the billing
+        // dates forward while paused, so take the fresh period from the event.
+        await promoteSubscription(dbSub.id, {
+          status: "active",
+          cancelledAt: null,
+          currentPeriodStart: razorpaySub.current_start ? new Date(razorpaySub.current_start * 1000) : undefined,
+          currentPeriodEnd: razorpaySub.current_end ? new Date(razorpaySub.current_end * 1000) : undefined,
         });
         break;
       }
       case "subscription.updated": {
-        // Plan/quantity changed
-        await prisma.subscription.update({
-          where: { id: dbSub.id },
-          data: {
-            status: razorpaySub.status === "active" ? "active" : dbSub.status,
-            currentPeriodStart: razorpaySub.current_start ? new Date(razorpaySub.current_start * 1000) : undefined,
-            currentPeriodEnd: razorpaySub.current_end ? new Date(razorpaySub.current_end * 1000) : undefined,
-          },
-        });
+        // Plan/quantity changed. Update the period and, if the cycle rolled
+        // over, apply a scheduled downgrade.
+        const newStart = razorpaySub.current_start ? new Date(razorpaySub.current_start * 1000) : null;
+        const newEnd = razorpaySub.current_end ? new Date(razorpaySub.current_end * 1000) : null;
+        const advanced =
+          !!newStart &&
+          !!dbSub.currentPeriodStart &&
+          newStart.getTime() > new Date(dbSub.currentPeriodStart).getTime();
+
+        if (razorpaySub.status === "active") {
+          await promoteSubscription(dbSub.id, {
+            status: "active",
+            currentPeriodStart: newStart ?? undefined,
+            currentPeriodEnd: newEnd ?? undefined,
+          });
+        } else {
+          await prisma.subscription.update({
+            where: { id: dbSub.id },
+            data: { currentPeriodStart: newStart ?? undefined, currentPeriodEnd: newEnd ?? undefined },
+          });
+        }
+
+        if (advanced && dbSub.pendingPlanId && dbSub.pendingPlanId !== dbSub.planId) {
+          const pendingPlan = await prisma.subscriptionPlan.findUnique({ where: { id: dbSub.pendingPlanId } });
+          if (pendingPlan) {
+            await prisma.subscription.update({
+              where: { id: dbSub.id },
+              data: {
+                planId: pendingPlan.id,
+                creditsLimit: pendingPlan.creditsLimit,
+                businessLimit: pendingPlan.businessLimit,
+                creditsUsed: 0,
+                creditsLastResetAt: new Date(),
+                pendingPlanId: null,
+                scheduledChangeAt: null,
+              },
+            });
+          }
+        }
         break;
       }
     }
@@ -316,6 +424,10 @@ app.post("/api/payments/webhook", express.raw({ type: "application/json" }), asy
     res.status(500).json({ status: "error", message: "Internal server error" });
   }
 });
+
+// Top-up webhook needs the exact raw bytes for HMAC verification, so it must
+// be registered before the JSON body parser. Signature is mandatory.
+app.post("/api/payments/top-up-webhook", express.raw({ type: "*/*" }), handleTopUpWebhook);
 
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
@@ -388,7 +500,7 @@ async function seedDefaultPlans() {
   const plans = [
     { name: "Free", slug: "free", price: 0, interval: "month", sortOrder: 0, creditsLimit: 30, businessLimit: 1, teamSeats: 1, features: ["1 business", "30 Credits/mo", "Review collection (email + QR)", "Review inbox (Google)", "Basic analytics"], description: "For businesses just getting started." },
     { name: "Lite (Monthly)", slug: "lite", price: 10000, interval: "month", sortOrder: 1, creditsLimit: 100, businessLimit: 1, teamSeats: 1, features: ["1 business", "100 Credits/mo", "Review collection (email + QR)", "Review inbox (Google)", "Basic analytics", "Priority email support"], description: "Affordable entry-level plan." },
-    { name: "Lite (Yearly)", slug: "lite-yearly", price: 120000, interval: "year", sortOrder: 2, creditsLimit: 100, businessLimit: 1, teamSeats: 1, features: ["1 business", "100 Credits/mo", "Everything in Lite monthly", "Save ₹1,200 vs monthly"], description: "Billed annually. Save ~₹1,200/yr." },
+    { name: "Lite (Yearly)", slug: "lite-yearly", price: 120000, interval: "year", sortOrder: 2, creditsLimit: 100, businessLimit: 1, teamSeats: 1, features: ["1 business", "100 Credits/mo", "Everything in Lite monthly", "Billed annually"], description: "Billed annually." },
     { name: "Starter (Monthly)", slug: "starter", price: 24900, interval: "month", sortOrder: 3, creditsLimit: 300, businessLimit: 1, teamSeats: 2, features: ["1 business", "300 Credits/mo", "AI reply drafting", "Review insights", "SMS & email requests", "Priority support"], description: "For single-location businesses ready to grow." },
     { name: "Growth (Monthly)", slug: "growth", price: 49900, interval: "month", sortOrder: 4, creditsLimit: 1500, businessLimit: 3, teamSeats: 5, features: ["Up to 3 businesses", "1,500 Credits/mo", "Everything in Starter", "Google Business Profile sync", "Team roles (5 users)", "Priority support"], description: "For growing businesses." },
     { name: "Pro (Monthly)", slug: "pro", price: 79900, interval: "month", sortOrder: 5, creditsLimit: 5000, businessLimit: 10, teamSeats: 15, features: ["Up to 10 businesses", "5,000 Credits/mo", "Everything in Growth", "WhatsApp review collection", "Google Business Profile sync", "Team roles (15 users)", "Dedicated support"], description: "For multi-location businesses." },
@@ -396,57 +508,25 @@ async function seedDefaultPlans() {
     { name: "Growth (Yearly)", slug: "growth-yearly", price: 499900, interval: "year", sortOrder: 7, creditsLimit: 1500, businessLimit: 3, teamSeats: 5, features: ["Up to 3 businesses", "1,500 Credits/mo", "Everything in Starter", "Google Business Profile sync", "Team roles (5 users)", "Priority support", "Save 2 months free"], description: "Billed annually. Save ₹989 vs monthly." },
     { name: "Pro (Yearly)", slug: "pro-yearly", price: 799900, interval: "year", sortOrder: 8, creditsLimit: 5000, businessLimit: 10, teamSeats: 15, features: ["Up to 10 businesses", "5,000 Credits/mo", "Everything in Pro monthly", "WhatsApp review collection", "Google Business Profile sync", "Team roles (15 users)", "Dedicated support", "Save 2 months free"], description: "Billed annually. Save ₹1,589 vs monthly." },
   ];
-  // Cold-boot fast path: a single select decides whether any write is needed.
-  // On steady state (all 9 plans match) this skips 9 upserts every boot —
-  // meaningful when Render cold-starts the free instance (~50s budget).
-  const existing = await prisma.subscriptionPlan.findMany();
-  const bySlug = new Map(existing.map((p) => [p.slug, p]));
-  const samePlan = (a: any, b: any) =>
-    a.name === b.name &&
-    a.price === b.price &&
-    a.interval === b.interval &&
-    a.sortOrder === b.sortOrder &&
-    a.creditsLimit === b.creditsLimit &&
-    a.businessLimit === b.businessLimit &&
-    a.teamSeats === b.teamSeats &&
-    JSON.stringify(a.features) === JSON.stringify(b.features) &&
-    (a.description || null) === (b.description || null);
-  const plansDirty = plans.some((p) => {
-    const e = bySlug.get(p.slug);
-    return !e || !samePlan(e, p);
-  });
-  if (plansDirty || existing.length !== plans.length) {
-    for (const p of plans) {
-      await prisma.subscriptionPlan.upsert({
-        where: { slug: p.slug },
-        create: p,
-        update: p,
-      });
-    }
-  } else {
-    console.log("Plans up to date — skipping seed writes");
-  }
-  // Sync creditsLimit for active subscriptions tied to updated plans
+  // Insert-only seeding: create any missing plans, but NEVER overwrite an
+  // existing row. Admins edit price/limits/features from the dashboard; the
+  // old `update: p` upsert silently reverted those edits on every boot (and
+  // left a stale `razorpayPlanId`, so the code price and the charged price
+  // diverged). Existing plans are managed by migrations/admin actions.
+  const existing = await prisma.subscriptionPlan.findMany({ select: { slug: true } });
+  const existingSlugs = new Set(existing.map((p) => p.slug));
+  let createdCount = 0;
   for (const p of plans) {
-    const updated = await prisma.subscription.updateMany({
-      where: { plan: { slug: p.slug }, status: { in: ["active", "authenticated"] }, creditsLimit: { not: p.creditsLimit } },
-      data: { creditsLimit: p.creditsLimit, businessLimit: p.businessLimit },
-    });
-    if (updated.count > 0) {
-      console.log(`Synced ${updated.count} subs for plan "${p.slug}"`);
-    }
+    if (existingSlugs.has(p.slug)) continue;
+    await prisma.subscriptionPlan.create({ data: p });
+    createdCount++;
   }
-  const freePlan = await prisma.subscriptionPlan.findUnique({ where: { slug: "free" } });
-  if (freePlan) {
-    const updated = await prisma.subscription.updateMany({
-      where: { status: "active", planId: freePlan.id, creditsLimit: { lt: freePlan.creditsLimit } },
-      data: { creditsLimit: freePlan.creditsLimit },
-    });
-    if (updated.count > 0) {
-      console.log(`Synced creditsLimit for ${updated.count} active free subscriptions`);
-    }
+  if (createdCount > 0) {
+    console.log(`Seeded ${createdCount} missing subscription plan(s)`);
+  } else {
+    console.log("Plans up to date — no seed writes");
   }
-  console.log("Default subscription plans seeded");
+  console.log("Default subscription plans ready");
 }
 
 async function start() {

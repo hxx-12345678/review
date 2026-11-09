@@ -81,7 +81,7 @@ Prompt for each fix: `Business: name (industry) Location gap points Fix: title �
 ## 4. Remaining Before Prod
 
 1. `npx prisma migrate dev --name add_ai_visibility_check` (ap-south-1 check non-abort)
-2. Manual `cptjacksprw@gmail.com / Player@123` login → create/switch business → `/dashboard/reputation` → Analyze (16 real Gemini calls if key set else honest fallback) → Generate 5 fixes → copy `/c/slug` → verify credit `GET /payments/credit-balance` decr 0 then 2 then 1
+2. Manual `TEST_EMAIL / TEST_PASSWORD` login → create/switch business → `/dashboard/reputation` → Analyze (16 real Gemini calls if key set else honest fallback) → Generate 5 fixes → copy `/c/slug` → verify credit `GET /payments/credit-balance` decr 0 then 2 then 1
 3. Lighthouse mobile + axe audit for reputation page (contrast, focus trap)
 
 **Status: Every query general (11×8), no hash mock, real per-query Gemini polling, builds green, UI heuristics + response grounding verified, landing still untouched.**

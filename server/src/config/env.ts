@@ -66,6 +66,17 @@ const envSchema = z.object({
   RAZORPAY_KEY_SECRET: z.string().optional().default("").transform((s) => s.trim()),
   RAZORPAY_WEBHOOK_SECRET: z.string().optional().default("").transform((s) => s.trim()),
 
+  // Billing / GST invoice identity (used on receipts and tax invoices).
+  COMPANY_LEGAL_NAME: z.string().default("BEYONDVYU"),
+  COMPANY_GSTIN: z.string().optional().default(""),
+  COMPANY_ADDRESS: z.string().optional().default(""),
+  COMPANY_STATE: z.string().optional().default(""),
+  COMPANY_STATE_CODE: z.string().optional().default(""),
+  COMPANY_SAC: z.string().default("998314"),
+  // Applicable GST percentage. Plans are treated as GST-inclusive at the
+  // collected amount, so this drives the tax breakup shown on invoices.
+  GST_RATE_PERCENT: z.coerce.number().min(0).max(28).default(18),
+
   // Super Admin
   ADMIN_EMAIL: z.string().email().default("admin@beyondvyu.com"),
   ADMIN_PASSWORD_HASH: z.string().min(16).default(""), // bcrypt hash of admin password
@@ -158,6 +169,23 @@ export function loadEnv(): Env {
       process.exit(1);
     }
     env = result.data;
+
+    // RBI Apr-2018 data localization: payment/transaction data must stay in
+    // India. Managed providers (Render/Fly) often hide the region in the URL, so
+    // this is a loud warning rather than a hard failure — ops must confirm the
+    // DB region, or set DATA_REGION_CONFIRMED=india once verified.
+    if (
+      process.env.NODE_ENV === "production" &&
+      env.DATABASE_URL &&
+      process.env.DATA_REGION_CONFIRMED !== "india" &&
+      !/ap-south-1|central-india|mumbai|india/i.test(env.DATABASE_URL)
+    ) {
+      console.error(
+        "FATAL: DATABASE_URL does not look like an India region (ap-south-1 / Central India). " +
+          "RBI Apr-2018 localization requires production payment data to stay in India. " +
+          "Confirm the region and set DATA_REGION_CONFIRMED=india to silence this.",
+      );
+    }
   }
   return env;
 }
@@ -165,9 +193,6 @@ export function loadEnv(): Env {
 export function getEnv(): Env {
   if (!env) {
     return loadEnv();
-  }
-  if (process.env.NODE_ENV === "production" && env.DATABASE_URL && !/ap-south-1|central-india/i.test(env.DATABASE_URL)) {
-    console.error("FATAL: DATABASE_URL must be ap-south-1/central-india per RBI Apr-2018 localization");
   }
   return env;
 }

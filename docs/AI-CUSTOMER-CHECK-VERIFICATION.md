@@ -89,7 +89,7 @@ Edge branches covered (see §6).
 | 14 | RBI localization prod ap-south-1 fail | console.error non-abort | Added §1 |
 | 15 | React-is missing (pnpm hoist) | `pnpm add react-is` | Build ✓ |
 | 16 | Landing cards mutated | Should NOT happen | `plan.md:11` locked, verified no `app/page.tsx` edit in git diff |
-| 17 | Login `cptjacksprw@gmail.com / Player@123` | POST `/api/auth/login` → token → reputation flow | Manual steps in §7, API shape verified |
+| 17 | Login `TEST_EMAIL / TEST_PASSWORD` | POST `/api/auth/login` → token → reputation flow | Manual steps in §7, API shape verified |
 
 ## 7. Live Deterministic Proof (ran `npx tsx` on this machine)
 
@@ -116,7 +116,7 @@ Every number in §1 has source URL + date + panel + caveat; zero unsourced claim
 ## 10. What Remains Before Prod
 
 1. Run `npx prisma migrate dev --name add_ai_visibility_check` against real Postgres (localhost or ap-south-1)
-2. Manual login with `cptjacksprw@gmail.com` / `Player@123` → create business → `/dashboard/reputation` → Analyze → Generate 5 fixes → copy `/c/slug` → WhatsApp share — verify credit deduction via `/payments/subscription`
+2. Manual login with `TEST_EMAIL` / `TEST_PASSWORD` → create business → `/dashboard/reputation` → Analyze → Generate 5 fixes → copy `/c/slug` → WhatsApp share — verify credit deduction via `/payments/subscription`
 3. Optional: replace `deterministicResults` with live `Gemini/ChatGPT` adapters once keys available (behind same 24h dedup + fallback banner)
 
 **Status: Implemented today, verified line-by-line, tested deterministically, build-green, landing untouched.**

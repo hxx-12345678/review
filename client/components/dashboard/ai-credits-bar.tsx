@@ -30,7 +30,7 @@ export function AiCreditsBar() {
   const hasTopUp = topUpBalance > 0
 
   return (
-    <Link href="/dashboard/billing" className="block">
+    <Link href="/dashboard/billing#topup" className="block">
       <Card className={cn(
         "p-4 hover:shadow-md transition-shadow",
         exhausted && "border-red-500/40 bg-red-500/5",

@@ -20,9 +20,26 @@ export async function authRequired(req: AuthRequest, res: Response, next: NextFu
     const env = getEnv();
     const decoded = jwt.verify(token, env.JWT_SECRET) as { userId: string };
 
-    const session = await prisma.session.findUnique({ where: { token } });
-    if (!session) {
+    const session = await prisma.session.findUnique({
+      where: { token },
+      include: { user: { select: { suspended: true, deletedAt: true } } },
+    });
+    if (!session || session.userId !== decoded.userId) {
       return res.status(401).json({ error: "Session expired. Please log in again." });
+    }
+    if (session.expiresAt && new Date(session.expiresAt).getTime() < Date.now()) {
+      await prisma.session.deleteMany({ where: { token } }).catch(() => {});
+      return res.status(401).json({ error: "Session expired. Please log in again." });
+    }
+    if (!session.user || session.user.deletedAt) {
+      await prisma.session.deleteMany({ where: { token } }).catch(() => {});
+      return res.status(401).json({ error: "Account not found." });
+    }
+    if (session.user.suspended) {
+      return res.status(403).json({
+        error: "Your account has been suspended. Please contact support.",
+        code: "ACCOUNT_SUSPENDED",
+      });
     }
 
     req.userId = decoded.userId;
@@ -33,14 +50,27 @@ export async function authRequired(req: AuthRequest, res: Response, next: NextFu
   }
 }
 
-export function authOptional(req: AuthRequest, _res: Response, next: NextFunction) {
+export async function authOptional(req: AuthRequest, _res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith("Bearer ")) {
     const token = authHeader.split(" ")[1];
     try {
       const env = getEnv();
       const decoded = jwt.verify(token, env.JWT_SECRET) as { userId: string };
-      req.userId = decoded.userId;
+      const session = await prisma.session.findUnique({
+        where: { token },
+        include: { user: { select: { suspended: true, deletedAt: true } } },
+      });
+      if (
+        session &&
+        session.userId === decoded.userId &&
+        session.user &&
+        !session.user.deletedAt &&
+        !session.user.suspended &&
+        (!session.expiresAt || new Date(session.expiresAt).getTime() > Date.now())
+      ) {
+        req.userId = decoded.userId;
+      }
     } catch {
       // Token invalid, continue without auth
     }

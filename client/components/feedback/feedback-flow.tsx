@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
-import { ExternalLink, Sparkles, Loader2, Check, MessageSquareHeart, ArrowRight, ArrowLeft, Stethoscope, Scissors, Dumbbell, Home, Utensils, Car, ShieldCheck, Lock, Award, Star, ThumbsUp, Meh, Frown, PenLine, RefreshCw, Lightbulb, SmilePlus, ChevronDown, Wrench, Clock, Wine, UserCheck, Users, Building, Calendar, MessageSquare, MapPin, Music, Smartphone } from "lucide-react"
+import { useState, useEffect, useMemo, useRef } from "react"
+import { ExternalLink, Sparkles, Loader2, Check, MessageSquareHeart, ArrowRight, ArrowLeft, Stethoscope, Scissors, Dumbbell, Home, Utensils, Car, ShieldCheck, Lock, Award, Star, ThumbsUp, Meh, Frown, PenLine, RefreshCw, Lightbulb, SmilePlus, ChevronDown, Wrench, Clock, Wine, UserCheck, Users, Building, Calendar, MessageSquare, MapPin, Music, Smartphone, Mic, MicOff } from "lucide-react"
 import { getReviewStepConfig, scoreAuthenticity, type AuthenticityResult } from "@/lib/compliance"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -16,11 +16,12 @@ import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { api } from "@/lib/api"
 import { handleAiError } from "@/lib/ai-error-handler"
-import { getMCQCategories } from "@/lib/industry-categories"
+import { getMCQCategories, getSignatureItems, getSignatureItemsLabel, getSpecialMentionPlaceholder } from "@/lib/industry-categories"
+import { localizeOptionLabel, localizeSignatureItemsLabel, localizeSpecialMentionPlaceholder, mcqText } from "@/lib/review-localization"
 
 type Step = "loading" | "rate" | "language" | "mcq" | "review" | "done"
 
-export function FeedbackFlow({ business, slug, demo: isDemo = false }: { business: any; slug?: string; demo?: boolean }) {
+export function FeedbackFlow({ business, slug, demo: isDemo = false, table, staff, touchpoint }: { business: any; slug?: string; demo?: boolean; table?: string; staff?: string; touchpoint?: string }) {
   const [step, setStep] = useState<Step>("loading")
   const [rating, setRating] = useState(0)
   const [highlights, setHighlights] = useState("")
@@ -41,6 +42,23 @@ export function FeedbackFlow({ business, slug, demo: isDemo = false }: { busines
   const [redirectCountdown, setRedirectCountdown] = useState(3)
 
   const config = getReviewStepConfig(rating || 5)
+
+  // One source of truth for this business's option list — used both for
+  // rendering and for resolving selected IDs into labels on submit.
+  const categories = useMemo(
+    () =>
+      getMCQCategories(business.industry, {
+        enabledCategoryIds: business.enabledCategories || [],
+        customTopics: business.customReviewTopics || [],
+        businessName: business.name,
+        promptTopics: business.promptTopics || [],
+      }),
+    [business.industry, business.enabledCategories, business.customReviewTopics, business.name, business.promptTopics],
+  )
+  const signatureItems = useMemo(
+    () => getSignatureItems(business.promptTopics || []),
+    [business.promptTopics],
+  )
 
   // Inject brand colors as CSS custom properties for the entire review flow
   useEffect(() => {
@@ -68,10 +86,11 @@ export function FeedbackFlow({ business, slug, demo: isDemo = false }: { busines
   }
 
   async function handleMCQContinue() {
-    const subLabels = getMCQCategories(business.industry, business.promptTopics || [])
-      .flatMap((c) => c.subOptions)
-      .filter((s) => selectedSubOptions.includes(s.id))
-      .map((s) => s.label)
+    const availableSubOptions = categories.flatMap((c) => c.subOptions)
+    // Keep only IDs that still exist for this business (guards against stale
+    // selections if the owner edits their configuration mid-session).
+    const validSubOptions = availableSubOptions.filter((s) => selectedSubOptions.includes(s.id))
+    const subLabels = validSubOptions.map((s) => s.label)
     const subText = subLabels.length > 0 ? subLabels.join(", ") : ""
     const specialText = specialMention.trim()
     const combined = [subText, specialText].filter(Boolean).join(". ")
@@ -82,10 +101,18 @@ export function FeedbackFlow({ business, slug, demo: isDemo = false }: { busines
 
     if (!feedbackId) {
       const id = await submitFeedback({
-        liked: specialText || undefined,
-        selectedSubOptions: selectedSubOptions.length > 0 ? selectedSubOptions : undefined,
+        // Persist a readable summary for the owner dashboard and notifications,
+        // not just the raw option IDs.
+        liked: combined || undefined,
+        selectedSubOptions: validSubOptions.length > 0 ? validSubOptions.map((s) => s.id) : undefined,
+        selectedSubOptionLabels: subLabels.length > 0 ? subLabels : undefined,
+        touchpoint: touchpoint || undefined,
       })
       if (!id) return
+    }
+
+    if (!customerReview && specialText) {
+      setCustomerReview(specialText)
     }
 
     setStep("review")
@@ -93,19 +120,26 @@ export function FeedbackFlow({ business, slug, demo: isDemo = false }: { busines
     if (combined.length >= 3 && combined !== lastFetchedInput) {
       setLoadingPoints(true)
       try {
-        const res = await fetch("/api/talking-points", {
+        const res = await fetch("/api/ai/talking-points", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             highlights: combined,
             selectedTopics: [...subLabels],
             businessName: business.name,
-            promptTopics: business.promptTopics || [],
+            promptTopics: signatureItems,
             rating,
             language,
+            businessSlug: slug || business.slug,
           }),
         })
-        if (!res.ok) throw new Error("API error")
+        if (!res.ok) {
+          const body = await res.json().catch(() => null)
+          const err: any = new Error(body?.error || "API error")
+          err.code = body?.code
+          err.status = res.status
+          throw err
+        }
         const data = await res.json()
         setTalkingPoints(Array.isArray(data.talkingPoints) ? data.talkingPoints : [])
         setLastFetchedInput(combined)
@@ -183,6 +217,8 @@ export function FeedbackFlow({ business, slug, demo: isDemo = false }: { busines
     customerEmail?: string
     privateNote?: string
     selectedSubOptions?: string[]
+    selectedSubOptionLabels?: string[]
+    touchpoint?: string
   }) {
     if (submitting) return null
 
@@ -195,9 +231,13 @@ export function FeedbackFlow({ business, slug, demo: isDemo = false }: { busines
 
     setSubmitting(true)
     try {
+      const safeTable = table?.trim().slice(0, 60)
+      const safeStaff = staff?.trim().slice(0, 60)
+      const attributionInfo = safeTable ? `Table: ${safeTable}` : safeStaff ? `Staff: ${safeStaff}` : undefined
       const res = await api.feedback.submit({
         businessSlug: slug || business.slug,
         rating,
+        purchaseInfo: data.purchaseInfo || attributionInfo,
         ...data,
       })
       setFeedbackId(res.feedback.id)
@@ -278,6 +318,8 @@ export function FeedbackFlow({ business, slug, demo: isDemo = false }: { busines
             rating={rating}
             language={language}
             onLanguageChange={setLanguage}
+            categories={categories}
+            signatureItems={signatureItems}
             selectedSubOptions={selectedSubOptions}
             toggleSubOption={toggleSubOption}
             specialMention={specialMention}
@@ -300,7 +342,7 @@ export function FeedbackFlow({ business, slug, demo: isDemo = false }: { busines
             onPostToGoogle={handlePostToGoogle}
             onBack={() => { setStep("mcq"); setCustomerReview("") }}
             businessName={business.name}
-            promptTopics={business.promptTopics || []}
+            promptTopics={signatureItems}
             language={language}
             rating={rating}
             customerReview={customerReview}
@@ -308,7 +350,14 @@ export function FeedbackFlow({ business, slug, demo: isDemo = false }: { busines
             businessSlug={slug || business.slug}
           />
         )}
-        {step === "done" && <DoneStep business={business} demo={isDemo} />}
+        {step === "done" && (
+          <DoneStep
+            business={business}
+            demo={isDemo}
+            googleUrl={getGoogleReviewUrl() || (business.name ? `https://www.google.com/maps/search/${encodeURIComponent(business.name)}` : null)}
+            reviewContent={redirectContent || customerReview}
+          />
+        )}
 
         {showRedirectPopup && (
           <RedirectPopup
@@ -325,8 +374,11 @@ export function FeedbackFlow({ business, slug, demo: isDemo = false }: { busines
       {step !== "loading" && (
         <footer className="mt-6 text-center text-xs text-muted-foreground">
           <p className="text-pretty">
-            A helpful draft based on what you shared — <span className="font-semibold text-foreground/70">you&apos;re in control</span>. Edit
-            freely, regenerate, or write from scratch. Your review, your voice.
+            {mcqText(language, "footerLead") || "A helpful draft based on what you shared —"}{" "}
+            <span className="font-semibold text-foreground/70">
+              {mcqText(language, "footerControl") || "you're in control"}
+            </span>
+            {mcqText(language, "footerRest") || ". Edit freely, regenerate, or write from scratch. Your review, your voice."}
           </p>
           {business.showPoweredBy !== false && (
             <p className="mt-2 text-[10px] text-muted-foreground/40 select-none">
@@ -527,19 +579,88 @@ function LanguageStep({ business, language, setLanguage, onContinue, onBack }: {
 }
 
 function MCQStep({
-  business, rating, language, onLanguageChange, selectedSubOptions, toggleSubOption, specialMention, onSpecialMentionChange, onContinue, onBack, submitting,
+  business, rating, language, onLanguageChange, categories, signatureItems, selectedSubOptions, toggleSubOption, specialMention, onSpecialMentionChange, onContinue, onBack, submitting,
 }: {
-  business: any; rating: number; language: string; onLanguageChange: (v: string) => void; selectedSubOptions: string[]; toggleSubOption: (id: string) => void; specialMention: string; onSpecialMentionChange: (v: string) => void; onContinue: () => void; onBack: () => void; submitting: boolean
+  business: any; rating: number; language: string; onLanguageChange: (v: string) => void; categories: ReturnType<typeof getMCQCategories>; signatureItems: string[]; selectedSubOptions: string[]; toggleSubOption: (id: string) => void; specialMention: string; onSpecialMentionChange: (v: string) => void; onContinue: () => void; onBack: () => void; submitting: boolean
 }) {
   const moodKey = getMoodKey(rating)
   const [specialDismissed, setSpecialDismissed] = useState(false)
+  const [isListening, setIsListening] = useState(false)
+  const recognitionRef = useRef<any>(null)
   const typedLang = detectTypedLanguage(specialMention)
   const showLangHint = !!typedLang && typedLang !== language && specialMention.trim().length >= 8
+  const t = (key: string, fallback: string) => mcqText(language, key) || fallback
 
-  const categories = getMCQCategories(business.industry, business.promptTopics || [])
+  function toggleVoiceInput() {
+    if (typeof window === "undefined") return
 
-  const allSubLabels = categories.flatMap((c) => c.subOptions).filter((s) => selectedSubOptions.includes(s.id)).map((s) => s.label)
-  const canContinue = selectedSubOptions.length > 0 || specialMention.trim().length > 0
+    const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    if (!SpeechRec) {
+      toast.info("Voice recognition isn't supported on this browser. You can type directly below.")
+      return
+    }
+
+    if (isListening) {
+      recognitionRef.current?.stop()
+      setIsListening(false)
+      return
+    }
+
+    try {
+      const recognition = new SpeechRec()
+      recognitionRef.current = recognition
+      recognition.continuous = false
+      recognition.interimResults = true
+
+      // Map chosen language code for speech engine
+      const langMap: Record<string, string> = {
+        english: "en-IN",
+        hinglish: "hi-IN",
+        hindi: "hi-IN",
+        marathi: "mr-IN",
+        gujarati: "gu-IN",
+        tamil: "ta-IN",
+        telugu: "te-IN",
+        bengali: "bn-IN",
+        kannada: "kn-IN",
+      }
+      recognition.lang = langMap[language] || "en-IN"
+
+      let initialText = specialMention
+
+      recognition.onstart = () => {
+        setIsListening(true)
+        toast.success("Listening... speak your experience naturally!")
+      }
+
+      recognition.onresult = (event: any) => {
+        let transcript = ""
+        for (let i = 0; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript
+        }
+        const updated = initialText ? `${initialText.trim()} ${transcript}` : transcript
+        onSpecialMentionChange(updated)
+      }
+
+      recognition.onerror = () => {
+        setIsListening(false)
+      }
+
+      recognition.onend = () => {
+        setIsListening(false)
+      }
+
+      recognition.start()
+    } catch {
+      setIsListening(false)
+    }
+  }
+
+  const validSelectedSubOptions = categories
+    .flatMap((c) => c.subOptions)
+    .filter((s) => selectedSubOptions.includes(s.id))
+  const allSubLabels = validSelectedSubOptions.map((s) => localizeOptionLabel(s.label, language))
+  const canContinue = validSelectedSubOptions.length > 0 || specialMention.trim().length > 0
 
   const ICON_MAP: Record<string, any> = {
     Utensils, ThumbsUp, Sparkles, SmilePlus, Wine,
@@ -563,11 +684,15 @@ function MCQStep({
           moodKey === "neutral" ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" :
           "bg-red-500/10 text-red-600 dark:text-red-400")}>
           {moodKey === "positive" ? <ThumbsUp className="size-4" /> : moodKey === "neutral" ? <Meh className="size-4" /> : <Frown className="size-4" />}
-          {moodKey === "positive" ? "What did you love?" : moodKey === "neutral" ? "What was just okay?" : "What went wrong?"}
+          {moodKey === "positive"
+            ? t("whatLoved", "What did you love?")
+            : moodKey === "neutral"
+              ? t("whatOkay", "What was just okay?")
+              : t("whatWrong", "What went wrong?")}
         </div>
       </div>
 
-      {selectedSubOptions.length > 0 && (
+      {allSubLabels.length > 0 && (
         <div className="mb-3 flex flex-wrap gap-1.5">
           {allSubLabels.map((label) => (
             <span key={label} className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary text-[10px] font-semibold px-2.5 py-1 border border-primary/20">
@@ -575,6 +700,50 @@ function MCQStep({
               {label}
             </span>
           ))}
+        </div>
+      )}
+
+      {/* ── SIGNATURE ITEMS / DISHES SECTION (HIGH SEO IMPACT) ── */}
+      {signatureItems.length > 0 && (
+        <div className="mb-3 rounded-xl border border-primary/20 bg-primary/5 p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+              <Sparkles className="size-3.5 text-primary" />
+              {localizeSignatureItemsLabel(business.industry, language) || getSignatureItemsLabel(business.industry)}
+            </span>
+            <span className="text-[10px] text-muted-foreground">{t("tapToInclude", "Tap to include")}</span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {signatureItems.map((item) => {
+              const isIncluded = specialMention.toLowerCase().includes(item.toLowerCase())
+              return (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => {
+                    if (isIncluded) {
+                      // Remove item mention
+                      const regex = new RegExp(`\\b${item}\\b[,.]?\\s*`, 'gi')
+                      onSpecialMentionChange(specialMention.replace(regex, '').trim())
+                    } else {
+                      // Append item mention
+                      const separator = specialMention.trim() ? (specialMention.endsWith('.') ? ' ' : ', ') : ''
+                      onSpecialMentionChange(`${specialMention.trim()}${separator}${item}`)
+                    }
+                  }}
+                  className={cn(
+                    "rounded-lg border px-2.5 py-1 text-xs font-medium transition-all duration-150 active:scale-95",
+                    isIncluded
+                      ? "border-primary bg-primary text-primary-foreground shadow-xs font-semibold"
+                      : "border-primary/20 bg-card text-foreground hover:border-primary/40"
+                  )}
+                >
+                  {isIncluded && <Check className="inline size-3 mr-1" />}
+                  {item}
+                </button>
+              )
+            })}
+          </div>
         </div>
       )}
 
@@ -587,7 +756,7 @@ function MCQStep({
               <div className="flex w-full items-center justify-between px-3.5 py-2.5">
                 <div className="flex items-center gap-2.5">
                   <span className="text-muted-foreground">{getIcon(category.icon)}</span>
-                  <span className="text-sm font-semibold text-foreground">{category.label}</span>
+                  <span className="text-sm font-semibold text-foreground">{localizeOptionLabel(category.label, language)}</span>
                   {selectedCount > 0 && (
                     <span className="inline-flex items-center justify-center size-5 rounded-full bg-primary text-primary-foreground text-[9px] font-bold">
                       {selectedCount}
@@ -612,7 +781,7 @@ function MCQStep({
                             : "border-border/60 bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground"
                         )}
                       >
-                        {sub.label}
+                        {localizeOptionLabel(sub.label, language)}
                       </button>
                     )
                   })}
@@ -629,10 +798,10 @@ function MCQStep({
           <div className="flex items-center gap-2">
             <PenLine className="size-4 text-muted-foreground" />
             <span className="text-sm font-semibold text-foreground">
-              Anything else to mention?
+              {t("anythingElse", "Anything else to mention?")}
             </span>
             <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 font-normal uppercase tracking-wider border">
-              Optional
+              {t("optional", "Optional")}
             </Badge>
           </div>
           {!specialDismissed && specialMention.trim().length > 0 && (
@@ -645,13 +814,13 @@ function MCQStep({
         {specialDismissed ? (
           <div className="flex items-center gap-2 rounded-xl border border-dashed border-border/60 bg-muted/20 px-3.5 py-2.5">
             <Check className="size-3.5 text-muted-foreground/60 shrink-0" />
-            <span className="text-xs text-muted-foreground/60">Nothing else to add</span>
+            <span className="text-xs text-muted-foreground/60">{t("nothingElse", "Nothing else to add")}</span>
             <button
               type="button"
               onClick={() => setSpecialDismissed(false)}
               className="ml-auto text-xs font-medium text-primary hover:underline"
             >
-              Add details
+              {t("addDetails", "Add details")}
             </button>
           </div>
         ) : (
@@ -671,35 +840,50 @@ function MCQStep({
             )}
             <label className="text-xs font-medium text-muted-foreground/80">
               {moodKey === "positive"
-                ? "What made your experience special? Share a highlight..."
+                ? t("specialPositive", "What made your experience special? Share a highlight...")
                 : moodKey === "neutral"
-                  ? "What could have been better or stood out?"
-                  : "What went wrong? Help the business understand and improve..."}
+                  ? t("specialNeutral", "What could have been better or stood out?")
+                  : t("specialNegative", "What went wrong? Help the business understand and improve...")}
             </label>
-            <textarea
-              value={specialMention}
-              onChange={(e) => onSpecialMentionChange(e.target.value)}
-              placeholder={
-                moodKey === "positive"
-                  ? "Any specific moments, people, or details that made it great..."
-                  : moodKey === "neutral"
-                    ? "Any specifics that come to mind — good or bad..."
-                    : "Describe what happened so the business can address it..."
-              }
-              className="w-full min-h-[60px] resize-none rounded-xl border-2 border-muted-foreground/30 bg-card p-3 text-xs leading-relaxed transition-all duration-200 focus:border-primary/40 focus:ring-2 focus:ring-primary/20 outline-none"
-              maxLength={500}
-              rows={2}
-            />
+            <div className="relative">
+              <textarea
+                value={specialMention}
+                onChange={(e) => onSpecialMentionChange(e.target.value)}
+                placeholder={localizeSpecialMentionPlaceholder(business.industry, moodKey, language) || getSpecialMentionPlaceholder(business.industry, moodKey)}
+                className="w-full min-h-[70px] resize-none rounded-xl border-2 border-muted-foreground/30 bg-card p-3 pr-11 text-xs leading-relaxed transition-all duration-200 focus:border-primary/40 focus:ring-2 focus:ring-primary/20 outline-none"
+                maxLength={500}
+                rows={2}
+              />
+              <button
+                type="button"
+                onClick={toggleVoiceInput}
+                title={isListening ? t("stopListening", "Stop listening") : t("voiceHint", "Tap to speak in any language")}
+                className={cn(
+                  "absolute right-2.5 top-2.5 flex size-8 items-center justify-center rounded-lg border transition-all active:scale-90",
+                  isListening
+                    ? "border-red-500 bg-red-500 text-white animate-pulse shadow-md"
+                    : "border-border bg-muted/60 text-muted-foreground hover:bg-primary/10 hover:text-primary hover:border-primary/40"
+                )}
+              >
+                {isListening ? <MicOff className="size-4" /> : <Mic className="size-4" />}
+              </button>
+            </div>
+            {isListening && (
+              <p className="text-[11px] font-semibold text-red-500 animate-pulse flex items-center gap-1.5">
+                <span className="size-2 rounded-full bg-red-500" />
+                {t("listening", "Listening... speak in your natural language or Hinglish")}
+              </p>
+            )}
             <div className="flex items-start justify-between gap-4">
               <p className="text-[10px] text-muted-foreground/70 leading-relaxed">
-                Your own words help the AI craft a more authentic review. Be as specific as you like.
+                {t("yourWords", "Your own words help the AI craft a more authentic review. Be as specific as you like.")}
               </p>
               <button
                 type="button"
                 onClick={() => { onSpecialMentionChange(""); setSpecialDismissed(true) }}
                 className="shrink-0 text-[10px] font-medium text-muted-foreground/60 hover:text-foreground whitespace-nowrap hover:underline transition-colors"
               >
-                Nothing else to add
+                {t("nothingElse", "Nothing else to add")}
               </button>
             </div>
           </div>
@@ -709,13 +893,13 @@ function MCQStep({
       <div className="mt-auto flex gap-3 pt-6">
         <Button variant="outline" onClick={onBack} disabled={submitting} className="flex-1 rounded-xl py-6 font-semibold bg-card">
           <ArrowLeft className="size-4 mr-2" />
-          Back
+          {t("back", "Back")}
         </Button>
         <Button onClick={onContinue} disabled={!canContinue || submitting} className="flex-[2] rounded-xl py-6 font-semibold bg-gradient-to-r from-primary to-primary/95 hover:from-primary/95 hover:to-primary text-primary-foreground shadow-md hover:shadow-lg transition-all transform active:scale-95">
           {submitting ? (
-            <><Loader2 className="mr-2 size-4 animate-spin" />Processing...</>
+            <><Loader2 className="mr-2 size-4 animate-spin" />{t("processing", "Processing...")}</>
           ) : (
-            <><span>Continue to Draft</span><ArrowRight className="ml-2 size-4" /></>
+            <><span>{t("continue", "Continue to Draft")}</span><ArrowRight className="ml-2 size-4" /></>
           )}
         </Button>
       </div>
@@ -765,6 +949,8 @@ function ReviewStep({
   }, [])
 
   const hasReminders = talkingPoints.length > 0
+  const t = (key: string, fallback: string) => mcqText(language, key) || fallback
+  const sentimentKey = rating >= 4 ? "Positive" : rating === 3 ? "Neutral" : "Negative"
 
   /** Build a stable fingerprint of the current input for change detection */
   function inputFingerprint() {
@@ -776,7 +962,7 @@ function ReviewStep({
     if (!combinedInput && !hasReminders && !rawHighlights) return
     setGeneratingReview(true)
     try {
-      const res = await fetch("/api/generate-review", {
+      const res = await fetch("/api/ai/generate-review", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -790,7 +976,13 @@ function ReviewStep({
           businessSlug,
         }),
       })
-      if (!res.ok) throw new Error("API error")
+      if (!res.ok) {
+        const body = await res.json().catch(() => null)
+        const err: any = new Error(body?.error || "API error")
+        err.code = body?.code
+        err.status = res.status
+        throw err
+      }
       const data = await res.json()
       if (data.review) {
         onReviewChange(data.review)
@@ -849,7 +1041,7 @@ function ReviewStep({
     if (!customerReview.trim()) return
     navigator.clipboard.writeText(customerReview)
     setCopiedReview(true)
-    toast.success("Review copied! Paste it on Google and make any final edits.")
+    toast.success(t("reviewCopiedToast", "Review copied! Paste it on Google and make any final edits."))
     setTimeout(() => setCopiedReview(false), 2000)
   }
 
@@ -859,9 +1051,11 @@ function ReviewStep({
     <div className="flex flex-1 flex-col">
       <div className="text-center mb-3">
         <h2 className="text-balance text-lg font-semibold tracking-tight text-foreground">
-          {config.headline}
+          {t(`review${sentimentKey}Headline`, config.headline)}
         </h2>
-        <p className="mt-1 text-sm text-muted-foreground text-pretty">{config.subhead}</p>
+        <p className="mt-1 text-sm text-muted-foreground text-pretty">
+          {t(`review${sentimentKey}Subhead`, config.subhead)}
+        </p>
       </div>
 
       {/* MAIN REVIEW TEXTAREA */}
@@ -869,13 +1063,13 @@ function ReviewStep({
         <div className="flex items-center justify-between px-0.5">
           <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
             <Sparkles className={cn("size-3.5", reviewGenerated && "text-primary")} />
-            Your Review
+            {t("reviewYourReview", "Your Review")}
           </label>
           <div className="flex items-center gap-2">
             {reviewGenerated && (
               <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 font-normal uppercase tracking-wider border">
                 <Sparkles className="size-2.5 mr-0.5" />
-                AI draft
+                {t("reviewAiDraft", "AI draft")}
               </Badge>
             )}
             {hasContent && (
@@ -885,7 +1079,7 @@ function ReviewStep({
                 className="inline-flex items-center gap-1 text-[10px] font-medium text-primary hover:underline"
               >
                 {copiedReview ? <Check className="size-3" /> : <PenLine className="size-3" />}
-                {copiedReview ? "Copied" : "Copy"}
+                {copiedReview ? t("reviewCopied", "Copied") : t("reviewCopy", "Copy")}
               </button>
             )}
           </div>
@@ -898,10 +1092,10 @@ function ReviewStep({
             onChange={(e) => onReviewChange(e.target.value)}
             placeholder={
               generatingReview
-                ? "Crafting your review draft..."
+                ? t("reviewCrafting", "Crafting your review draft...")
                 : hasReminders
-                  ? "Write your review here, or tap \"Generate with AI\" for a draft..."
-                  : "Start typing your review in your own words..."
+                  ? t("reviewPlaceholderReminders", 'Write your review here, or tap "Generate with AI" for a draft...')
+                  : t("reviewPlaceholderEmpty", "Start typing your review in your own words...")
             }
             className={cn(
               "min-h-[140px] resize-none rounded-xl border-2 p-4 text-sm leading-relaxed transition-all duration-200",
@@ -918,7 +1112,7 @@ function ReviewStep({
             <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-background/60 backdrop-blur-[1px]">
               <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                 <Loader2 className="size-4 animate-spin text-primary" />
-                Generating your review draft...
+                {t("reviewGenerating", "Generating your review draft...")}
               </div>
             </div>
           )}
@@ -927,8 +1121,8 @@ function ReviewStep({
         <div className="flex items-center justify-between px-0.5">
           <span className="text-[10px] text-muted-foreground">
             {hasContent
-              ? "Edit freely or regenerate for a new version"
-              : "Write your own or let AI help you start"}
+              ? t("reviewEditHint", "Edit freely or regenerate for a new version")
+              : t("reviewWriteHint", "Write your own or let AI help you start")}
           </span>
           <span className={cn("text-[10px] font-bold tabular-nums", customerReview.length > 1900 ? "text-destructive" : "text-muted-foreground")}>
             {customerReview.length}/2000
@@ -956,12 +1150,12 @@ function ReviewStep({
               <RefreshCw className={cn("size-3.5 mr-1.5", !hasContent && !generatingReview && buttonCooldown === 0 && "text-primary-foreground")} />
             )}
             {generatingReview
-              ? "Generating..."
+              ? t("reviewGeneratingShort", "Generating...")
               : buttonCooldown > 0
-                ? `Wait ${buttonCooldown}s...`
+                ? `${t("reviewWait", "Wait")} ${buttonCooldown}s...`
                 : hasContent
-                  ? "Regenerate with AI"
-                  : "Generate with AI"}
+                  ? t("reviewRegenerate", "Regenerate with AI")
+                  : t("reviewGenerate", "Generate with AI")}
           </Button>
 
           {authenticity && authenticity.warnings.length > 0 && (
@@ -983,7 +1177,7 @@ function ReviewStep({
           >
             <div className="flex items-center gap-2">
               <MessageSquareHeart className="size-3.5 text-primary shrink-0" />
-              <span>Your talking points</span>
+              <span>{t("reviewTalkingPoints", "Your talking points")}</span>
             </div>
             <ChevronDown className={cn("size-3.5 transition-transform", talkingPointsExpanded && "rotate-180")} />
           </button>
@@ -998,7 +1192,7 @@ function ReviewStep({
                 ))}
               </ul>
               <p className="mt-2 text-[10px] text-muted-foreground italic leading-relaxed">
-                These are reminders from what you told us. Weave them into your review naturally.
+                {t("reviewTalkingPointsHint", "These are reminders from what you told us. Weave them into your review naturally.")}
               </p>
             </div>
           )}
@@ -1010,7 +1204,9 @@ function ReviewStep({
         <div className="mt-4 rounded-xl border border-primary/30 bg-primary/5 p-4">
           <div className="flex items-center gap-2">
             <Loader2 className="size-4 text-primary animate-spin" />
-            <span className="text-sm font-medium text-foreground">AI is preparing your talking points...</span>
+            <span className="text-sm font-medium text-foreground">
+              {t("reviewPreparingPoints", "AI is preparing your talking points...")}
+            </span>
           </div>
           <div className="mt-3 space-y-2">
             {[1, 2, 3].map((i) => (
@@ -1023,16 +1219,16 @@ function ReviewStep({
       {/* ALREADY REVIEWED NOTE */}
       <div className="mt-4 rounded-xl border border-muted-foreground/20 bg-muted/20 px-3.5 py-2.5">
         <p className="text-[10px] text-muted-foreground leading-relaxed">
-          Already reviewed this place before? Google allows only one review per account — but you can{' '}
+          {t("reviewAlreadyReviewedPrefix", "Already reviewed this place before? Google allows only one review per account — but you can")}{' '}
           <a
             href="https://support.google.com/maps/answer/6230175"
             target="_blank"
             rel="noopener noreferrer"
             className="text-primary underline underline-offset-2 hover:text-primary/80"
           >
-            edit your existing review
+            {t("reviewEditExisting", "edit your existing review")}
           </a>
-          {' '}with your new experience instead of posting a new one.
+          {' '}{t("reviewAlreadyReviewedSuffix", "with your new experience instead of posting a new one.")}
         </p>
       </div>
 
@@ -1045,7 +1241,7 @@ function ReviewStep({
           disabled={submitting}
         >
           {submitting ? <Loader2 className="size-4 animate-spin" /> : <ExternalLink className="size-4" />}
-          {submitting ? "Just a moment..." : "Post your review on Google"}
+          {submitting ? t("reviewJustAMoment", "Just a moment...") : t("reviewPostGoogle", "Post your review on Google")}
         </Button>
 
         <button
@@ -1054,7 +1250,7 @@ function ReviewStep({
           className="mt-1 inline-flex items-center justify-center gap-1 text-xs text-muted-foreground hover:text-foreground hover:underline"
         >
           <ArrowLeft className="size-3" />
-          Edit my notes
+          {t("reviewEditNotes", "Edit my notes")}
         </button>
       </div>
     </div>
@@ -1145,21 +1341,35 @@ function RedirectPopup({
 }) {
   useEffect(() => {
     if (reviewContent.trim()) {
-      navigator.clipboard.writeText(reviewContent.trim())
+      try {
+        navigator.clipboard?.writeText(reviewContent.trim())
+      } catch {}
     }
-  }, [])
+  }, [reviewContent])
 
   return (
-    <div className="absolute inset-0 z-50 flex items-center justify-center rounded-xl bg-background/80 backdrop-blur-sm animate-fade-in">
-      <div className="flex flex-col items-center text-center p-8 max-w-sm">
-        <div className="flex size-16 items-center justify-center rounded-full bg-emerald-500 text-white animate-scale-in shadow-lg">
-          <Check className="size-8" strokeWidth={3} />
+    <div className="absolute inset-0 z-50 flex items-center justify-center rounded-xl bg-background/90 backdrop-blur-sm animate-fade-in p-4">
+      <div className="flex flex-col items-center text-center p-6 max-w-sm rounded-2xl bg-card border border-border shadow-2xl">
+        <div className="flex size-14 items-center justify-center rounded-full bg-emerald-500 text-white animate-scale-in shadow-md">
+          <Check className="size-7" strokeWidth={3} />
         </div>
-        <h2 className="mt-4 text-xl font-extrabold tracking-tight text-foreground">✓ Copied to clipboard!</h2>
-        <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
-          Redirecting to Google in <span className="font-bold text-foreground">{countdown}</span>...
+        <h2 className="mt-3 text-lg font-bold tracking-tight text-foreground">Review Copied!</h2>
+
+        <div className="mt-3 w-full bg-muted/60 rounded-xl p-3 border border-border/50 text-left space-y-1.5">
+          <p className="text-[11px] font-semibold text-foreground flex items-center gap-1.5">
+            <span className="flex size-4 items-center justify-center rounded-full bg-primary text-primary-foreground text-[9px] font-bold">1</span>
+            Draft copied to your clipboard
+          </p>
+          <p className="text-[11px] font-semibold text-foreground flex items-center gap-1.5">
+            <span className="flex size-4 items-center justify-center rounded-full bg-primary text-primary-foreground text-[9px] font-bold">2</span>
+            On Google, tap &amp; hold in the box and tap <strong>Paste</strong>
+          </p>
+        </div>
+
+        <p className="mt-3 text-xs text-muted-foreground">
+          Opening Google in <span className="font-bold text-foreground tabular-nums">{countdown}s</span>...
         </p>
-        <div className="mt-4 h-1.5 w-full rounded-full bg-border overflow-hidden">
+        <div className="mt-2.5 h-1.5 w-full rounded-full bg-muted overflow-hidden">
           <div
             className="h-full rounded-full bg-emerald-500 transition-all duration-1000 ease-linear"
             style={{ width: `${((3 - countdown) / 3) * 100}%` }}
@@ -1170,7 +1380,29 @@ function RedirectPopup({
   )
 }
 
-function DoneStep({ business, demo }: { business: any; demo?: boolean }) {
+function DoneStep({
+  business,
+  demo,
+  googleUrl,
+  reviewContent,
+}: {
+  business: any
+  demo?: boolean
+  googleUrl?: string | null
+  reviewContent?: string
+}) {
+  const [copiedAgain, setCopiedAgain] = useState(false)
+
+  const handleCopyAgain = () => {
+    if (reviewContent?.trim()) {
+      try {
+        navigator.clipboard?.writeText(reviewContent.trim())
+        setCopiedAgain(true)
+        toast.success("Review copied to clipboard!")
+        setTimeout(() => setCopiedAgain(false), 2000)
+      } catch {}
+    }
+  }
   return (
     <div className="flex flex-1 flex-col items-center justify-center text-center space-y-4 py-4 animate-fade-in">
       <div className="relative flex size-20 items-center justify-center">
@@ -1212,6 +1444,29 @@ function DoneStep({ business, demo }: { business: any; demo?: boolean }) {
               {' '}on Google to reflect your new experience instead of posting a second one.
             </p>
           </div>
+
+          {!demo && googleUrl && (
+            <div className="w-full max-w-xs space-y-2 pt-3 animate-fade-in-up" style={{ animationDelay: "550ms" }}>
+              <Button
+                onClick={() => window.open(googleUrl, "_blank", "noopener,noreferrer")}
+                className="w-full gap-2 bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-md hover:shadow-lg"
+              >
+                <ExternalLink className="size-4" />
+                Open Google Reviews Tab
+              </Button>
+              {reviewContent && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCopyAgain}
+                  className="w-full gap-2 text-xs"
+                >
+                  {copiedAgain ? <Check className="size-3.5 text-emerald-500" /> : <PenLine className="size-3.5" />}
+                  {copiedAgain ? "Copied to Clipboard!" : "Copy Review Text Again"}
+                </Button>
+              )}
+            </div>
+          )}
         </>
       )}
       {demo && (

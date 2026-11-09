@@ -11,6 +11,8 @@ import { AiCreditsBar } from "@/components/dashboard/ai-credits-bar";
 import { TrendChart } from "@/components/dashboard/trend-chart";
 import { RatingBreakdown, RecentActivity, ComplianceCard } from "@/components/dashboard/overview-panels";
 import { GoogleReviewGap } from "@/components/dashboard/google-review-gap";
+import { TouchpointBreakdown } from "@/components/dashboard/touchpoint-breakdown";
+import { IssueResolutionReport } from "@/components/dashboard/issue-resolution-report";
 import {
   Select,
   SelectContent,
@@ -195,6 +197,8 @@ if (!biz) {
 
         <AiCreditsBar />
 
+        {currentBusiness?.id && <IssueResolutionReport businessId={currentBusiness.id} />}
+
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2">
             <TrendChart data={trend} />
@@ -203,6 +207,8 @@ if (!biz) {
             reviews={(stats?.ratingDistribution || []).map((r: any) => ({ rating: r.rating, count: r.count }))}
           />
         </div>
+
+        <TouchpointBreakdown data={stats?.touchpointBreakdown || []} />
 
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2">

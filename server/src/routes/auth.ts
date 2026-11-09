@@ -16,19 +16,23 @@ const signToken = (payload: object, secret: string, expiresIn: string): string =
 
 const router = Router();
 
+// Email addresses are matched case-insensitively (existing rows may predate
+// this normalisation, so lookups below also use `mode: "insensitive"`).
+const emailSchema = z.string().trim().toLowerCase().email();
+
 const signupSchema = z.object({
-  email: z.string().email(),
+  email: emailSchema,
   password: z.string().min(8).max(128),
   name: z.string().min(1).max(100).optional(),
 });
 
 const loginSchema = z.object({
-  email: z.string().email(),
+  email: emailSchema,
   password: z.string(),
 });
 
 const forgotPasswordSchema = z.object({
-  email: z.string().email(),
+  email: emailSchema,
 });
 
 const resetPasswordSchema = z.object({
@@ -53,7 +57,9 @@ router.post("/signup", authLimiter, async (req: AuthRequest, res: Response) => {
   try {
     const data = signupSchema.parse(req.body);
 
-    const existing = await prisma.user.findUnique({ where: { email: data.email } });
+    const existing = await prisma.user.findFirst({
+      where: { email: { equals: data.email, mode: "insensitive" } },
+    });
     if (existing) {
       return res.status(409).json({ error: "Email already registered" });
     }
@@ -115,9 +121,20 @@ router.post("/login", authLimiter, async (req: AuthRequest, res: Response) => {
   try {
     const data = loginSchema.parse(req.body);
 
-    const user = await prisma.user.findUnique({ where: { email: data.email } });
+    const user = await prisma.user.findFirst({
+      where: { email: { equals: data.email, mode: "insensitive" } },
+    });
     if (!user) {
       return res.status(401).json({ error: "Invalid email or password" });
+    }
+    if (user.deletedAt) {
+      return res.status(401).json({ error: "Invalid email or password" });
+    }
+    if (user.suspended) {
+      return res.status(403).json({
+        error: "Your account has been suspended. Please contact support.",
+        code: "ACCOUNT_SUSPENDED",
+      });
     }
 
     const valid = await bcrypt.compare(data.password, user.passwordHash);
@@ -149,7 +166,9 @@ router.post("/forgot-password", authLimiter, async (req: AuthRequest, res: Respo
     // Always return the same response to prevent user enumeration
     const genericResponse = { message: "If that email is registered, you will receive a password reset link." };
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findFirst({
+      where: { email: { equals: email, mode: "insensitive" } },
+    });
     if (!user) {
       return res.json(genericResponse);
     }
@@ -168,7 +187,9 @@ router.post("/forgot-password", authLimiter, async (req: AuthRequest, res: Respo
     });
 
     const frontendUrl = getFrontendUrl();
-    const resetLink = `${frontendUrl}/reset-password?token=${encodeURIComponent(rawToken)}`;
+    // Fragment, not query: reset tokens must not appear in server/CDN logs or
+    // leak to third parties through the Referer header.
+    const resetLink = `${frontendUrl}/reset-password#token=${encodeURIComponent(rawToken)}`;
 
     sendPasswordResetEmail(user.email, user.name || "", resetLink).catch((e) => {
       console.error("Password reset email send failure:", e);
@@ -424,18 +445,30 @@ router.get("/google/callback", async (req: AuthRequest, res: Response) => {
     if (!payload || !payload.email) {
       return res.redirect(`${frontendUrl}/login?error=google_auth_failed`);
     }
+    // Never merge into an existing password account on an unverified email —
+    // that would let an attacker take over the account by claiming its address
+    // at a Google identity provider.
+    if (!payload.email_verified) {
+      return res.redirect(`${frontendUrl}/login?error=google_email_unverified`);
+    }
 
-    // Upsert user: find by googleId first, then by email
+    // Upsert user: find by googleId first, then by (case-insensitive) email
     let user = await prisma.user.findFirst({
       where: {
         OR: [
           { googleId: payload.sub },
-          { email: payload.email },
+          { email: { equals: payload.email, mode: "insensitive" } },
         ],
       },
     });
 
     if (user) {
+      if (user.deletedAt) {
+        return res.redirect(`${frontendUrl}/login?error=account_deleted`);
+      }
+      if (user.suspended) {
+        return res.redirect(`${frontendUrl}/login?error=account_suspended`);
+      }
       // Link googleId if this user signed up via email/password first
       if (!user.googleId) {
         await prisma.user.update({
@@ -448,7 +481,7 @@ router.get("/google/callback", async (req: AuthRequest, res: Response) => {
       const passwordHash = await bcrypt.hash(crypto.randomBytes(32).toString("hex"), 12);
       user = await prisma.user.create({
         data: {
-          email: payload.email,
+          email: payload.email.toLowerCase(),
           name: payload.name || null,
           googleId: payload.sub,
           passwordHash,
@@ -475,7 +508,10 @@ router.get("/google/callback", async (req: AuthRequest, res: Response) => {
     // Issue session JWT
     const token = issueSessionToken(user.id);
 
-    res.redirect(`${frontendUrl}/google/auth/success?token=${encodeURIComponent(token)}`);
+    // The session token travels in the URL *fragment*: browsers never send it
+    // to the frontend server, CDN access logs or third parties via Referer.
+    // The success page reads it client-side and immediately clears it.
+    res.redirect(`${frontendUrl}/google/auth/success#token=${encodeURIComponent(token)}`);
   } catch (err) {
     console.error("Google OAuth callback error:", err);
     res.redirect(`${getFrontendUrl()}/login?error=google_auth_failed`);

@@ -75,15 +75,21 @@ export default function TermsPage() {
             The Service is offered on a subscription basis in INR. Current plans are listed on our{" "}
             <a href="/pricing" className="text-primary underline underline-offset-2">pricing page</a>:
             Free (₹0), Lite (₹100/month), Starter (₹249/month), Growth (₹499/month), Pro (₹799/month),
-            with yearly options. Payment is processed by Razorpay (UPI, cards); GST invoice is provided and
-            prices are exclusive of GST unless stated.
+            with yearly options. Payment is processed by Razorpay (UPI, cards). Prices shown already include
+            GST and a GST tax invoice is issued for every payment.
           </p>
           <ul className="list-disc space-y-2 pl-6">
             <li>Fees are billed in advance on a monthly or annual basis, depending on your selected plan</li>
-            <li>All fees are non-refundable except as required by applicable law or as expressly stated in these Terms</li>
+            <li>All fees are non-refundable except as required by applicable law, as expressly stated in these Terms, or under the 7-day cooling-off window in our <a href="/refund" className="text-primary underline underline-offset-2">Refund Policy</a></li>
             <li>Subscriptions automatically renew at the end of each billing period unless cancelled before the renewal date</li>
-            <li>You authorize us to charge your payment method on file for all applicable fees</li>
-            <li>Fees exclude all taxes, and you are responsible for any applicable sales, use, VAT, or other taxes</li>
+            <li>
+              By subscribing you authorize a recurring e-mandate that charges the amount above on each renewal
+              date until you cancel. You can cancel any time from your dashboard billing page (or by contacting
+              support); cancellation stops future charges and takes effect at the end of the current period,
+              unless you cancel within the 7-day window described in the Refund Policy. A bank/UPI mandate, once
+              registered, may also be revoked through your bank or UPI app
+            </li>
+            <li>The price shown includes GST; a tax invoice is issued for each payment</li>
             <li>We may change our fees with 30 days&rsquo; notice. Price changes take effect at the start of the next billing period</li>
           </ul>
         </section>

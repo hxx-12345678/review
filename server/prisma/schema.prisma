@@ -94,7 +94,18 @@ model Business {
   location        String?
   phoneNumber     String?
   website         String?
+  /**
+   * Signature dishes / services shown as one-tap chips in the customer flow.
+   * These are real menu items (e.g. "Truffle Burger"), not generic topics.
+   */
   promptTopics    String[]
+  /**
+   * Review-question configuration. `enabledCategories` holds category IDs from
+   * the industry taxonomy (empty = industry defaults); `customReviewTopics`
+   * holds owner-defined extra options (e.g. "Jain options", "Parking").
+   */
+  enabledCategories   String[] @default([])
+  customReviewTopics  String[] @default([])
   emailTemplate   String?
   smsTemplate     String?
 
@@ -130,10 +141,15 @@ model QrCode {
   id         String   @id @default(cuid())
   businessId String
   type       String   @default("review")
+  /** Placement: table | bill | packaging | reception | takeaway | ... */
+  touchpoint String?
+  label      String?
   url        String
   createdAt  DateTime @default(now())
 
   business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, touchpoint])
 }
 
 model Feedback {
@@ -148,9 +164,17 @@ model Feedback {
   customerEmail       String?
   privateNote         String?
   selectedSubOptions  Json?        // Industry-specific category sub-option IDs selected by the customer
+  /**
+   * Where the customer scanned/opened the flow: table | bill | packaging |
+   * reception | takeaway | whatsapp | sms | email | link | other.
+   * Non-sensitive placement metadata — never a table number or staff name.
+   */
+  touchpoint          String?
   status              ReviewStatus @default(PRIVATE_FEEDBACK)
   createdAt           DateTime     @default(now())
   updatedAt           DateTime     @updatedAt
+
+  @@index([businessId, touchpoint])
 
   business      Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
   reviewDraft   ReviewDraft?
@@ -262,6 +286,8 @@ model SubscriptionPlan {
 
   subscriptions      Subscription[]
   pendingSubscriptions Subscription[] @relation("PendingPlan")
+
+  @@index([active, sortOrder])
 }
 
 model Subscription {
@@ -281,6 +307,7 @@ model Subscription {
   autoRechargeEnabled   Boolean           @default(false)
   autoRechargeThreshold Int               @default(20)
   autoRechargeAmount    Int               @default(100)
+  autoRechargeLastAttemptAt DateTime?
   businessLimit         Int               @default(1)
   cancelledAt           DateTime?
   pendingPlanId         String?
@@ -293,45 +320,79 @@ model Subscription {
   pendingPlan           SubscriptionPlan? @relation("PendingPlan", fields: [pendingPlanId], references: [id])
   invoices              Invoice[]
   creditTopUps          CreditTopUp[]
+
+  @@unique([razorpaySubscriptionId])
+  @@index([userId, status])
+  @@index([status, createdAt])
 }
 
 model Invoice {
   id                String       @id @default(cuid())
-  subscriptionId    String
+  subscriptionId    String?
   razorpayPaymentId String?      @unique
-  amount            Int          // in paise
+  invoiceNumber     String?      @unique
+  amount            Int          // in paise, total charged (incl. tax)
+  taxableAmount     Int          @default(0) // paise, net of tax
+  taxAmount         Int          @default(0) // paise, GST component
+  refundedAmount    Int          @default(0)
   currency          String       @default("INR")
   status            String       @default("created")
+  kind              String       @default("subscription") // subscription | topup
+  planId            String?
   description       String?
+  customerEmail     String?
+  customerName      String?
+  customerGstin     String?
+  periodStart       DateTime?
+  periodEnd         DateTime?
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
 
-  subscription      Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  subscription      Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+
+  @@index([subscriptionId, createdAt])
+  @@index([createdAt])
+  @@index([status])
+  @@index([kind, createdAt])
 }
 
 model CreditTopUp {
-  id                String       @id @default(cuid())
-  subscriptionId    String
-  credits           Int
-  amount            Int          // in paise
-  razorpayPaymentId String?      @unique
-  status            String       @default("pending")
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
+  id                    String       @id @default(cuid())
+  subscriptionId        String
+  credits               Int
+  amount                Int          // in paise
+  razorpayPaymentId     String?      @unique
+  razorpayPaymentLinkId String?      @unique
+  referenceId           String?
+  type                  String       @default("manual") // manual | auto_recharge
+  status                String       @default("pending")
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
 
-  subscription      Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  subscription          Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId, createdAt])
+}
+
+// Atomic monotonic counter for sequential, per-financial-year invoice numbers.
+model InvoiceCounter {
+  id    String @id
+  value Int    @default(0)
 }
 
 model ActivityLog {
   id         String   @id @default(cuid())
   userId     String
-  businessId String
+  businessId String?
   action     String
   details    Json?
   createdAt  DateTime @default(now())
 
-  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  business Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([businessId, createdAt])
 }
 
 model AiVisibilityCheck {
@@ -426,9 +487,17 @@ model ReviewTask {
   description    String?
   taskType       String   @default("follow_up") // follow_up | reply | review_request
   priority       String   @default("normal")    // low | normal | high
-  status         String   @default("pending")   // pending | done | overdue
+  status         String   @default("pending")   // pending | in_progress | overdue | escalated | done
   source         String?  // "negative_review" | "overdue_reply" | "manual"
   referenceId    String?  // ID of the review/feedback that triggered this
+  /** Operational bucket: safety | food_quality | service | speed | ... */
+  category       String?
+  /** Stable recurrence key (category) used to merge repeat issues. */
+  issueKey       String?
+  occurrenceCount Int     @default(1)
+  /** How the issue was closed — required context for the owner/manager. */
+  resolutionNotes String?
+  escalatedAt    DateTime?
   dueAt          DateTime?
   assignedTo     String?  // agent name or user id
   completedAt    DateTime?
@@ -436,6 +505,9 @@ model ReviewTask {
   updatedAt      DateTime @updatedAt
 
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, status, dueAt])
+  @@index([businessId, issueKey, status])
 }
 
 model InstagramMention {

@@ -11,7 +11,12 @@ import { Separator } from "@/components/ui/separator"
 import { toast } from "sonner"
 import { api } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
-import { getIndustryLabel } from "@/lib/industry-categories"
+import {
+  getCategoriesForIndustry,
+  getEffectiveCategoryIds,
+  getIndustryLabel,
+  getSignatureItems,
+} from "@/lib/industry-categories"
 
 /**
  * Extracts a direct image URL from various URL formats.
@@ -101,8 +106,16 @@ export function SettingsForm({ business }: { business: any }) {
   const { user } = useAuth()
   const [name, setName] = useState(business?.name || "")
   const [industry, setIndustry] = useState(business?.industry || "OTHER")
-  const [promptTopics, setPromptTopics] = useState<string[]>(business?.promptTopics || [])
+  const [promptTopics, setPromptTopics] = useState<string[]>(() => getSignatureItems(business?.promptTopics || []))
   const [newTopic, setNewTopic] = useState("")
+  const [enabledCategories, setEnabledCategories] = useState<string[]>(() =>
+    getEffectiveCategoryIds(business?.industry || "OTHER", business?.enabledCategories || [], {
+      name: business?.name,
+      promptTopics: business?.promptTopics,
+    }),
+  )
+  const [customReviewTopics, setCustomReviewTopics] = useState<string[]>(business?.customReviewTopics || [])
+  const [newReviewTopic, setNewReviewTopic] = useState("")
   const [googleUrl, setGoogleUrl] = useState(business?.googleReviewUrl || "")
   const [googlePlaceId, setGooglePlaceId] = useState(business?.googlePlaceId || "")
   const [location, setLocation] = useState(business?.location || "")
@@ -142,6 +155,40 @@ export function SettingsForm({ business }: { business: any }) {
     return () => { cancelled = true }
   }, [business?.id, business?.googlePlaceId])
 
+  // Re-sync review-option config when the dashboard switches businesses.
+  useEffect(() => {
+    if (!business?.id) return
+    setPromptTopics(getSignatureItems(business.promptTopics || []))
+    setCustomReviewTopics(business.customReviewTopics || [])
+    setNewTopic("")
+    setNewReviewTopic("")
+    setEnabledCategories(
+      getEffectiveCategoryIds(business.industry || "OTHER", business.enabledCategories || [], {
+        name: business.name,
+        promptTopics: business.promptTopics,
+      }),
+    )
+    // Only re-run when the selected business or its allotted industry changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [business?.id, business?.industry])
+
+  function toggleCategory(categoryId: string) {
+    setEnabledCategories((prev) =>
+      prev.includes(categoryId) ? prev.filter((id) => id !== categoryId) : [...prev, categoryId],
+    )
+  }
+
+  function addReviewTopic() {
+    const label = newReviewTopic.trim().replace(/\s+/g, " ")
+    if (label.length < 2) return
+    if (customReviewTopics.some((topic) => topic.toLowerCase() === label.toLowerCase())) {
+      setNewReviewTopic("")
+      return
+    }
+    setCustomReviewTopics((prev) => [...prev, label].slice(0, 20))
+    setNewReviewTopic("")
+  }
+
   async function doSearch(query: string) {
     if (!query || query.length < 2) return
     setSearching(true)
@@ -172,6 +219,10 @@ export function SettingsForm({ business }: { business: any }) {
 
   async function save() {
     if (!business?.id) return
+    if (enabledCategories.length === 0) {
+      toast.error("Select at least one review category")
+      return
+    }
     setSaving(true)
     try {
       // Extract actual image URL from search page URLs
@@ -187,6 +238,8 @@ export function SettingsForm({ business }: { business: any }) {
         name,
         industry,
         promptTopics,
+        enabledCategories,
+        customReviewTopics,
         googleReviewUrl: finalGoogleUrl || undefined,
         googlePlaceId: googlePlaceId || undefined,
         location: location || undefined,
@@ -278,6 +331,9 @@ export function SettingsForm({ business }: { business: any }) {
       setChangingPassword(false)
     }
   }
+
+  const categoryOptions = getCategoriesForIndustry(industry)
+  const categoryHasBar = categoryOptions.some((category) => category.id === "drinks")
 
   return (
     <div className="space-y-6 overflow-hidden p-4 sm:p-8">
@@ -480,15 +536,117 @@ export function SettingsForm({ business }: { business: any }) {
           </div>
 
           <div className="space-y-2">
-            <Label>Topics customers can choose from</Label>
+            <div className="flex items-center justify-between">
+              <Label>What customers can talk about</Label>
+              <span className="text-xs text-muted-foreground">{enabledCategories.length} selected</span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              These are the option groups shown after a guest rates you. Keep only what applies to your
+              business — every group left unticked is hidden from the QR flow.
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {categoryOptions.map((category) => {
+                const checked = enabledCategories.includes(category.id)
+                return (
+                  <label
+                    key={category.id}
+                    className={`flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 transition-colors ${
+                      checked ? "border-primary/40 bg-primary/5" : "border-border bg-card"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleCategory(category.id)}
+                      className="mt-0.5 size-4 rounded border-gray-300 text-primary focus:ring-primary"
+                    />
+                    <span className="min-w-0">
+                      <span className="block text-sm font-medium text-foreground">{category.label}</span>
+                      <span className="block text-[11px] text-muted-foreground">
+                        {category.subOptions.map((sub) => sub.label).join(" · ")}
+                      </span>
+                    </span>
+                  </label>
+                )
+              })}
+            </div>
+            {categoryHasBar && (
+              <p className="text-[11px] text-muted-foreground">
+                Only tick <strong>Drinks &amp; Bar</strong> if you serve alcohol — it is off by default for
+                restaurants.
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Extra review options (optional)</Label>
+              <span className="text-xs text-muted-foreground">{customReviewTopics.length}/20</span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Add business-specific things guests can tap, e.g. &quot;Jain options&quot;, &quot;Parking&quot;,
+              &quot;Outdoor seating&quot;.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {customReviewTopics.map((topic) => (
+                <span
+                  key={topic}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1 text-sm text-secondary-foreground"
+                >
+                  {topic}
+                  <button
+                    type="button"
+                    onClick={() => setCustomReviewTopics((prev) => prev.filter((x) => x !== topic))}
+                    aria-label={`Remove ${topic}`}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                </span>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <Input
+                placeholder="Add a review option (e.g. Jain options)"
+                value={newReviewTopic}
+                onChange={(e) => setNewReviewTopic(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault()
+                    addReviewTopic()
+                  }
+                }}
+                maxLength={80}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={addReviewTopic}
+                aria-label="Add review option"
+                disabled={customReviewTopics.length >= 20}
+              >
+                <Plus className="size-4" />
+              </Button>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Signature Menu Items / Popular Services</Label>
+              <span className="text-xs text-muted-foreground">Boosts Google Maps ranking</span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Add your top dishes or core services (e.g. &quot;Butter Chicken&quot;, &quot;Paneer Tikka&quot;, &quot;HydraFacial&quot;, &quot;Root Canal&quot;). Customers will see these as 1-tap chips to mention in their review.
+            </p>
             <div className="flex flex-wrap gap-2">
               {promptTopics.length === 0 && (
-                <span className="text-xs text-muted-foreground">No topics yet — add some below.</span>
+                <span className="text-xs text-muted-foreground italic">No signature items yet — add 3 to 6 popular items below.</span>
               )}
               {promptTopics.map((t) => (
                 <span
                   key={t}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1 text-sm text-secondary-foreground"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/20 px-3 py-1 text-sm font-medium text-primary"
                 >
                   {t}
                   <button
@@ -504,7 +662,7 @@ export function SettingsForm({ business }: { business: any }) {
             </div>
             <div className="flex gap-2">
               <Input
-                placeholder="Add a topic"
+                placeholder="Add signature dish or service (e.g. Truffle Pizza, Hair Spa)"
                 value={newTopic}
                 onChange={(e) => setNewTopic(e.target.value)}
                 onKeyDown={(e) => {

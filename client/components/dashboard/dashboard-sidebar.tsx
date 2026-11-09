@@ -80,11 +80,10 @@ export function DashboardSidebar() {
             </Link>
           )
         })}
-        {/* v2 sidebar hidden for v1 video — routes still live, uncomment block below to restore
         {isV2Visible(user?.email) && (
           <>
             <div className="my-2 border-t border-border" />
-            <p className="px-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">v2 Features</p>
+            <p className="px-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Operations & v2</p>
             {V2_NAV.map((item) => {
               const active = pathname.startsWith(item.href) && (item.href === "/v2" ? pathname === "/v2" : true)
               return (
@@ -106,7 +105,6 @@ export function DashboardSidebar() {
             })}
           </>
         )}
-        */}
       </nav>
 
       <div className="shrink-0 p-3">
@@ -214,11 +212,10 @@ export function DashboardSidebar() {
               </Link>
             )
           })}
-          {/* v2 sidebar hidden for v1 video — routes still live, uncomment block below to restore
           {isV2Visible(user?.email) && (
             <>
               <div className="my-2 border-t border-border" />
-              <p className="px-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">v2 Features</p>
+              <p className="px-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Operations & v2</p>
               {V2_NAV.map((item) => {
                 const active = pathname.startsWith(item.href) && (item.href === "/v2" ? pathname === "/v2" : true)
                 return (
@@ -239,7 +236,6 @@ export function DashboardSidebar() {
               })}
             </>
           )}
-          */}
         </nav>
         <div className="shrink-0 p-3 border-t border-border">
           <Link

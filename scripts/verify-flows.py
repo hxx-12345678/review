@@ -1,8 +1,11 @@
-import json, sys, time, urllib.request, urllib.error
+import json, os, sys, time, urllib.request, urllib.error
 
 BASE = "http://localhost:4000/api"
-EMAIL = "cptjacksprw@gmail.com"
-PASSWORD = "Player@123"
+EMAIL = os.environ.get("TEST_EMAIL", "")
+PASSWORD = os.environ.get("TEST_PASSWORD", "")
+if not EMAIL or not PASSWORD:
+    print("Set TEST_EMAIL and TEST_PASSWORD to run this script.")
+    sys.exit(1)
 results = []
 
 def call(method, path, body=None, token=None):
@@ -33,7 +36,7 @@ def check(name, cond, detail=""):
 # 1. login
 s, b = call("POST", "/auth/login", {"email": EMAIL, "password": PASSWORD})
 tok = b.get("token")
-check("login cptjacksprw@gmail.com", s == 200 and tok, f"status={s}")
+check("login TEST_EMAIL", s == 200 and tok, f"status={s}")
 if not tok:
     print("ABORT: login failed", b); sys.exit(1)
 

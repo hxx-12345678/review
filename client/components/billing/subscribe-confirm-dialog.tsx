@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Check, Loader2, Sparkles, Zap, ShieldCheck, IndianRupee, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -55,7 +55,13 @@ export function SubscribeConfirmDialog({
   yearlyPlan,
   loading,
 }: Props) {
-  const [billing, setBilling] = useState<"yearly" | "monthly">("yearly");
+  // Monthly is the default: pre-selecting the more expensive annual plan is a
+  // dark pattern. Users opt into annual deliberately, and the choice resets
+  // every time the dialog opens for a (possibly different) plan.
+  const [billing, setBilling] = useState<"yearly" | "monthly">("monthly");
+  useEffect(() => {
+    if (open) setBilling("monthly");
+  }, [open, monthlyPlan?.id]);
 
   if (!monthlyPlan) return null;
 
@@ -76,7 +82,6 @@ export function SubscribeConfirmDialog({
   const perMonthAnnual = Math.round(yearlyTotalPaise / 100 / 12);
 
   const hasYearly = !!yearlyPlan;
-  const isPlanNameStarter = monthlyPlan.slug === "starter" || monthlyPlan.slug === "starter-yearly";
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v && !loading) onClose(); }}>
@@ -95,7 +100,7 @@ export function SubscribeConfirmDialog({
         </div>
 
         <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-2 sm:py-3 space-y-3 sm:space-y-4 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border">
-          {/* Billing toggle — yearly is DEFAULT */}
+          {/* Billing toggle — monthly is the default */}
           {hasYearly && (
             <div className="flex items-center rounded-xl bg-muted/60 p-0.5 sm:p-1 border border-border/50">
               <button
@@ -110,11 +115,6 @@ export function SubscribeConfirmDialog({
                 <Calendar className="size-3.5 sm:size-4" />
                 <span className="hidden xs:inline">Annual</span>
                 <span className="xs:hidden">Annual</span>
-                {billing === "yearly" && (
-                  <Badge variant="secondary" className="ml-0.5 sm:ml-1 bg-primary-foreground/20 text-primary-foreground text-[9px] sm:text-[10px] px-1 sm:px-1.5 py-0 leading-[14px]">
-                    Best
-                  </Badge>
-                )}
               </button>
               <button
                 onClick={() => setBilling("monthly")}
@@ -141,17 +141,13 @@ export function SubscribeConfirmDialog({
             {/* Plan name + description */}
             <div className="flex items-start justify-between">
               <div>
-                <h3 className="font-semibold text-sm">{monthlyPlan.name} Plan</h3>
+                <h3 className="font-semibold text-sm">
+                  {activePlan.name.replace(/ \((Monthly|Yearly)\)$/i, "")} Plan
+                </h3>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {monthlyPlan.description?.replace(/^Billed annually\.\s*/i, "")}
+                  {activePlan.description?.replace(/^Billed annually\.?\s*/i, "")}
                 </p>
               </div>
-              {billing === "yearly" && hasYearly && (
-                <Badge variant="default" className="shrink-0 gap-1 text-[10px]">
-                  <Sparkles className="size-3" />
-                  Most popular
-                </Badge>
-              )}
             </div>
 
             {/* --- ANNUAL PRICING (default, shown when yearly selected) --- */}
@@ -166,16 +162,20 @@ export function SubscribeConfirmDialog({
                   <span className="text-primary font-semibold">
                     Just ₹{perMonthAnnual.toLocaleString("en-IN")}/mo
                   </span>
-                  <span className="text-muted-foreground line-through">
-                    {formatPriceShort(monthlyPaise)}/mo × 12 = {formatPriceShort(monthlyPaise * 12)}
-                  </span>
+                  {/* Only strike through the monthly total when annual is
+                      actually cheaper — otherwise it implies a fake discount. */}
+                  {savePaise > 0 && (
+                    <span className="text-muted-foreground line-through">
+                      {formatPriceShort(monthlyPaise)}/mo × 12 = {formatPriceShort(monthlyPaise * 12)}
+                    </span>
+                  )}
                 </div>
 
-                {/* Savings badge — loss aversion framing */}
                 {savePaise > 0 && (
                   <div className="inline-flex items-center gap-1.5 rounded-lg bg-green-50 dark:bg-green-950/30 px-3 py-1.5 text-xs font-medium text-green-700 dark:text-green-400 border border-green-200 dark:border-green-900">
                     <Sparkles className="size-3.5" />
-                    Save {formatPriceShort(savePaise)}/yr — that&apos;s {saveMonths} month{saveMonths > 1 ? "s" : ""} free
+                    Save {formatPriceShort(savePaise)}/yr
+                    {saveMonths > 0 ? ` (about ${saveMonths} month${saveMonths > 1 ? "s" : ""} free)` : ""}
                   </div>
                 )}
 
@@ -194,7 +194,7 @@ export function SubscribeConfirmDialog({
                 {/* Lock-in message */}
                 <p className="text-[11px] text-muted-foreground flex items-center gap-1">
                   <ShieldCheck className="size-3 text-green-600" />
-                  Lock in today&apos;s price for 12 months. Cancel anytime.
+                  Billed once for 12 months. Cancel from your billing page before the next renewal.
                 </p>
               </div>
             )}
@@ -207,15 +207,17 @@ export function SubscribeConfirmDialog({
                   <span className="text-sm text-muted-foreground">/month</span>
                 </div>
 
-                {/* Show what they miss by not choosing annual */}
-                {hasYearly && yearlyPlan && (
+                {/* Show what they miss by not choosing annual (only when annual
+                    is genuinely cheaper — never claim a fake saving) */}
+                {hasYearly && yearlyPlan && savePaise > 0 && (
                   <div className="rounded-lg bg-amber-50 dark:bg-amber-950/20 px-3 py-2 text-xs text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-900 space-y-0.5">
                     <p className="font-medium flex items-center gap-1">
                       <Zap className="size-3" />
                       You&apos;d pay {formatPriceShort(yearlyPlan.price)}/yr with annual
                     </p>
                     <p>
-                      Switch to annual and save {formatPriceShort(savePaise)} ({saveMonths} months free)
+                      Switch to annual and save {formatPriceShort(savePaise)}
+                      {saveMonths > 0 ? ` (about ${saveMonths} month${saveMonths > 1 ? "s" : ""})` : ""}
                     </p>
                   </div>
                 )}
@@ -233,7 +235,7 @@ export function SubscribeConfirmDialog({
             <div className="border-t pt-3">
               <p className="text-xs font-medium text-muted-foreground mb-2">What&apos;s included:</p>
               <ul className="space-y-1.5">
-                {monthlyPlan.features.slice(0, 4).map((f) => (
+                {activePlan.features.slice(0, 4).map((f) => (
                   <li key={f} className="flex items-center gap-2 text-xs text-muted-foreground">
                     <Check className="size-3.5 shrink-0 text-primary" />
                     {f}
@@ -248,11 +250,11 @@ export function SubscribeConfirmDialog({
         <div className="shrink-0 flex items-center justify-center gap-3 sm:gap-4 px-4 sm:px-6 py-1.5 sm:py-2 text-[10px] sm:text-[11px] text-muted-foreground border-t border-border/50">
           <span className="flex items-center gap-1">
             <ShieldCheck className="size-2.5 sm:size-3" />
-            Cancel anytime
+            Cancel from billing
           </span>
           <span className="flex items-center gap-1">
             <IndianRupee className="size-2.5 sm:size-3" />
-            GST invoice
+            Price incl. GST
           </span>
           <span className="flex items-center gap-1">
             <svg className="size-2.5 sm:size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

@@ -35,6 +35,7 @@ export default function RefundPage() {
           <ul className="list-disc space-y-2 pl-6">
             <li>Your subscription will remain active until the end of the current billing period</li>
             <li>You will not be charged for subsequent billing periods</li>
+            <li>If you cancel within 7 days of your most recent charge, the charge is refunded in full and your paid access ends immediately</li>
             <li>Your account will be downgraded to the Free plan after the current period ends</li>
             <li>You will retain access to all data you have uploaded to the platform</li>
           </ul>
@@ -43,16 +44,19 @@ export default function RefundPage() {
         <section className="mb-8 space-y-4">
           <h2 className="text-xl font-semibold">3. Refund Policy</h2>
           <p>
-            All subscription fees are non-refundable except in the following circumstances:
+            Subscription fees are non-refundable except in the following circumstances:
           </p>
           <ul className="list-disc space-y-2 pl-6">
+            <li><strong>7-day cooling-off window:</strong> If you cancel within 7 days of your most recent charge, we refund that charge in full to the original payment method. Cancelling in this window ends your paid access immediately and your account moves to the Free plan</li>
             <li><strong>Service unavailability:</strong> If BEYONDVYU experiences a demonstrable service outage that prevents core functionality for more than 48 consecutive hours, you may request a pro-rata refund for the affected period</li>
             <li><strong>Duplicate charges:</strong> If you are incorrectly charged more than once for the same billing period, the duplicate amount will be refunded in full</li>
             <li><strong>Legally mandated refunds:</strong> As required by applicable consumer protection laws in your jurisdiction</li>
           </ul>
           <p className="mt-4">
-            Refund requests must be submitted within 7 days of the charge date. All refund approvals are at the
-            discretion of BEYONDVYU and will be processed within 5-10 business days.
+            Outside the 7-day window there is no pro-rata refund for partial periods; you keep access until the
+            end of the period you have already paid for. The cooling-off refund applies when you cancel within 7 days
+            of the charge date. Requests for service unavailability, duplicate charges or legally mandated refunds are
+            assessed case by case. Approved refunds are processed within 5-10 business days.
           </p>
         </section>
 

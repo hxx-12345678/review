@@ -14,7 +14,14 @@ import { api } from "@/lib/api";
 function ResetPasswordForm() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const token = searchParams.get("token");
+  // Reset links use the URL fragment so the one-time token never reaches
+  // server/CDN logs or third-party Referer headers. `?token=` stays supported
+  // for links already sent before this change.
+  const legacyToken = searchParams.get("token");
+  const token =
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.hash.replace(/^#/, "")).get("token") || legacyToken
+      : legacyToken;
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");

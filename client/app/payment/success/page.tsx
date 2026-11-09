@@ -13,6 +13,7 @@ function SuccessContent() {
   const { token } = useAuth();
   const [invoice, setInvoice] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [verified, setVerified] = useState(false);
   const [error, setError] = useState("");
 
   const paymentId = searchParams.get("payment_id");
@@ -26,8 +27,15 @@ function SuccessContent() {
       setLoading(false);
       return;
     }
+    // Wait for the auth context to hydrate before calling the (now
+    // authenticated) verification endpoints.
+    if (!token) {
+      const t = setTimeout(() => setLoading(false), 4000);
+      return () => clearTimeout(t);
+    }
     tryVerify();
-  }, [paymentId, subscriptionId, signature]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paymentId, subscriptionId, signature, token]);
 
   async function tryVerify() {
     setLoading(true);
@@ -57,12 +65,13 @@ function SuccessContent() {
           }),
         });
 
-        if (res.status === 404) return false;
+        if (res.status === 404 || res.status === 401) return false;
 
         const data = await res.json();
         if (res.ok && data.verified) {
           if (data.invoice) {
             setInvoice(data.invoice);
+            setVerified(true);
             setLoading(false);
             return true;
           }
@@ -86,14 +95,22 @@ function SuccessContent() {
   async function pollInvoice() {
     for (let i = 0; i < 12; i++) {
       try {
-        const res = await fetch(`${API_URL}/payments/invoice/${paymentId}`);
+        const res = await fetch(`${API_URL}/payments/invoice/${paymentId}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
         if (res.ok) {
           const data = await res.json();
           if (data.invoice) {
             setInvoice(data.invoice);
+            setVerified(true);
             setLoading(false);
             return;
           }
+        }
+        if (res.status === 401) {
+          setError("Please log in to view your payment details.");
+          setLoading(false);
+          return;
         }
       } catch {}
 
@@ -119,14 +136,22 @@ function SuccessContent() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center p-4 sm:p-6">
       <div className="w-full max-w-lg space-y-6 text-center">
-        <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-green-100">
-          <Check className="size-8 text-green-600" />
+        <div className={`mx-auto flex size-16 items-center justify-center rounded-full ${verified ? "bg-green-100" : "bg-amber-100"}`}>
+          {verified ? (
+            <Check className="size-8 text-green-600" />
+          ) : (
+            <Loader2 className={`size-8 text-amber-600 ${loading ? "animate-spin" : ""}`} />
+          )}
         </div>
 
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Payment Successful!</h1>
+          <h1 className="text-2xl font-bold tracking-tight">
+            {verified ? "Payment Successful!" : loading ? "Confirming your payment…" : "Payment received"}
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Your subscription has been activated successfully.
+            {verified
+              ? "Your subscription has been activated successfully."
+              : "We're verifying the payment with Razorpay. This usually takes a few seconds."}
           </p>
         </div>
 
@@ -166,7 +191,7 @@ function SuccessContent() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Invoice Number</span>
-                <span className="font-medium">{invoice.id.slice(-8).toUpperCase()}</span>
+                <span className="font-medium">{invoice.invoiceNumber || invoice.id.slice(-8).toUpperCase()}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Date</span>

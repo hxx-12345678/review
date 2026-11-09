@@ -2,7 +2,7 @@ import { Router, Response, Request } from "express";
 import { z } from "zod";
 import { prisma } from "../config/database";
 import { authRequired, AuthRequest } from "../middleware/auth";
-import { requireSubscription, consumeCredits, checkCreditLimit } from "../middleware/subscription";
+import { requireSubscription, consumeCredits, checkCreditLimit, consumeSubscriptionCredits } from "../middleware/subscription";
 import {
   aiBurstLimiter,
   talkingPointsLimiter,
@@ -13,8 +13,47 @@ import {
 } from "../middleware/rate-limit";
 import { deriveTalkingPoints, buildFallbackReply, buildFallbackReview, generateInsights, generateWithFailover, extractTalkingPoints, estimateCostUsd } from "../utils/gemini";
 import type { ReviewInput } from "../utils/gemini";
+import { loadEntitledSubscription, resetMonthlyCreditsIfDue } from "../services/subscriptions";
 
 const router = Router();
+
+/**
+ * Charge the business owner for a public (unauthenticated) AI generation.
+ * Public review pages don't carry a user token, so the cost is attributed to
+ * the owner of the business being reviewed. Returns false when the owner is out
+ * of credits. Unattributable requests are allowed (the public review funnel
+ * must not break) and remain protected by the edge rate limiters.
+ */
+async function chargeBusinessOwner(businessSlug: string | undefined, cost = 1): Promise<boolean> {
+  if (!businessSlug) return true;
+  const business = await prisma.business.findUnique({
+    where: { slug: businessSlug },
+    select: { userId: true },
+  });
+  if (!business?.userId) return true;
+
+  let sub = await loadEntitledSubscription(business.userId);
+  if (!sub) return true;
+
+  // Apply the same monthly reset the authenticated middleware does. Without
+  // this, an owner who has not opened the dashboard in 30 days would be billed
+  // against a stale `creditsUsed` and public review generation could dead-end.
+  sub = await resetMonthlyCreditsIfDue(sub);
+
+  const monthlyRemaining = Math.max(0, sub.creditsLimit - sub.creditsUsed);
+  if (monthlyRemaining + sub.creditsTopUpBalance < cost) return false;
+
+  // Atomic, clamped consumption (never negative under concurrent public calls).
+  await consumeSubscriptionCredits(sub.id, cost);
+  return true;
+}
+
+function outOfCredits(res: Response) {
+  return res.status(402).json({
+    error: "This business has run out of AI credits. You can still write your own review.",
+    code: "OUT_OF_CREDITS",
+  });
+}
 
 const generateReplySchema = z.object({
   feedbackId: z.string(),
@@ -137,6 +176,103 @@ Write a personal, specific reply from the business owner that references at leas
   }
 });
 
+// ── Google review reply (dashboard) ─────────────────────────────────────────
+// Previously the web client called a Next.js route that talked to Gemini
+// directly: unauthenticated, unmetered, and outside the server's rate limits.
+// This route keeps Google-review replies on the same authenticated, metered
+// path as feedback replies.
+const googleReplySchema = z.object({
+  businessId: z.string(),
+  reviewText: z.string().min(3).max(2000),
+  rating: z.number().min(1).max(5).optional(),
+  tone: z.enum(["professional", "friendly", "formal"]).default("professional"),
+});
+
+router.post(
+  "/google-review-reply",
+  authRequired,
+  requireSubscription,
+  aiBurstLimiter,
+  generateReplyLimiter,
+  aiDailyLimiter,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const data = googleReplySchema.parse(req.body);
+
+      const creditCheck = checkCreditLimit(req.subscription!, 1);
+      if (!creditCheck.allowed) {
+        return res.status(403).json({
+          error: "Insufficient credits. Please top up or upgrade your plan.",
+          code: "INSUFFICIENT_CREDITS",
+          remaining: 0,
+        });
+      }
+
+      const business = await prisma.business.findFirst({
+        where: { id: data.businessId, userId: req.userId },
+      });
+      if (!business) return res.status(404).json({ error: "Business not found" });
+
+      const toneGuide =
+        data.tone === "friendly"
+          ? "Warm, conversational, and personal — like a grateful business owner writing to a valued customer."
+          : data.tone === "formal"
+            ? "Polished, respectful, and professional — suitable for formal business correspondence."
+            : "Balanced and professional with a personal touch — approachable but not overly casual.";
+
+      const systemInstruction = `You write replies that a local business owner posts publicly under a customer's Google review.
+
+Rules:
+- Write in the first person as the business ("we", "our team").
+- Be warm, specific, and human. Reference the concrete detail(s) the customer mentioned.
+- Tone: ${toneGuide}
+- Keep it to 2-3 sentences, under 60 words.
+- For negative reviews: acknowledge the issue sincerely, apologize, and invite them to continue the conversation. Do NOT be defensive.
+- Match the language of the customer's review.
+- Never fabricate facts. Never offer specific compensation.
+- Do not use hashtags or emojis.
+- Output ONLY the reply text.`;
+
+      const prompt = `Business: ${business.name}
+Star rating: ${data.rating !== undefined ? `${data.rating}/5` : "N/A"}
+Customer review: "${data.reviewText}"
+
+Write a single reply the owner can post.`;
+
+      let reply = "";
+      let provider = "gemini";
+      try {
+        const generated = await generateWithFailover(prompt, systemInstruction);
+        reply = generated.text.trim();
+        provider = generated.provider;
+      } catch (err) {
+        console.warn("Google review reply generation failed, using fallback:", err);
+        reply = buildFallbackReply(data.rating ?? 3, data.reviewText, "", data.tone);
+        provider = "fallback";
+      }
+
+      await prisma.activityLog.create({
+        data: {
+          userId: req.userId!,
+          businessId: business.id,
+          action: "google_reply_generated",
+          details: { provider, tone: data.tone },
+        },
+      });
+
+      await consumeCredits(req, 1);
+
+      res.json({ reply, provider });
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid input", details: err.errors });
+      }
+      console.error("Google review reply error:", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
+
 // ── T4: AI Talking Points Route (Moved from frontend to server for security) ──
 const talkingPointsSchema = z.object({
   highlights: z.string().max(500).optional().default(""),
@@ -145,6 +281,7 @@ const talkingPointsSchema = z.object({
   promptTopics: z.array(z.string()).optional().default([]),
   rating: z.number().min(1).max(5).optional(),
   language: z.string().max(30).optional().default("english"),
+  businessSlug: z.string().max(200).optional(),
 });
 
 // Review cache for generate-review (in addition to talking-points cache)
@@ -155,13 +292,18 @@ function reviewCacheKey(highlights: string, business: string, rating: number, la
 
 router.post("/talking-points", aiBurstLimiter, talkingPointsLimiter, aiDailyLimiter, async (req: Request, res: Response) => {
   try {
-    const { highlights, selectedTopics, businessName, promptTopics, rating, language } = talkingPointsSchema.parse(req.body);
+    const { highlights, selectedTopics, businessName, promptTopics, rating, language, businessSlug } = talkingPointsSchema.parse(req.body);
 
     // Cache check: skip Gemini if we've seen this exact input recently
     const key = cacheKey(highlights, businessName, rating ?? 0, language);
     const cached = resultCache.get(key);
     if (cached && cached.expiresAt > Date.now()) {
       return res.json({ talkingPoints: cached.value, cached: true });
+    }
+
+    // Meter against the business owner (public flow has no user token).
+    if (!(await chargeBusinessOwner(businessSlug))) {
+      return outOfCredits(res);
     }
 
     let languageInstruction = "Write the reminder bullet points in clear, conversational English.";
@@ -203,7 +345,7 @@ Your goal is to jog the customer's memory so THEY write an authentic review in t
       ? `\nTopics they selected: ${selectedTopics.join(", ")}`
       : "";
     const bizTopicsLine = promptTopics.length > 0
-      ? `\nBusiness's suggested review topics: ${promptTopics.join(", ")}`
+      ? `\nSignature dishes, treatments, products, or services the business is known for (reference one only if the customer's notes show they tried it; never invent): ${promptTopics.join(", ")}`
       : "";
     const prompt = `Business: ${businessName}
 Customer's star rating: ${rating ?? "unknown"}/5
@@ -277,18 +419,23 @@ const generateReviewSchema = z.object({
   rating: z.number().min(1).max(5).optional(),
   language: z.string().max(30).optional().default("english"),
   talkingPoints: z.array(z.string()).optional().default([]),
-  businessSlug: z.string().optional(),
+  businessSlug: z.string().max(200).optional(),
 });
 
 router.post("/generate-review", aiBurstLimiter, generateReviewLimiter, aiDailyLimiter, async (req: Request, res: Response) => {
   try {
-    const { highlights, selectedTopics, businessName, promptTopics, rating, language, talkingPoints } = generateReviewSchema.parse(req.body);
+    const { highlights, selectedTopics, businessName, promptTopics, rating, language, talkingPoints, businessSlug } = generateReviewSchema.parse(req.body);
 
     // Cache check: return cached review if we've seen this exact input recently
     const gKey = reviewCacheKey(highlights, businessName, rating ?? 0, language, selectedTopics);
     const gCached = reviewResultCache.get(gKey);
     if (gCached && gCached.expiresAt > Date.now()) {
       return res.json({ review: gCached.value, cached: true });
+    }
+
+    // Meter against the business owner (public flow has no user token).
+    if (!(await chargeBusinessOwner(businessSlug))) {
+      return outOfCredits(res);
     }
 
     const sentiment = !rating ? "neutral" : rating >= 4 ? "positive" : rating === 3 ? "neutral" : "negative";
@@ -344,7 +491,7 @@ Customer's own words: "${highlights || "(none provided)"}"`;
       prompt += `\nTalking points to reference:\n${talkingPoints.map((p) => `- ${p}`).join("\n")}`;
     }
     if (promptTopics.length > 0) {
-      prompt += `\nBusiness's suggested review topics to potentially cover: ${promptTopics.join(", ")}`;
+      prompt += `\nSignature dishes, treatments, products, or services the business is known for (mention ONE only if the customer's own words show they tried it; otherwise ignore): ${promptTopics.join(", ")}`;
     }
 
     prompt += `\n\nMANDATORY OUTPUT LANGUAGE (every word must be in this language):
