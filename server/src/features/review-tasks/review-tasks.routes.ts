@@ -1,9 +1,11 @@
 import { Router, Response } from "express";
 import { z } from "zod";
 import { prisma } from "../../config/database";
+import { getEnv } from "../../config/env";
 import { authRequired, AuthRequest } from "../../middleware/auth";
 import { classifyFeedback, TASK_CATEGORIES } from "../../utils/task-classification";
-import { buildIssueReport } from "../../utils/issue-report";
+import { clampReportDays, loadIssueReport, sendOwnerDigest } from "../../services/issue-report-service";
+import { postResolutionCutoff } from "../../utils/recurrence";
 
 const router = Router();
 
@@ -309,6 +311,17 @@ router.post("/auto-generate/:businessId", authRequired, async (req: AuthRequest,
         });
         if (existingIssue) continue;
 
+        const priorResolved = await prisma.reviewTask.findFirst({
+          where: {
+            businessId,
+            issueKey: classification.issueKey,
+            status: "done",
+            completedAt: { gte: postResolutionCutoff() },
+          },
+          orderBy: { completedAt: "desc" },
+          select: { id: true },
+        });
+
         const task = await prisma.reviewTask.create({
           data: {
             businessId,
@@ -320,6 +333,8 @@ router.post("/auto-generate/:businessId", authRequired, async (req: AuthRequest,
             referenceId: fb.id,
             category: classification.category,
             issueKey: classification.issueKey,
+            recurredAfterResolution: Boolean(priorResolved),
+            previousTaskId: priorResolved?.id || null,
             dueAt: new Date(now.getTime() + 48 * 60 * 60 * 1000), // 48h
           },
         });
@@ -406,47 +421,39 @@ router.get("/report/:businessId", authRequired, async (req: AuthRequest, res: Re
     });
     if (!business) return res.status(404).json({ error: "Business not found" });
 
-    const requestedDays = parseInt(req.query.days as string, 10);
-    const days = Number.isFinite(requestedDays) ? Math.min(Math.max(requestedDays, 1), 365) : 30;
-    const now = new Date();
-    const windowStart = new Date(now.getTime() - days * 86400000);
-
-    // Include work created in the window, work resolved in the window, and
-    // everything still open. A recurring issue opened last month must not
-    // disappear from the owner's view just because the window moved.
-    const tasks = await prisma.reviewTask.findMany({
-      where: {
-        businessId,
-        OR: [
-          { createdAt: { gte: windowStart } },
-          { completedAt: { gte: windowStart } },
-          { status: { not: "done" } },
-        ],
-      },
-      select: {
-        id: true,
-        title: true,
-        category: true,
-        issueKey: true,
-        status: true,
-        priority: true,
-        occurrenceCount: true,
-        resolutionNotes: true,
-        assignedTo: true,
-        createdAt: true,
-        updatedAt: true,
-        completedAt: true,
-        escalatedAt: true,
-        dueAt: true,
-      },
-      orderBy: { updatedAt: "desc" },
-      take: 2000,
-    });
-
-    const report = buildIssueReport({ tasks, days, now });
+    const days = clampReportDays(req.query.days, 30);
+    const report = await loadIssueReport(businessId, days);
     res.json({ report });
   } catch (err) {
     console.error("Issue report error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/**
+ * Email the same owner summary. On-demand today; a weekly cron can call the
+ * same service for every active business.
+ */
+router.post("/digest/:businessId", authRequired, async (req: AuthRequest, res: Response) => {
+  try {
+    const businessId = req.params.businessId as string;
+    const business = await prisma.business.findFirst({
+      where: { id: businessId, userId: req.userId },
+    });
+    if (!business) return res.status(404).json({ error: "Business not found" });
+
+    const days = clampReportDays(req.body?.days ?? req.query.days, 7);
+    const dashboardUrl = `${getEnv().FRONTEND_URL.split(",")[0].trim()}/v2/tasks`;
+    const result = await sendOwnerDigest(businessId, days, dashboardUrl);
+
+    if (!result.sent) {
+      const status = result.error === "SMTP not configured" ? 503 : 500;
+      return res.status(status).json({ error: result.error || "Could not send digest" });
+    }
+
+    res.json({ sent: true, subject: result.subject });
+  } catch (err) {
+    console.error("Owner digest error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });

@@ -159,6 +159,18 @@ export const api = {
       request<{ success: boolean }>(`/businesses/${id}`, {
         method: "DELETE",
       }),
+    /** Download the owner's guest-experience record as JSON (DPDP trust control). */
+    exportData: async (id: string): Promise<Blob> => {
+      const token = typeof window !== "undefined" ? localStorage.getItem("beyondvyu_token") : null;
+      const res = await fetch(`${API_URL}/businesses/${id}/export`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ error: "Export failed" }));
+        throw new ApiError(body.error || "Export failed", res.status, body.code);
+      }
+      return res.blob();
+    },
     checkDuplicate: (params: { placeId?: string; name?: string; location?: string }) => {
       const qs = new URLSearchParams();
       if (params.placeId) qs.set("placeId", params.placeId);
@@ -185,13 +197,15 @@ export const api = {
         method: "POST",
         body: JSON.stringify(data),
       }),
-    list: (businessId: string, params?: { page?: number; limit?: number; status?: string; search?: string; minRating?: number }) => {
+    list: (businessId: string, params?: { page?: number; limit?: number; status?: string; search?: string; minRating?: number; maxRating?: number; touchpoint?: string }) => {
       const searchParams = new URLSearchParams();
       if (params?.page) searchParams.set("page", params.page.toString());
       if (params?.limit) searchParams.set("limit", params.limit.toString());
       if (params?.status) searchParams.set("status", params.status);
       if (params?.search) searchParams.set("search", params.search);
       if (params?.minRating) searchParams.set("minRating", params.minRating.toString());
+      if (params?.maxRating) searchParams.set("maxRating", params.maxRating.toString());
+      if (params?.touchpoint) searchParams.set("touchpoint", params.touchpoint);
       const qs = searchParams.toString();
       return request<{ feedback: any[]; pagination: any }>(`/feedback/business/${businessId}${qs ? `?${qs}` : ""}`);
     },
@@ -420,6 +434,7 @@ export const api = {
             escalatedIssues: number;
             highPriorityOpen: number;
             recurringIssuesOpen: number;
+            postResolutionRecurrences: number;
             resolutionRate: number;
             avgResolutionHours: number | null;
             recurringIssues: {
@@ -430,6 +445,7 @@ export const api = {
               occurrences: number;
               openCount: number;
               resolvedCount: number;
+              recurredAfterResolutionCount: number;
               lastSeenAt: string;
             }[];
             recentResolutions: {
@@ -450,9 +466,15 @@ export const api = {
               priority: string;
               dueAt: string | null;
               occurrenceCount: number;
+              recurredAfterResolution: boolean;
             }[];
           };
         }>(`/v2/tasks/report/${businessId}?days=${days}`),
+      digest: (businessId: string, days = 7) =>
+        request<{ sent: boolean; subject: string }>(`/v2/tasks/digest/${businessId}`, {
+          method: "POST",
+          body: JSON.stringify({ days }),
+        }),
     },
     // Instagram @Mentions
     instagram: {

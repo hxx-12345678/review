@@ -8,7 +8,10 @@
  *   3. GET /v2/tasks/report/:businessId and verify recurrence + attention.
  *   4. Refuse to close the issue without notes, then close it with notes.
  *   5. Re-fetch the report: resolution rate, average time, recent resolution.
- *   6. Verify a second tenant cannot read the report.
+ *   6. Submit the same issue again and verify it is flagged as recurring
+ *      after a resolved fix — the strategy's core "did the fix hold?" signal.
+ *   7. Verify the feedback inbox filters by touchpoint and rating.
+ *   8. Verify a second tenant cannot read the report.
  *
  * All synthetic data is removed at the end. No real retention data is touched.
  */
@@ -84,6 +87,22 @@ async function main() {
     assert(submission.status === 201, `submitted negative report ${i} (table touchpoint)`);
   }
 
+  const inboxAtTable = await request("GET", `/feedback/business/${businessId}?touchpoint=table&maxRating=2`, {
+    token: ownerToken,
+  });
+  assert(
+    inboxAtTable.status === 200 && inboxAtTable.body.feedback.length === 3,
+    "feedback inbox filters by touchpoint and rating"
+  );
+
+  const inboxAtPackaging = await request("GET", `/feedback/business/${businessId}?touchpoint=packaging`, {
+    token: ownerToken,
+  });
+  assert(
+    inboxAtPackaging.status === 200 && inboxAtPackaging.body.feedback.length === 0,
+    "feedback inbox excludes a different touchpoint"
+  );
+
   const queue = await request("GET", `/v2/tasks/tasks/${businessId}`, { token: ownerToken });
   assert(queue.status === 200, "loaded manager queue");
   const issueTask = (queue.body.tasks || []).find((task) => task.category === "food_quality");
@@ -134,11 +153,80 @@ async function main() {
     "average resolution time is computed"
   );
 
+  // The manager said the issue was fixed. A guest reports the same problem
+  // again — this must become visible as a failed fix, not as a brand-new issue.
+  const repeat = await request("POST", "/feedback/submit", {
+    body: {
+      businessSlug: slug,
+      rating: 2,
+      improvement: "The paneer was cold and bland again after the fix.",
+      selectedSubOptions: ["fd_taste", "fd_temp"],
+      touchpoint: "table",
+    },
+  });
+  assert(repeat.status === 201, "submitted a repeat report after resolution");
+
+  const queueAfterFix = await request("GET", `/v2/tasks/tasks/${businessId}`, { token: ownerToken });
+  const reopened = (queueAfterFix.body.tasks || []).find(
+    (task) => task.status !== "done" && task.category === "food_quality"
+  );
+  assert(Boolean(reopened), "repeat report created a new open issue after closure");
+  assert(reopened.recurredAfterResolution === true, "new issue is flagged as recurring after resolution");
+  assert(reopened.previousTaskId === issueTask.id, "new issue points at the resolved task it recurred from");
+
+  reportRes = await request("GET", `/v2/tasks/report/${businessId}?days=30`, { token: ownerToken });
+  report = reportRes.body.report;
+  assert(report.postResolutionRecurrences === 1, "owner report counts the failed fix");
+  assert(
+    report.recurringIssues[0].recurredAfterResolutionCount === 1,
+    "recurring issue shows it returned after a fix"
+  );
+  assert(
+    report.needsAttention.some((item) => item.recurredAfterResolution === true),
+    "needs-attention flags the recurrence after resolution"
+  );
+
   const foreign = await request("GET", `/v2/tasks/report/${businessId}?days=30`, { token: outsiderToken });
   assert(foreign.status === 404, "another tenant cannot read this business report");
 
   const badDays = await request("GET", `/v2/tasks/report/${businessId}?days=9999`, { token: ownerToken });
   assert(badDays.status === 200 && badDays.body.report.windowDays === 365, "report window is clamped to 365 days");
+
+  // DPDP trust control: the owner must be able to take their data with them.
+  const exportRes = await fetch(`${API_BASE}/businesses/${businessId}/export`, {
+    headers: { Authorization: `Bearer ${ownerToken}` },
+  });
+  assert(exportRes.ok, "owner can export the business data");
+  assert(
+    (exportRes.headers.get("content-type") || "").includes("application/json"),
+    "export is delivered as a JSON download"
+  );
+  assert(
+    (exportRes.headers.get("content-disposition") || "").includes("attachment"),
+    "export sets a download filename"
+  );
+  const exported = await exportRes.json();
+  assert(exported.business.id === businessId, "export contains the right business");
+  assert(exported.counts.feedback === 4, "export contains every guest report");
+  assert(exported.counts.reviewTasks === 2, "export contains resolved and open issues");
+  assert(
+    !JSON.stringify(exported).toLowerCase().includes("accesstoken"),
+    "export excludes Google OAuth credentials"
+  );
+
+  const digest = await request("POST", `/v2/tasks/digest/${businessId}`, {
+    token: ownerToken,
+    body: { days: 7 },
+  });
+  assert(
+    digest.status === 200 || digest.status === 503,
+    "owner digest endpoint is wired (sends or reports SMTP not configured)"
+  );
+  const foreignDigest = await request("POST", `/v2/tasks/digest/${businessId}`, {
+    token: outsiderToken,
+    body: { days: 7 },
+  });
+  assert(foreignDigest.status === 404, "another tenant cannot email this business's digest");
 
   console.log(`\n${passed} assertions passed.`);
 }

@@ -42,6 +42,8 @@ interface Task {
   category: string | null
   issueKey: string | null
   occurrenceCount: number
+  recurredAfterResolution: boolean
+  previousTaskId: string | null
   resolutionNotes: string | null
   escalatedAt: string | null
   dueAt: string | null
@@ -334,6 +336,12 @@ export function ReviewTasks({ businessId }: Props) {
                         <span className="flex items-center gap-1 rounded bg-destructive/10 px-1.5 py-0.5 text-[10px] font-semibold text-destructive">
                           <Flame className="size-3" />
                           Recurring ×{task.occurrenceCount}
+                        </span>
+                      )}
+                      {task.recurredAfterResolution && (
+                        <span className="flex items-center gap-1 rounded bg-destructive/15 px-1.5 py-0.5 text-[10px] font-semibold text-destructive">
+                          <Flame className="size-3" />
+                          Recurred after fix
                         </span>
                       )}
                       <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${status.color}`}>

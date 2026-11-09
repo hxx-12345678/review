@@ -2,6 +2,7 @@ import nodemailer from "nodemailer";
 import { getEnv } from "../config/env";
 import { prisma } from "../config/database";
 import { escapeHtml } from "../utils/billing";
+import type { OwnerDigest } from "../utils/owner-digest";
 
 let transporter: nodemailer.Transporter | null = null;
 
@@ -258,6 +259,35 @@ export async function sendTopUpLinkEmail(
     return { success: true };
   } catch (err: any) {
     console.error("Send top-up link email error:", err);
+    return { success: false, error: err?.message || "Failed to send email" };
+  }
+}
+
+export async function sendOwnerDigestEmail(
+  userId: string,
+  digest: OwnerDigest,
+): Promise<{ success: boolean; error?: string }> {
+  const env = getEnv();
+  const t = getTransporter();
+  if (!t) return { success: false, error: "SMTP not configured" };
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { email: true },
+  });
+  if (!user?.email) return { success: false, error: "No email on file" };
+
+  try {
+    await t.sendMail({
+      from: env.SMTP_FROM,
+      to: user.email,
+      subject: digest.subject,
+      text: digest.text,
+      html: digest.html,
+    });
+    return { success: true };
+  } catch (err: any) {
+    console.error("Send owner digest email error:", err);
     return { success: false, error: err?.message || "Failed to send email" };
   }
 }

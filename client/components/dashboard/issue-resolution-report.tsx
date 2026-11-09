@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { Activity, AlertTriangle, ArrowRight, CheckCircle2, Clock, Flame } from "lucide-react"
+import { Activity, AlertTriangle, ArrowRight, CheckCircle2, Clock, Flame, Mail } from "lucide-react"
+import { toast } from "sonner"
 import { api } from "@/lib/api"
 import { Card } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { timeAgo } from "@/lib/format"
 
 interface Report {
@@ -16,6 +18,7 @@ interface Report {
   escalatedIssues: number
   highPriorityOpen: number
   recurringIssuesOpen: number
+  postResolutionRecurrences: number
   resolutionRate: number
   avgResolutionHours: number | null
   recurringIssues: {
@@ -26,6 +29,7 @@ interface Report {
     occurrences: number
     openCount: number
     resolvedCount: number
+    recurredAfterResolutionCount: number
     lastSeenAt: string
   }[]
   recentResolutions: {
@@ -44,6 +48,7 @@ interface Report {
     priority: string
     dueAt: string | null
     occurrenceCount: number
+    recurredAfterResolution: boolean
   }[]
 }
 
@@ -53,6 +58,12 @@ const statusCopy: Record<string, string> = {
   overdue: "Overdue",
   escalated: "Escalated",
 }
+
+const RANGES = [
+  { days: 7, label: "7d" },
+  { days: 30, label: "30d" },
+  { days: 90, label: "90d" },
+]
 
 function dueLabel(iso: string): string {
   const remaining = new Date(iso).getTime() - Date.now()
@@ -73,15 +84,17 @@ function Metric({ label, value }: { label: string; value: string }) {
 
 export function IssueResolutionReport({ businessId }: { businessId: string }) {
   const [report, setReport] = useState<Report | null>(null)
+  const [days, setDays] = useState(30)
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
+  const [sendingDigest, setSendingDigest] = useState(false)
 
   useEffect(() => {
     let cancelled = false
     setLoading(true)
     setFailed(false)
     api.v2.tasks
-      .report(businessId, 30)
+      .report(businessId, days)
       .then((res) => {
         if (!cancelled) setReport(res.report)
       })
@@ -94,7 +107,7 @@ export function IssueResolutionReport({ businessId }: { businessId: string }) {
     return () => {
       cancelled = true
     }
-  }, [businessId])
+  }, [businessId, days])
 
   const hasActivity = Boolean(
     report &&
@@ -103,6 +116,22 @@ export function IssueResolutionReport({ businessId }: { businessId: string }) {
         report.needsAttention.length > 0 ||
         report.recentResolutions.length > 0)
   )
+
+  async function emailDigest() {
+    setSendingDigest(true)
+    try {
+      await api.v2.tasks.digest(businessId, days)
+      toast.success("Summary emailed to the owner account")
+    } catch (err: any) {
+      if (err?.status === 503) {
+        toast.error("Email is not configured yet. The summary is still available here.")
+      } else {
+        toast.error(err?.message || "Could not send the summary")
+      }
+    } finally {
+      setSendingDigest(false)
+    }
+  }
 
   return (
     <Card className="p-5">
@@ -118,13 +147,41 @@ export function IssueResolutionReport({ businessId }: { businessId: string }) {
               : "How guest complaints are being resolved and what keeps coming back."}
           </p>
         </div>
-        <Link
-          href="/v2/tasks"
-          className="inline-flex items-center gap-1 text-xs font-medium text-primary underline-offset-2 hover:underline"
-        >
-          Open manager queue
-          <ArrowRight className="size-3" />
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={emailDigest}
+            disabled={sendingDigest || !report}
+            title="Email this summary to the owner account"
+          >
+            <Mail className="size-3.5" />
+            <span className="hidden sm:inline">{sendingDigest ? "Sending…" : "Email summary"}</span>
+          </Button>
+          <div className="flex gap-0.5 rounded-lg bg-muted p-0.5 text-[11px]">
+            {RANGES.map((range) => (
+              <button
+                key={range.days}
+                onClick={() => setDays(range.days)}
+                className={`rounded-md px-2 py-1 font-medium transition-colors ${
+                  days === range.days
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                aria-pressed={days === range.days}
+              >
+                {range.label}
+              </button>
+            ))}
+          </div>
+          <Link
+            href="/v2/tasks"
+            className="inline-flex items-center gap-1 text-xs font-medium text-primary underline-offset-2 hover:underline"
+          >
+            Open manager queue
+            <ArrowRight className="size-3" />
+          </Link>
+        </div>
       </div>
 
       {loading ? (
@@ -183,6 +240,19 @@ export function IssueResolutionReport({ businessId }: { businessId: string }) {
             </div>
           )}
 
+          {report!.postResolutionRecurrences > 0 && (
+            <div className="flex items-start gap-2 rounded-lg border border-destructive/25 bg-destructive/5 px-3 py-2 text-xs">
+              <Flame className="mt-0.5 size-4 shrink-0 text-destructive" />
+              <p className="text-foreground">
+                <span className="font-semibold text-destructive">
+                  {report!.postResolutionRecurrences} issue
+                  {report!.postResolutionRecurrences === 1 ? "" : "s"} came back after being marked resolved.
+                </span>{" "}
+                The recorded fix did not hold — check the resolution note and the current process.
+              </p>
+            </div>
+          )}
+
           <div className="grid gap-5 lg:grid-cols-2">
             <div>
               <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -205,6 +275,9 @@ export function IssueResolutionReport({ businessId }: { businessId: string }) {
                         <p className="mt-0.5 text-[11px] text-muted-foreground">
                           {issue.occurrences} guest report{issue.occurrences === 1 ? "" : "s"} · last seen{" "}
                           {timeAgo(issue.lastSeenAt)}
+                          {issue.recurredAfterResolutionCount > 0
+                            ? ` · ${issue.recurredAfterResolutionCount} after a fix`
+                            : ""}
                         </p>
                       </div>
                       <span
@@ -245,6 +318,11 @@ export function IssueResolutionReport({ businessId }: { businessId: string }) {
                           <p className="mt-0.5 text-[11px] text-muted-foreground">
                             {dueLabel(item.dueAt)}
                             {item.occurrenceCount > 1 ? ` · ×${item.occurrenceCount}` : ""}
+                          </p>
+                        )}
+                        {item.recurredAfterResolution && (
+                          <p className="mt-0.5 text-[11px] font-medium text-destructive">
+                            Recurred after a previous fix
                           </p>
                         )}
                       </div>

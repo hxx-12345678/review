@@ -51,7 +51,17 @@ function request(method, path, data = null, headers = {}) {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// Never hardcode a real account in a committed script. Provide a disposable
+// test account through the environment.
+const TEST_EMAIL = process.env.TEST_EMAIL;
+const TEST_PASSWORD = process.env.TEST_PASSWORD;
+
 async function runTests() {
+  if (!TEST_EMAIL || !TEST_PASSWORD) {
+    console.error("Set TEST_EMAIL and TEST_PASSWORD to a disposable test account before running this suite.");
+    process.exitCode = 1;
+    return;
+  }
   console.log('================================================================');
   console.log('  BEYONDVYU COMPREHENSIVE STRATEGIC & FUNCTIONAL TEST SUITE');
   console.log('================================================================\n');
@@ -76,10 +86,10 @@ async function runTests() {
     assert(healthRes.statusCode === 200, `Plans endpoint returned 200 OK (${healthRes.data?.plans?.length} plans available)`);
 
     // 2. User Authentication
-    console.log('\nTest 2: Authentication (cptjacksprw@gmail.com / Player@123)');
+    console.log(`\nTest 2: Authentication (${TEST_EMAIL})`);
     const loginRes = await request('POST', '/api/auth/login', {
-      email: 'cptjacksprw@gmail.com',
-      password: 'Player@123',
+      email: TEST_EMAIL,
+      password: TEST_PASSWORD,
     });
     assert(loginRes.statusCode === 200, `Login status 200 OK`);
     const token = loginRes.data?.token;

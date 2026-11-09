@@ -24,6 +24,9 @@ export interface IssueReportTask {
   status: string;
   priority: string;
   occurrenceCount: number | null;
+  /** Set when this issue came back after a prior task was marked resolved. */
+  recurredAfterResolution?: boolean | null;
+  previousTaskId?: string | null;
   resolutionNotes: string | null;
   assignedTo: string | null;
   createdAt: Date;
@@ -41,6 +44,8 @@ export interface RecurringIssueSummary {
   occurrences: number;
   openCount: number;
   resolvedCount: number;
+  /** Guest reports that came back after a manager marked the issue resolved. */
+  recurredAfterResolutionCount: number;
   lastSeenAt: string;
 }
 
@@ -63,6 +68,7 @@ export interface AttentionIssue {
   priority: string;
   dueAt: string | null;
   occurrenceCount: number;
+  recurredAfterResolution: boolean;
 }
 
 export interface IssueReport {
@@ -74,6 +80,8 @@ export interface IssueReport {
   escalatedIssues: number;
   highPriorityOpen: number;
   recurringIssuesOpen: number;
+  /** Issues in this window that returned after being marked resolved. */
+  postResolutionRecurrences: number;
   resolutionRate: number;
   avgResolutionHours: number | null;
   recurringIssues: RecurringIssueSummary[];
@@ -142,6 +150,7 @@ function buildRecurringIssues(tasks: IssueReportTask[]): RecurringIssueSummary[]
       occurrences: number;
       openCount: number;
       resolvedCount: number;
+      recurredAfterResolutionCount: number;
       lastSeenAt: number;
     }
   >();
@@ -152,6 +161,7 @@ function buildRecurringIssues(tasks: IssueReportTask[]): RecurringIssueSummary[]
     const existing = groups.get(key);
     const occurrenceCount = Math.max(1, task.occurrenceCount || 1);
     const lastSeen = task.updatedAt.getTime();
+    const recurred = Boolean(task.recurredAfterResolution);
 
     if (!existing) {
       groups.set(key, {
@@ -161,6 +171,7 @@ function buildRecurringIssues(tasks: IssueReportTask[]): RecurringIssueSummary[]
         occurrences: occurrenceCount,
         openCount: isOpen(task) ? 1 : 0,
         resolvedCount: task.status === "done" ? 1 : 0,
+        recurredAfterResolutionCount: recurred ? 1 : 0,
         lastSeenAt: lastSeen,
       });
       continue;
@@ -170,6 +181,7 @@ function buildRecurringIssues(tasks: IssueReportTask[]): RecurringIssueSummary[]
     existing.occurrences += occurrenceCount;
     if (isOpen(task)) existing.openCount += 1;
     if (task.status === "done") existing.resolvedCount += 1;
+    if (recurred) existing.recurredAfterResolutionCount += 1;
     if (lastSeen > existing.lastSeenAt) existing.lastSeenAt = lastSeen;
   }
 
@@ -182,10 +194,14 @@ function buildRecurringIssues(tasks: IssueReportTask[]): RecurringIssueSummary[]
       occurrences: group.occurrences,
       openCount: group.openCount,
       resolvedCount: group.resolvedCount,
+      recurredAfterResolutionCount: group.recurredAfterResolutionCount,
       lastSeenAt: new Date(group.lastSeenAt).toISOString(),
     }))
     .filter((group) => group.occurrences >= 2 || group.taskCount >= 2)
     .sort((a, b) => {
+      if (b.recurredAfterResolutionCount !== a.recurredAfterResolutionCount) {
+        return b.recurredAfterResolutionCount - a.recurredAfterResolutionCount;
+      }
       if (b.occurrences !== a.occurrences) return b.occurrences - a.occurrences;
       if (b.openCount !== a.openCount) return b.openCount - a.openCount;
       return new Date(b.lastSeenAt).getTime() - new Date(a.lastSeenAt).getTime();
@@ -224,6 +240,7 @@ function buildNeedsAttention(tasks: IssueReportTask[], now: Date): AttentionIssu
         priority: task.priority,
         dueAt: task.dueAt ? task.dueAt.toISOString() : null,
         occurrenceCount: Math.max(1, task.occurrenceCount || 1),
+        recurredAfterResolution: Boolean(task.recurredAfterResolution),
       };
     });
 }
@@ -282,6 +299,7 @@ export function buildIssueReport({ tasks, days, now = new Date() }: BuildIssueRe
     escalatedIssues: openTasks.filter((task) => task.status === "escalated").length,
     highPriorityOpen: openTasks.filter((task) => task.priority === "high").length,
     recurringIssuesOpen: recurringIssues.filter((issue) => issue.openCount > 0).length,
+    postResolutionRecurrences: windowTasks.filter((task) => Boolean(task.recurredAfterResolution)).length,
     resolutionRate: totalIssues > 0 ? Math.round((resolvedFromWindow.length / totalIssues) * 100) : 0,
     avgResolutionHours,
     recurringIssues: recurringIssues.slice(0, 6),

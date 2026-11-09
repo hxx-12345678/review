@@ -24,6 +24,7 @@ import { isV2Visible } from "@/lib/feature-flags"
 
 const NAV = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
+  { href: "/dashboard/inbox", label: "Feedback inbox", icon: Inbox },
   { href: "/dashboard/insights", label: "AI Insights", icon: BarChart3 },
   { href: "/dashboard/reputation", label: "AI Reputation", icon: Sparkles },
   { href: "/dashboard/qr", label: "QR & links", icon: QrCode },

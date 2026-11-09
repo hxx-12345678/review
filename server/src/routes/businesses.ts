@@ -159,6 +159,63 @@ router.get("/check-duplicate", authRequired, async (req: AuthRequest, res: Respo
   }
 });
 
+router.get("/:id/export", authRequired, async (req: AuthRequest, res: Response) => {
+  try {
+    const businessId = req.params.id as string;
+    const business = await prisma.business.findFirst({
+      where: { id: businessId, userId: req.userId },
+    });
+    if (!business) {
+      return res.status(404).json({ error: "Business not found" });
+    }
+
+    const [feedback, reviewTasks, qrCodes, reviewClicks, reviewDrafts, generatedReplies, googleReviews] =
+      await Promise.all([
+        prisma.feedback.findMany({ where: { businessId }, orderBy: { createdAt: "asc" } }),
+        prisma.reviewTask.findMany({ where: { businessId }, orderBy: { createdAt: "asc" } }),
+        prisma.qrCode.findMany({ where: { businessId }, orderBy: { createdAt: "asc" } }),
+        prisma.reviewClick.findMany({ where: { businessId }, orderBy: { createdAt: "asc" } }),
+        prisma.reviewDraft.findMany({ where: { businessId }, orderBy: { createdAt: "asc" } }),
+        prisma.generatedReply.findMany({ where: { businessId }, orderBy: { createdAt: "asc" } }),
+        prisma.googleReview.findMany({ where: { businessId }, orderBy: { createTime: "asc" } }),
+      ]);
+
+    // Deliberately excludes encrypted Google OAuth tokens, sessions, payment
+    // credentials and internal AI logs. This is the owner's guest-experience
+    // record, not a credential dump.
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      schemaVersion: 1,
+      business,
+      counts: {
+        feedback: feedback.length,
+        reviewTasks: reviewTasks.length,
+        qrCodes: qrCodes.length,
+        reviewClicks: reviewClicks.length,
+        reviewDrafts: reviewDrafts.length,
+        generatedReplies: generatedReplies.length,
+        googleReviews: googleReviews.length,
+      },
+      feedback,
+      reviewTasks,
+      qrCodes,
+      reviewClicks,
+      reviewDrafts,
+      generatedReplies,
+      googleReviews,
+    };
+
+    const date = new Date().toISOString().slice(0, 10);
+    const filename = `beyondvyu-${business.slug || business.id}-${date}.json`;
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.send(JSON.stringify(payload, null, 2));
+  } catch (err) {
+    console.error("Export business data error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 router.get("/:id", authRequired, async (req: AuthRequest, res: Response) => {
   try {
     const businessId = req.params.id as string;

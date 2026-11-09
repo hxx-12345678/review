@@ -16,6 +16,8 @@ function task(overrides: Partial<IssueReportTask> = {}): IssueReportTask {
     status: "pending",
     priority: "normal",
     occurrenceCount: 1,
+    recurredAfterResolution: false,
+    previousTaskId: null,
     resolutionNotes: null,
     assignedTo: null,
     createdAt,
@@ -164,6 +166,36 @@ test("recent resolutions require notes, stay inside the window, and newest first
     ["newer", "older"]
   );
   assert.equal(report.recentResolutions[1].resolutionNotes, "Coached the kitchen team.");
+});
+
+test("post-resolution recurrence is counted and surfaced", () => {
+  const report = buildIssueReport({
+    tasks: [
+      task({
+        id: "fixed",
+        issueKey: "food_quality",
+        category: "food_quality",
+        status: "done",
+        occurrenceCount: 3,
+        completedAt: new Date(NOW.getTime() - 2 * DAY),
+      }),
+      task({
+        id: "back",
+        issueKey: "food_quality",
+        category: "food_quality",
+        status: "pending",
+        priority: "high",
+        recurredAfterResolution: true,
+        previousTaskId: "fixed",
+      }),
+    ],
+    days: 30,
+    now: NOW,
+  });
+
+  assert.equal(report.postResolutionRecurrences, 1);
+  assert.equal(report.recurringIssues[0].recurredAfterResolutionCount, 1);
+  assert.equal(report.needsAttention[0].recurredAfterResolution, true);
 });
 
 test("unknown categories get a readable label", () => {

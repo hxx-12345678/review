@@ -10,6 +10,7 @@ import {
   classifyFeedback,
 } from "../utils/task-classification";
 import { normalizeTouchpoint, touchpointLabel } from "../utils/review-touchpoints";
+import { postResolutionCutoff } from "../utils/recurrence";
 
 const router = Router();
 
@@ -251,6 +252,17 @@ router.post("/submit", authOptional, async (req: AuthRequest, res: Response) => 
             })
             .catch((err) => console.error("Recurring task update failed:", err));
 
+          // Tell the owner once when an open issue crosses the escalation
+          // threshold. Sending on every later report would train them to mute it.
+          if (shouldEscalate && existingIssue.status !== "escalated" && business.phoneNumber) {
+            const alertMsg =
+              `BeyondVyu escalation: "${classification.label}" has now been reported ${nextCount} times at ${business.name}. ` +
+              "A previous fix may not be holding. Open the manager queue to investigate and record the action.";
+            sendWhatsAppNotification(business.phoneNumber, alertMsg).catch((err) => {
+              console.warn("Escalation WhatsApp alert error:", err);
+            });
+          }
+
           await prisma.activityLog
             .create({
               data: {
@@ -268,6 +280,24 @@ router.post("/submit", authOptional, async (req: AuthRequest, res: Response) => 
             })
             .catch((err) => console.error("Recurring task log failed:", err));
         } else {
+          // No open task covers this bucket. Before creating a fresh one,
+          // check whether a manager recently marked the same issue resolved —
+          // if so, this report is the measurable "did the fix hold?" signal.
+          const priorResolved = canMergeRecurring
+            ? await prisma.reviewTask.findFirst({
+                where: {
+                  businessId: business.id,
+                  issueKey: classification.issueKey,
+                  status: "done",
+                  completedAt: {
+                    gte: postResolutionCutoff(),
+                  },
+                },
+                orderBy: { completedAt: "desc" },
+                select: { id: true },
+              })
+            : null;
+
           const task = await prisma.reviewTask
             .create({
               data: {
@@ -281,6 +311,8 @@ router.post("/submit", authOptional, async (req: AuthRequest, res: Response) => 
                 category: classification.category,
                 issueKey: classification.issueKey,
                 occurrenceCount: 1,
+                recurredAfterResolution: Boolean(priorResolved),
+                previousTaskId: priorResolved?.id || null,
                 dueAt: new Date(Date.now() + taskDueHours * 60 * 60 * 1000),
               },
             })
@@ -300,6 +332,8 @@ router.post("/submit", authOptional, async (req: AuthRequest, res: Response) => 
                     taskId: task.id,
                     category: classification.category,
                     issueKey: classification.issueKey,
+                    recurredAfterResolution: task.recurredAfterResolution,
+                    previousTaskId: task.previousTaskId,
                   },
                 },
               })
@@ -354,10 +388,18 @@ router.get("/business/:businessId", authRequired, async (req: AuthRequest, res: 
     const status = req.query.status as string | undefined;
     const search = req.query.search as string | undefined;
     const minRating = req.query.minRating ? parseInt(req.query.minRating as string) : undefined;
+    const maxRating = req.query.maxRating ? parseInt(req.query.maxRating as string) : undefined;
+    const touchpoint = normalizeTouchpoint(req.query.touchpoint as string | undefined);
 
     const where: any = { businessId: business.id };
     if (status) where.status = status;
-    if (minRating) where.rating = { gte: minRating };
+    if (minRating || maxRating) {
+      where.rating = {
+        ...(minRating ? { gte: minRating } : {}),
+        ...(maxRating ? { lte: maxRating } : {}),
+      };
+    }
+    if (touchpoint) where.touchpoint = touchpoint;
     if (search) {
       where.OR = [
         { liked: { contains: search, mode: "insensitive" } },

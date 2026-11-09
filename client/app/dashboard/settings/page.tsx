@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ShieldCheck, ExternalLink, LogOut, Building2, Plus, Trash2, Pencil, ArrowUpCircle, CreditCard, Check, Calendar, ArrowUpDown, Receipt } from "lucide-react";
+import { ShieldCheck, ExternalLink, LogOut, Building2, Plus, Trash2, Pencil, ArrowUpCircle, CreditCard, Check, Calendar, ArrowUpDown, Receipt, Download } from "lucide-react";
 import { SettingsForm } from "@/components/dashboard/settings-form"
 import { PrivacyConsentCard } from "@/components/dashboard/privacy-consent-card"
 import { WhatsAppReportCard } from "@/components/dashboard/whatsapp-report-card"
@@ -31,6 +31,7 @@ export default function SettingsPage() {
   const [tab, setTab] = useState("profile");
   const [deleteDialog, setDeleteDialog] = useState<any>(null);
   const [deleting, setDeleting] = useState(false);
+  const [exportingId, setExportingId] = useState<string | null>(null);
   const [editingBusiness, setEditingBusiness] = useState<any>(null);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [subscription, setSubscription] = useState<any>(null);
@@ -72,6 +73,26 @@ export default function SettingsPage() {
       setDeleting(false);
     }
   }, [deleteDialog, refreshBusinesses]);
+
+  const handleExport = useCallback(async (biz: any) => {
+    setExportingId(biz.id);
+    try {
+      const blob = await api.businesses.exportData(biz.id);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `beyondvyu-${biz.slug || biz.id}-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      toast.success("Your guest-experience data has downloaded");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to export business data");
+    } finally {
+      setExportingId(null);
+    }
+  }, []);
 
   if (isLoading) {
     return (
@@ -145,6 +166,8 @@ export default function SettingsPage() {
               currentBusinessId={currentBusiness?.id}
               onDelete={(biz) => setDeleteDialog(biz)}
               onEdit={(biz) => setEditingBusiness(biz)}
+              onExport={handleExport}
+              exportingId={exportingId}
               onAdd={() => {
                 if (businesses.length < businessLimit) {
                   setAddDialogOpen(true);
@@ -209,6 +232,8 @@ function BusinessList({
   onDelete,
   onEdit,
   onAdd,
+  onExport,
+  exportingId,
 }: {
   businesses: any[];
   businessLimit: number;
@@ -216,6 +241,8 @@ function BusinessList({
   onDelete: (biz: any) => void;
   onEdit: (biz: any) => void;
   onAdd: () => void;
+  onExport: (biz: any) => void;
+  exportingId: string | null;
 }) {
   return (
     <div className="space-y-4">
@@ -277,6 +304,16 @@ function BusinessList({
                   )}
                 </div>
                 <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    onClick={() => onExport(biz)}
+                    disabled={exportingId === biz.id}
+                    aria-label="Export business data"
+                    title="Download this business's feedback and issue data"
+                  >
+                    <Download className={`size-4 ${exportingId === biz.id ? "animate-pulse" : ""}`} />
+                  </Button>
                   <Button variant="ghost" size="icon-xs" onClick={() => onEdit(biz)} aria-label="Edit business">
                     <Pencil className="size-4" />
                   </Button>

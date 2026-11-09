@@ -12,7 +12,8 @@
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
-    "test": "tsx src/utils/billing.test.ts && tsx src/utils/review-options.test.ts && tsx src/utils/task-classification.test.ts && tsx src/utils/issue-report.test.ts && tsx ../client/lib/industry-categories.test.ts && tsx ../client/lib/review-localization.test.ts",
+    "test": "tsx src/utils/billing.test.ts && tsx src/utils/review-options.test.ts && tsx src/utils/task-classification.test.ts && tsx src/utils/issue-report.test.ts && tsx src/utils/recurrence.test.ts && tsx src/utils/owner-digest.test.ts && tsx ../client/lib/industry-categories.test.ts && tsx ../client/lib/review-localization.test.ts",
+    "digest:send": "tsx src/scripts/send-owner-digests.ts",
     "prebuild": "node -e \"const fs = require('fs'); if (fs.existsSync('dist')) { fs.rmSync('dist', { recursive: true }); }\"",
     "render:build": "npm install && npx prisma generate && npm run build",
     "render:start": "npx prisma migrate deploy && node dist/index.js"

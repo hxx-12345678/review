@@ -1,5 +1,6 @@
 import { Router, Response } from "express";
 import { z } from "zod";
+import jwt from "jsonwebtoken";
 import { prisma } from "../config/database";
 import { getEnv } from "../config/env";
 import { authRequired, AuthRequest } from "../middleware/auth";
@@ -126,6 +127,15 @@ router.get("/oauth/url", authRequired, async (req: AuthRequest, res: Response) =
     }
     const redirectUri = getEnv().GOOGLE_OAUTH_REDIRECT_URI;
 
+    // Bind the flow to this user + business with a short-lived signed state.
+    // A raw businessId in `state` would let anyone attach their own Google
+    // account to another tenant's listing if they learned the business ID.
+    const state = jwt.sign(
+      { businessId, userId: req.userId, purpose: "gbp_oauth" },
+      getEnv().JWT_SECRET,
+      { expiresIn: "10m" },
+    );
+
     const params = new URLSearchParams({
       client_id: oauth.clientId,
       redirect_uri: redirectUri,
@@ -133,7 +143,7 @@ router.get("/oauth/url", authRequired, async (req: AuthRequest, res: Response) =
       scope: SCOPES.join(" "),
       access_type: "offline",
       prompt: "consent",
-      state: businessId, // pass businessId through OAuth flow
+      state,
     });
 
     res.json({
@@ -148,15 +158,42 @@ router.get("/oauth/url", authRequired, async (req: AuthRequest, res: Response) =
 // ── GET /oauth/callback — Google redirects here after business owner authorizes ──
 router.get("/oauth/callback", async (req, res: Response) => {
   try {
-    const { code, state: businessId } = req.query as { code?: string; state?: string };
+    const { code, state } = req.query as { code?: string; state?: string };
+    const frontendUrl = getEnv().FRONTEND_URL.split(",")[0];
 
-    if (!code || !businessId) {
-      return res.status(400).json({ error: "Missing authorization code or business ID" });
+    if (!code || !state) {
+      return res.status(400).json({ error: "Missing authorization code or state" });
     }
+
+    // Verify the signed state and re-check ownership before touching any
+    // business record. This is the CSRF/tenant-binding check for the flow.
+    let payload: { businessId?: string; userId?: string; purpose?: string };
+    try {
+      payload = jwt.verify(state, getEnv().JWT_SECRET) as typeof payload;
+    } catch {
+      return res.redirect(`${frontendUrl}/dashboard/settings?google=error_state`);
+    }
+
+    if (
+      payload.purpose !== "gbp_oauth" ||
+      typeof payload.businessId !== "string" ||
+      typeof payload.userId !== "string"
+    ) {
+      return res.redirect(`${frontendUrl}/dashboard/settings?google=error_state`);
+    }
+
+    const ownedBusiness = await prisma.business.findFirst({
+      where: { id: payload.businessId, userId: payload.userId },
+      select: { id: true },
+    });
+    if (!ownedBusiness) {
+      return res.redirect(`${frontendUrl}/dashboard/settings?google=error_state`);
+    }
+
+    const businessId = payload.businessId;
 
     const oauth = getOAuthClient();
     if (!oauth) {
-      const frontendUrl = getEnv().FRONTEND_URL.split(",")[0];
       return res.redirect(`${frontendUrl}/dashboard/settings?google=error_missing_config`);
     }
     const { clientId, clientSecret } = oauth;
@@ -443,7 +480,6 @@ router.get("/oauth/callback", async (req, res: Response) => {
     }
 
     // Redirect business owner back to dashboard
-    const frontendUrl = getEnv().FRONTEND_URL.split(",")[0];
     res.redirect(`${frontendUrl}/dashboard/settings?google=connected`);
   } catch (err: any) {
     console.error("OAuth callback error:", err);
