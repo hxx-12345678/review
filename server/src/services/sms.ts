@@ -1,4 +1,5 @@
 import { getEnv } from "../config/env";
+import { normalizePhoneNumber } from "../utils/phone";
 
 interface SmsResult {
   success: boolean;
@@ -6,30 +7,69 @@ interface SmsResult {
   error?: string;
 }
 
-export async function sendSms(phoneNumber: string, message: string, templateId?: string): Promise<SmsResult> {
+export async function sendSms(
+  phoneNumber: string,
+  message: string,
+  templateId?: string,
+  defaultCountry: "IN" | "US" = "IN"
+): Promise<SmsResult> {
+  const normalized = normalizePhoneNumber(phoneNumber, defaultCountry);
+  if (!normalized.isValid) {
+    return { success: false, error: "Invalid phone number format" };
+  }
+
   const env = getEnv();
+
+  // U.S. / NANP destination -> Twilio (A2P 10DLC compliant)
+  if (normalized.country === "US") {
+    if (!env.TWILIO_ACCOUNT_SID || !env.TWILIO_AUTH_TOKEN) {
+      console.warn(`[SMS] Twilio credentials not configured for US destination ${normalized.e164}`);
+      return {
+        success: false,
+        error: "Twilio SMS not configured for U.S. numbers (TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN required in server/.env)",
+      };
+    }
+
+    try {
+      const auth = Buffer.from(`${env.TWILIO_ACCOUNT_SID}:${env.TWILIO_AUTH_TOKEN}`).toString("base64");
+      const bodyParams = new URLSearchParams();
+      bodyParams.append("To", normalized.e164);
+      bodyParams.append("Body", message);
+
+      if (env.TWILIO_MESSAGING_SERVICE_SID) {
+        bodyParams.append("MessagingServiceSid", env.TWILIO_MESSAGING_SERVICE_SID);
+      } else if (env.TWILIO_PHONE_NUMBER) {
+        bodyParams.append("From", env.TWILIO_PHONE_NUMBER);
+      }
+
+      const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${env.TWILIO_ACCOUNT_SID}/Messages.json`, {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${auth}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: bodyParams.toString(),
+        signal: AbortSignal.timeout(15000),
+      });
+
+      const data: any = await res.json();
+      if (res.ok && data.sid) {
+        return { success: true, messageId: data.sid };
+      }
+      return { success: false, error: data.message || "Twilio SMS send failed" };
+    } catch (err: any) {
+      console.error("Twilio SMS send error:", err);
+      return { success: false, error: err.message || "Twilio SMS send failed" };
+    }
+  }
+
+  // India destination -> Indian DLT gateway
   if (!env.SMS_API_KEY) {
     console.warn("SMS not sent: SMS_API_KEY not configured");
     return { success: false, error: "SMS not configured" };
   }
 
-  const cleanedPhone = phoneNumber.replace(/\D/g, "");
-  if (cleanedPhone.length < 10) {
-    return { success: false, error: "Invalid phone number" };
-  }
-
-  // Indian mobile numbers: 10 digits. Full E.164 format: 91 + 10 digits = 12 digits
-  let fullNumber: string;
-  if (cleanedPhone.length === 10) {
-    fullNumber = `91${cleanedPhone}`;
-  } else if (cleanedPhone.length === 12 && cleanedPhone.startsWith("91")) {
-    fullNumber = cleanedPhone;
-  } else if (cleanedPhone.length === 11 && cleanedPhone.startsWith("0")) {
-    fullNumber = `91${cleanedPhone.substring(1)}`;
-  } else {
-    return { success: false, error: "Invalid phone number format" };
-  }
-
+  const fullNumber = normalized.digits;
   const encodedMessage = encodeURIComponent(message);
 
   let url = `${env.SMS_BASE_URL}?apikey=${env.SMS_API_KEY}&senderid=${env.SMS_SENDER_ID}&number=${fullNumber}&message=${encodedMessage}&format=json`;

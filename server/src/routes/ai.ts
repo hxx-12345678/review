@@ -325,6 +325,8 @@ router.post("/talking-points", aiBurstLimiter, talkingPointsLimiter, aiDailyLimi
       languageInstruction = "Write the reminder bullet points in everyday Bengali using the Bengali script. Use natural spoken Bengali, like 'আপনি বললেন সেবা খুব ভালো ছিল'.";
     } else if (language === "kannada") {
       languageInstruction = "Write the reminder bullet points in everyday Kannada using the Kannada script. Use natural spoken Kannada, like 'ಸೇವೆ ತುಂಬಾ ಚೆನ್ನಾಗಿತ್ತು ಅಂತ ನೀವು ಹೇಳಿದಿರಿ'.";
+    } else if (language === "spanish") {
+      languageInstruction = "Write the reminder bullet points in natural, conversational Spanish (español neutro/latinoamericano). Phrase bullets as gentle reminders like 'Mencionaste que la comida estuvo deliciosa', 'Destacaste la atención del personal', 'Te gustó el ambiente'. Avoid robotic or peninsular translations.";
     }
 
     const SYSTEM_PROMPT = `You are a helpful assistant for a review tool that works for ALL business types — restaurants, clinics, salons, gyms, auto shops, home services, retail, D2C brands, agencies, professional services, and more.
@@ -459,6 +461,8 @@ router.post("/generate-review", aiBurstLimiter, generateReviewLimiter, aiDailyLi
       languageInstruction = "Write the review draft in natural, conversational Bengali using Bengali script. Use everyday spoken Bengali. Sound like someone casually sharing their experience on Google.";
     } else if (language === "kannada") {
       languageInstruction = "Write the review draft in natural, conversational Kannada using Kannada script. Use everyday spoken Kannada. Sound like someone casually sharing their experience on Google.";
+    } else if (language === "spanish") {
+      languageInstruction = "Write the review draft in natural, conversational Latin American / US Spanish (español neutro). Use everyday spoken phrasing like 'La comida estuvo riquísima', 'Nos atendieron de maravilla', 'El lugar tiene un ambiente muy agradable'. Avoid robotic or peninsular translations (use 'ustedes' or Latin American phrasing, not 'vosotros'). Sound like a genuine customer typing a quick review on their phone.";
     }
 
     const SYSTEM_PROMPT = `You are a review draft assistant. You work for ALL types of businesses — restaurants, clinics, dental practices, salons, barbershops, gyms, auto repair shops, home services (plumbing, electrical, cleaning), retail stores, D2C/ecommerce brands, agencies, professional services (legal, consulting, accounting), real estate, and more. Adapt your output naturally to the business type.

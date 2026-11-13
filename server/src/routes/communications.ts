@@ -5,6 +5,7 @@ import { getEnv } from "../config/env";
 import { authRequired, AuthRequest } from "../middleware/auth";
 import { sendReviewRequestEmail } from "../services/email";
 import { sendSms } from "../services/sms";
+import { normalizePhoneNumber } from "../utils/phone";
 
 const whatsappReportSchema = z.object({
   businessId: z.string().min(1),
@@ -13,13 +14,7 @@ const whatsappReportSchema = z.object({
   ownerPhone: z.string().min(10).max(20).optional(),
 });
 
-function cleanIndianPhone(phone: string): string | null {
-  const cleaned = phone.replace(/\D/g, "");
-  if (cleaned.length === 10 && /^[6-9]/.test(cleaned)) return `91${cleaned}`;
-  if (cleaned.length === 12 && cleaned.startsWith("91") && /^[6-9]/.test(cleaned.slice(2))) return cleaned;
-  if (cleaned.length === 11 && cleaned.startsWith("0") && /^[6-9]/.test(cleaned.slice(1))) return `91${cleaned.slice(1)}`;
-  return null;
-}
+
 
 function topKeywords(texts: string[], limit = 5): { phrase: string; count: number }[] {
   const stop = new Set(["the","and","was","were","very","with","for","our","you","your","had","have","has","are","but","not","all","this","that","from","they","them","his","her","its","our","will","would","could","should","there","their","what","when","where","who","how","why","about","into","over","after","before","between","during","than","then","also","just","like","good","nice","great","ok","okay"]);
@@ -151,7 +146,12 @@ router.post("/send-sms", authRequired, async (req: AuthRequest, res: Response) =
       message = message.substring(0, 297) + "...";
     }
 
-    const result = await sendSms(data.toPhone, message, env.SMS_REVIEW_TEMPLATE_ID || undefined);
+    const result = await sendSms(
+      data.toPhone,
+      message,
+      env.SMS_REVIEW_TEMPLATE_ID || undefined,
+      business.country === "US" ? "US" : "IN"
+    );
 
     if (!result.success) {
       return res.status(502).json({ error: result.error || "Failed to send SMS" });
@@ -213,10 +213,12 @@ router.post("/whatsapp-report", authRequired, async (req: AuthRequest, res: Resp
 
     let ownerPhoneE164: string | null = null;
     if (data.ownerPhone) {
-      ownerPhoneE164 = cleanIndianPhone(data.ownerPhone);
-      if (!ownerPhoneE164) {
-        return res.status(400).json({ error: "Invalid owner WhatsApp number. Use a 10-digit Indian mobile number." });
+      const defaultCountry = business.country === "US" ? "US" : "IN";
+      const norm = normalizePhoneNumber(data.ownerPhone, defaultCountry);
+      if (!norm.isValid) {
+        return res.status(400).json({ error: "Invalid owner WhatsApp number. Please enter a valid mobile number." });
       }
+      ownerPhoneE164 = norm.digits;
     }
 
     const days = data.frequency === "weekly" ? 7 : data.frequency === "monthly" ? 30 : 7;

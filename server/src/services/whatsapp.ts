@@ -1,25 +1,22 @@
 import { getEnv } from "../config/env";
+import { normalizePhoneNumber } from "../utils/phone";
 
 export async function sendWhatsAppNotification(
   toPhone: string,
-  message: string
+  message: string,
+  defaultCountry: "IN" | "US" = "IN"
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   const env = getEnv();
   if (!env.WHATSAPP_API_TOKEN || !env.WHATSAPP_PHONE_NUMBER_ID) {
     return { success: false, error: "WhatsApp API not configured (WHATSAPP_API_TOKEN and WHATSAPP_PHONE_NUMBER_ID required in server/.env)" };
   }
 
-  const cleanedPhone = toPhone.replace(/\D/g, "");
-  if (cleanedPhone.length < 10) {
+  const normalized = normalizePhoneNumber(toPhone, defaultCountry);
+  if (!normalized.isValid) {
     return { success: false, error: "Invalid recipient phone number" };
   }
 
-  let recipient = cleanedPhone;
-  if (cleanedPhone.length === 10) {
-    recipient = `91${cleanedPhone}`;
-  } else if (cleanedPhone.length === 11 && cleanedPhone.startsWith("0")) {
-    recipient = `91${cleanedPhone.slice(1)}`;
-  }
+  const recipient = normalized.digits;
 
   try {
     const res = await fetch(`https://graph.facebook.com/${env.WHATSAPP_API_VERSION}/${env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {

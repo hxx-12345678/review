@@ -22,6 +22,11 @@ const envSchema = z.object({
   // registered template text. Carriers block messages without a matching template.
   SMS_REVIEW_TEMPLATE_ID: z.string().optional().default(""),
   SMS_BASE_URL: z.string().optional().default("https://login.smsforyou.biz/V2/http-api.php"),
+  // U.S. SMS via Twilio (A2P 10DLC compliant)
+  TWILIO_ACCOUNT_SID: z.string().optional().default(""),
+  TWILIO_AUTH_TOKEN: z.string().optional().default(""),
+  TWILIO_PHONE_NUMBER: z.string().optional().default(""),
+  TWILIO_MESSAGING_SERVICE_SID: z.string().optional().default(""),
   GEMINI_API_KEY_1: z.string().optional().default(""),
   GOOGLE_GENERATIVE_AI_API_KEY: z.string().optional().default(""),
   // OpenRouter failover (secondary AI provider when Gemini is rate-limited/down).

@@ -1,4 +1,5 @@
 import { getEnv } from "../../config/env";
+import { cleanPhoneNumber } from "../../utils/phone";
 
 interface WhatsAppApiResult {
   success: boolean;
@@ -27,15 +28,7 @@ function getWhatsAppHeaders(): Record<string, string> {
   };
 }
 
-function cleanPhoneNumber(phone: string, defaultCountry: "IN" | "US" = "IN"): string {
-  const cleaned = phone.replace(/\D/g, "");
-  if (cleaned.length === 11 && cleaned.startsWith("1")) return cleaned;
-  if (cleaned.length === 12 && cleaned.startsWith("91")) return cleaned;
-  if (cleaned.length === 10) {
-    return defaultCountry === "US" ? `1${cleaned}` : `91${cleaned}`;
-  }
-  return cleaned;
-}
+
 
 function buildReviewFlowJson(businessName: string): object {
   return {
