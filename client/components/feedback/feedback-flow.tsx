@@ -18,6 +18,8 @@ import { api } from "@/lib/api"
 import { handleAiError } from "@/lib/ai-error-handler"
 import { getMCQCategories, getSignatureItems, getSignatureItemsLabel, getSpecialMentionPlaceholder } from "@/lib/industry-categories"
 import { localizeOptionLabel, localizeSignatureItemsLabel, localizeSpecialMentionPlaceholder, mcqText } from "@/lib/review-localization"
+import { useVoiceInput } from "@/lib/use-voice-input"
+import { VoiceButton, VoiceWaveIndicator } from "@/components/feedback/voice-wave"
 
 type Step = "loading" | "rate" | "language" | "mcq" | "review" | "done"
 
@@ -592,77 +594,18 @@ function MCQStep({
 }) {
   const moodKey = getMoodKey(rating)
   const [specialDismissed, setSpecialDismissed] = useState(false)
-  const [isListening, setIsListening] = useState(false)
-  const recognitionRef = useRef<any>(null)
   const typedLang = detectTypedLanguage(specialMention)
   const showLangHint = !!typedLang && typedLang !== language && specialMention.trim().length >= 8
   const t = (key: string, fallback: string) => mcqText(language, key) || fallback
 
-  function toggleVoiceInput() {
-    if (typeof window === "undefined") return
+  const isUsBusiness = business?.country === "US" || /\b(USA|United States)\b/i.test(business?.location || "") || /,\s*(AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY|DC)\b/i.test(business?.location || "");
 
-    const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-    if (!SpeechRec) {
-      toast.info("Voice recognition isn't supported on this browser. You can type directly below.")
-      return
-    }
-
-    if (isListening) {
-      recognitionRef.current?.stop()
-      setIsListening(false)
-      return
-    }
-
-    try {
-      const recognition = new SpeechRec()
-      recognitionRef.current = recognition
-      recognition.continuous = false
-      recognition.interimResults = true
-
-      // Map chosen language code for speech engine
-      const langMap: Record<string, string> = {
-        english: (business?.country === "US" || /\b(USA|United States)\b/i.test(business?.location || "")) ? "en-US" : "en-IN",
-        spanish: "es-US",
-        hinglish: "hi-IN",
-        hindi: "hi-IN",
-        marathi: "mr-IN",
-        gujarati: "gu-IN",
-        tamil: "ta-IN",
-        telugu: "te-IN",
-        bengali: "bn-IN",
-        kannada: "kn-IN",
-      }
-      recognition.lang = langMap[language] || ((business?.country === "US" || /\b(USA|United States)\b/i.test(business?.location || "")) ? "en-US" : "en-IN")
-
-      let initialText = specialMention
-
-      recognition.onstart = () => {
-        setIsListening(true)
-        toast.success("Listening... speak your experience naturally!")
-      }
-
-      recognition.onresult = (event: any) => {
-        let transcript = ""
-        for (let i = 0; i < event.results.length; i++) {
-          transcript += event.results[i][0].transcript
-        }
-        const updated = initialText ? `${initialText.trim()} ${transcript}` : transcript
-        onSpecialMentionChange(updated)
-      }
-
-      recognition.onerror = () => {
-        setIsListening(false)
-      }
-
-      recognition.onend = () => {
-        setIsListening(false)
-      }
-
-      recognition.start()
-    } catch {
-      setIsListening(false)
-    }
-  }
+  const { isListening, toggleListening } = useVoiceInput({
+    language,
+    isUS: isUsBusiness,
+    initialText: specialMention,
+    onTranscriptChange: onSpecialMentionChange,
+  })
 
   const validSelectedSubOptions = categories
     .flatMap((c) => c.subOptions)
@@ -846,25 +789,28 @@ function MCQStep({
                 </span>
               </button>
             )}
-            <label className="text-xs font-medium text-muted-foreground/80">
-              {moodKey === "positive"
-                ? t("specialPositive", "What made your experience special? Share a highlight...")
-                : moodKey === "neutral"
-                  ? t("specialNeutral", "What could have been better or stood out?")
-                  : t("specialNegative", "What went wrong? Help the business understand and improve...")}
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-medium text-muted-foreground/80">
+                {moodKey === "positive"
+                  ? t("specialPositive", "What made your experience special? Share a highlight...")
+                  : moodKey === "neutral"
+                    ? t("specialNeutral", "What could have been better or stood out?")
+                    : t("specialNegative", "What went wrong? Help the business understand and improve...")}
+              </label>
+              <VoiceButton isListening={isListening} onToggle={toggleListening} language={language} />
+            </div>
             <div className="relative">
               <textarea
                 value={specialMention}
                 onChange={(e) => onSpecialMentionChange(e.target.value)}
                 placeholder={localizeSpecialMentionPlaceholder(business.industry, moodKey, language) || getSpecialMentionPlaceholder(business.industry, moodKey)}
-                className="w-full min-h-[70px] resize-none rounded-xl border-2 border-muted-foreground/30 bg-card p-3 pr-11 text-xs leading-relaxed transition-all duration-200 focus:border-primary/40 focus:ring-2 focus:ring-primary/20 outline-none"
+                className="w-full min-h-[75px] resize-none rounded-xl border-2 border-muted-foreground/30 bg-card p-3 pr-11 text-xs leading-relaxed transition-all duration-200 focus:border-primary/40 focus:ring-2 focus:ring-primary/20 outline-none"
                 maxLength={500}
                 rows={2}
               />
               <button
                 type="button"
-                onClick={toggleVoiceInput}
+                onClick={toggleListening}
                 title={isListening ? t("stopListening", "Stop listening") : t("voiceHint", "Tap to speak in any language")}
                 className={cn(
                   "absolute right-2.5 top-2.5 flex size-8 items-center justify-center rounded-lg border transition-all active:scale-90",
@@ -876,12 +822,7 @@ function MCQStep({
                 {isListening ? <MicOff className="size-4" /> : <Mic className="size-4" />}
               </button>
             </div>
-            {isListening && (
-              <p className="text-[11px] font-semibold text-red-500 animate-pulse flex items-center gap-1.5">
-                <span className="size-2 rounded-full bg-red-500" />
-                {t("listening", "Listening... speak in your natural language or Hinglish")}
-              </p>
-            )}
+            <VoiceWaveIndicator isListening={isListening} language={language} />
             <div className="flex items-start justify-between gap-4">
               <p className="text-[10px] text-muted-foreground/70 leading-relaxed">
                 {t("yourWords", "Your own words help the AI craft a more authentic review. Be as specific as you like.")}
@@ -936,6 +877,13 @@ function ReviewStep({
   onReviewChange: (v: string) => void
   businessSlug?: string
 }) {
+  const isUsReview = /\b(USA|United States)\b/i.test(businessName || "") || language === "spanish";
+  const { isListening: isListeningReview, toggleListening: toggleListeningReview } = useVoiceInput({
+    language,
+    isUS: isUsReview,
+    initialText: customerReview,
+    onTranscriptChange: onReviewChange,
+  });
   const [generatingReview, setGeneratingReview] = useState(false)
   const [reviewGenerated, setReviewGenerated] = useState(false)
   const [talkingPointsExpanded, setTalkingPointsExpanded] = useState(true)
@@ -1074,6 +1022,7 @@ function ReviewStep({
             {t("reviewYourReview", "Your Review")}
           </label>
           <div className="flex items-center gap-2">
+            <VoiceButton isListening={isListeningReview} onToggle={toggleListeningReview} language={language} />
             {reviewGenerated && (
               <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 font-normal uppercase tracking-wider border">
                 <Sparkles className="size-2.5 mr-0.5" />
@@ -1116,6 +1065,7 @@ function ReviewStep({
             maxLength={2000}
             disabled={generatingReview}
           />
+        <VoiceWaveIndicator isListening={isListeningReview} language={language} />
           {generatingReview && (
             <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-background/60 backdrop-blur-[1px]">
               <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
