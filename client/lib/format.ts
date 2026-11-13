@@ -21,3 +21,23 @@ export function formatDate(iso: string): string {
     year: "numeric",
   })
 }
+
+export function formatCurrency(subunits: number, currency: string = "INR"): string {
+  if (subunits === 0) return "Free";
+  const value = subunits / 100;
+  const isUSD = (currency || "").toUpperCase() === "USD";
+  if (isUSD) {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    }).format(value);
+  }
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value);
+}

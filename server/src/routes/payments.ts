@@ -48,15 +48,16 @@ function getSafeTotalCount(interval: string): number {
   return Math.max(1, Math.min(100, Math.floor(maxDuration / secs)));
 }
 
-async function getOrCreateRazorpayPlan(razorpay: Razorpay, plan: { id: string; name: string; price: number; interval: string }): Promise<string> {
+async function getOrCreateRazorpayPlan(razorpay: Razorpay, plan: { id: string; name: string; price: number; interval: string; currency?: string }): Promise<string> {
   if (plan.price === 0) return plan.id;
   const periodMap: Record<string, string> = { month: "monthly", year: "yearly", day: "daily", week: "weekly", quarter: "quarterly" };
   const period = periodMap[plan.interval] || plan.interval;
+  const currency = (plan.currency || "INR").toUpperCase();
   try {
     const rp = await razorpay.plans.create({
       period: period as any,
       interval: 1,
-      item: { name: plan.name, amount: plan.price, currency: "INR" },
+      item: { name: plan.name, amount: plan.price, currency },
       notes: { internalPlanId: plan.id },
     });
     await prisma.subscriptionPlan.update({
@@ -105,6 +106,7 @@ const PLAN_PUBLIC_SELECT = {
   slug: true,
   description: true,
   price: true,
+  currency: true,
   interval: true,
   creditsLimit: true,
   businessLimit: true,
@@ -132,6 +134,7 @@ type InvoiceInput = {
   planId?: string | null;
   paymentId?: string | null;
   amount: number;
+  currency?: string;
   status?: string;
   kind?: "subscription" | "topup";
   description?: string;
@@ -148,7 +151,11 @@ type InvoiceInput = {
  */
 export async function recordInvoice(input: InvoiceInput) {
   const env = getEnv();
-  const { taxableAmount, taxAmount } = computeTaxBreakup(input.amount, env.GST_RATE_PERCENT);
+  const currency = (input.currency || "INR").toUpperCase();
+  const isDomesticIndia = currency === "INR";
+  const { taxableAmount, taxAmount } = isDomesticIndia
+    ? computeTaxBreakup(input.amount, env.GST_RATE_PERCENT)
+    : { taxableAmount: input.amount, taxAmount: 0 };
 
   // Idempotent: a retried webhook/verify must not consume another invoice
   // number or rewrite the original amount/customer snapshot.
@@ -173,7 +180,7 @@ export async function recordInvoice(input: InvoiceInput) {
     amount: input.amount,
     taxableAmount,
     taxAmount,
-    currency: "INR",
+    currency,
     status: input.status ?? "captured",
     kind: input.kind ?? "subscription",
     description: input.description ?? null,
@@ -193,14 +200,32 @@ export async function recordInvoice(input: InvoiceInput) {
 
 router.get("/plans", authOptional, async (req: AuthRequest, res: Response) => {
   try {
+    let targetCurrency = "INR";
+    const userId = req.userId;
+
+    if (userId) {
+      const userBiz = await prisma.business.findFirst({
+        where: { userId },
+        orderBy: { createdAt: "desc" },
+        select: { country: true, currency: true },
+      });
+      if (userBiz) {
+        targetCurrency = userBiz.currency || (userBiz.country === "US" ? "USD" : "INR");
+      }
+    } else {
+      // Unauthenticated visitor (e.g. public pricing page):
+      const countryHeader = (req.headers["cf-ipcountry"] || req.headers["x-country-code"] || "") as string;
+      const isUsVisitor = countryHeader.toUpperCase() === "US" || (countryHeader && countryHeader.toUpperCase() !== "IN");
+      targetCurrency = isUsVisitor ? "USD" : "INR";
+    }
+
     const allPlans = await prisma.subscriptionPlan.findMany({
-      where: { active: true },
+      where: { active: true, currency: targetCurrency },
       orderBy: { sortOrder: "asc" },
       select: PLAN_PUBLIC_SELECT,
     });
-    const userId = req.userId;
     if (!userId) {
-      return res.json({ plans: allPlans });
+      return res.json({ plans: allPlans, currency: targetCurrency });
     }
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -215,9 +240,9 @@ router.get("/plans", authOptional, async (req: AuthRequest, res: Response) => {
       const visible = allPlans.filter(
         (p: any) => visibleSlugs.includes(p.slug) || visibleSlugs.includes(p.slug.replace("-yearly", "")),
       );
-      return res.json({ plans: visible });
+      return res.json({ plans: visible, currency: targetCurrency });
     }
-    res.json({ plans: allPlans });
+    res.json({ plans: allPlans, currency: targetCurrency });
   } catch (err) {
     console.error("Get plans error:", err);
     res.status(500).json({ error: "Internal server error" });
@@ -267,6 +292,17 @@ router.post("/create-subscription", authRequired, async (req: AuthRequest, res: 
     const plan = await prisma.subscriptionPlan.findUnique({ where: { id: planId } });
     if (!plan || !plan.active) {
       return res.status(404).json({ error: "Plan not found" });
+    }
+
+    // Enforce business currency match to prevent currency arbitrage
+    const userBusiness = await prisma.business.findFirst({
+      where: { userId: req.userId },
+      orderBy: { createdAt: "desc" },
+      select: { country: true, currency: true },
+    });
+    const expectedCurrency = userBusiness?.currency || (userBusiness?.country === "US" ? "USD" : "INR");
+    if (plan.currency && plan.currency !== expectedCurrency) {
+      return res.status(400).json({ error: `This plan (${plan.currency}) does not match your business location (${expectedCurrency}).` });
     }
 
     // Per-user plan visibility (admin can restrict which plans an account sees).

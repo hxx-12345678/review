@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, Loader2, Sparkles, Zap, ShieldCheck, IndianRupee, Calendar } from "lucide-react";
+import { Check, Loader2, Sparkles, Zap, ShieldCheck, IndianRupee, CreditCard, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { formatCurrency } from "@/lib/format";
 
 type Plan = {
   id: string;
@@ -24,6 +25,7 @@ type Plan = {
   businessLimit: number;
   features: string[];
   description: string;
+  currency?: string;
 };
 
 type Props = {
@@ -37,14 +39,12 @@ type Props = {
 
 const DAYS_IN_YEAR = 365;
 
-function formatPrice(paise: number) {
-  if (paise === 0) return "Free";
-  return `₹${(paise / 100).toLocaleString("en-IN")}`;
+function formatPrice(subunits: number, currency: string = "INR") {
+  return formatCurrency(subunits, currency);
 }
 
-function formatPriceShort(paise: number) {
-  if (paise === 0) return "₹0";
-  return `₹${(paise / 100).toLocaleString("en-IN")}`;
+function formatPriceShort(subunits: number, currency: string = "INR") {
+  return formatCurrency(subunits, currency);
 }
 
 export function SubscribeConfirmDialog({
@@ -66,20 +66,21 @@ export function SubscribeConfirmDialog({
   if (!monthlyPlan) return null;
 
   const activePlan = billing === "yearly" && yearlyPlan ? yearlyPlan : monthlyPlan;
+  const currency = activePlan.currency || monthlyPlan.currency || "INR";
+  const isUSD = (currency || "").toUpperCase() === "USD";
   const activePaise = activePlan.price;
 
   const monthlyPaise = monthlyPlan.price;
 
   const yearlyTotalPaise = yearlyPlan ? yearlyPlan.price : monthlyPaise * 12;
-  const yearlyMonthlyPrice = yearlyPlan ? yearlyPlan.price / 12 : monthlyPaise;
+  const yearlyMonthlyPrice = yearlyPlan ? Math.round(yearlyPlan.price / 12) : monthlyPaise;
 
   const savePaise = monthlyPaise * 12 - (yearlyPlan?.price ?? monthlyPaise * 12);
   const saveMonths = yearlyPlan && yearlyPlan.price < monthlyPaise * 12
     ? Math.round((monthlyPaise * 12 - yearlyPlan.price) / monthlyPaise)
     : 0;
 
-  const perDay = Math.round(yearlyTotalPaise / 100 / DAYS_IN_YEAR);
-  const perMonthAnnual = Math.round(yearlyTotalPaise / 100 / 12);
+  const perDay = Math.round(yearlyTotalPaise / DAYS_IN_YEAR);
 
   const hasYearly = !!yearlyPlan;
 
@@ -90,7 +91,11 @@ export function SubscribeConfirmDialog({
         <div className="shrink-0 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent px-4 sm:px-6 pt-3 sm:pt-4 pb-2 sm:pb-3">
           <DialogHeader className="p-0">
             <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
-              <IndianRupee className="size-4 sm:size-5 text-primary" />
+              {isUSD ? (
+                <CreditCard className="size-4 sm:size-5 text-primary" />
+              ) : (
+                <IndianRupee className="size-4 sm:size-5 text-primary" />
+              )}
               Complete your subscription
             </DialogTitle>
             <DialogDescription className="text-xs sm:text-sm">
@@ -154,19 +159,19 @@ export function SubscribeConfirmDialog({
             {billing === "yearly" && hasYearly && yearlyPlan && (
               <div className="space-y-2">
                 <div className="flex items-baseline gap-1.5">
-                  <span className="text-3xl font-bold tracking-tight">{formatPriceShort(yearlyPlan.price)}</span>
+                  <span className="text-3xl font-bold tracking-tight">{formatPriceShort(yearlyPlan.price, currency)}</span>
                   <span className="text-sm text-muted-foreground">/year</span>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
                   <span className="text-primary font-semibold">
-                    Just ₹{perMonthAnnual.toLocaleString("en-IN")}/mo
+                    Just {formatPriceShort(yearlyMonthlyPrice, currency)}/mo
                   </span>
                   {/* Only strike through the monthly total when annual is
                       actually cheaper — otherwise it implies a fake discount. */}
                   {savePaise > 0 && (
                     <span className="text-muted-foreground line-through">
-                      {formatPriceShort(monthlyPaise)}/mo × 12 = {formatPriceShort(monthlyPaise * 12)}
+                      {formatPriceShort(monthlyPaise, currency)}/mo × 12 = {formatPriceShort(monthlyPaise * 12, currency)}
                     </span>
                   )}
                 </div>
@@ -174,20 +179,20 @@ export function SubscribeConfirmDialog({
                 {savePaise > 0 && (
                   <div className="inline-flex items-center gap-1.5 rounded-lg bg-green-50 dark:bg-green-950/30 px-3 py-1.5 text-xs font-medium text-green-700 dark:text-green-400 border border-green-200 dark:border-green-900">
                     <Sparkles className="size-3.5" />
-                    Save {formatPriceShort(savePaise)}/yr
+                    Save {formatPriceShort(savePaise, currency)}/yr
                     {saveMonths > 0 ? ` (about ${saveMonths} month${saveMonths > 1 ? "s" : ""} free)` : ""}
                   </div>
                 )}
 
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <IndianRupee className="size-3" />
-                  Less than ~₹{perDay.toLocaleString("en-IN")}/day
+                  {isUSD ? <CreditCard className="size-3" /> : <IndianRupee className="size-3" />}
+                  Less than ~{formatPriceShort(perDay, currency)}/day
                 </div>
 
                 <div className="border-t pt-2 mt-2 text-xs text-muted-foreground">
                   <div className="flex justify-between font-semibold text-foreground">
                     <span>Plan price</span>
-                    <span>{formatPriceShort(yearlyPlan.price)}/yr</span>
+                    <span>{formatPriceShort(yearlyPlan.price, currency)}/yr</span>
                   </div>
                 </div>
 
@@ -203,7 +208,7 @@ export function SubscribeConfirmDialog({
             {billing === "monthly" && (
               <div className="space-y-2">
                 <div className="flex items-baseline gap-1.5">
-                  <span className="text-3xl font-bold tracking-tight">{formatPriceShort(monthlyPaise)}</span>
+                  <span className="text-3xl font-bold tracking-tight">{formatPriceShort(monthlyPaise, currency)}</span>
                   <span className="text-sm text-muted-foreground">/month</span>
                 </div>
 
@@ -213,10 +218,10 @@ export function SubscribeConfirmDialog({
                   <div className="rounded-lg bg-amber-50 dark:bg-amber-950/20 px-3 py-2 text-xs text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-900 space-y-0.5">
                     <p className="font-medium flex items-center gap-1">
                       <Zap className="size-3" />
-                      You&apos;d pay {formatPriceShort(yearlyPlan.price)}/yr with annual
+                      You&apos;d pay {formatPriceShort(yearlyPlan.price, currency)}/yr with annual
                     </p>
                     <p>
-                      Switch to annual and save {formatPriceShort(savePaise)}
+                      Switch to annual and save {formatPriceShort(savePaise, currency)}
                       {saveMonths > 0 ? ` (about ${saveMonths} month${saveMonths > 1 ? "s" : ""})` : ""}
                     </p>
                   </div>
@@ -225,7 +230,7 @@ export function SubscribeConfirmDialog({
                 <div className="border-t pt-2 mt-2 text-xs text-muted-foreground">
                   <div className="flex justify-between font-semibold text-foreground">
                     <span>Plan price</span>
-                    <span>{formatPriceShort(monthlyPaise)}/mo</span>
+                    <span>{formatPriceShort(monthlyPaise, currency)}/mo</span>
                   </div>
                 </div>
               </div>
@@ -253,8 +258,8 @@ export function SubscribeConfirmDialog({
             Cancel from billing
           </span>
           <span className="flex items-center gap-1">
-            <IndianRupee className="size-2.5 sm:size-3" />
-            Price incl. GST
+            {isUSD ? <CreditCard className="size-2.5 sm:size-3" /> : <IndianRupee className="size-2.5 sm:size-3" />}
+            {isUSD ? "Secure checkout" : "Price incl. GST"}
           </span>
           <span className="flex items-center gap-1">
             <svg className="size-2.5 sm:size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -283,10 +288,12 @@ export function SubscribeConfirmDialog({
             >
               {loading ? (
                 <Loader2 className="size-4 animate-spin" />
+              ) : isUSD ? (
+                <CreditCard className="size-4" />
               ) : (
                 <IndianRupee className="size-4" />
               )}
-              {loading ? "Processing..." : `Pay ${formatPriceShort(activePaise)}`}
+              {loading ? "Processing..." : `Pay ${formatPriceShort(activePaise, currency)}`}
             </Button>
           </div>
         </DialogFooter>

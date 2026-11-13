@@ -482,7 +482,7 @@ export function detectTypedLanguage(text: string): string | null {
 }
 
 const LANGUAGE_LABELS: Record<string, string> = {
-  english: "English", hinglish: "Hinglish", hindi: "हिंदी", marathi: "मराठी",
+  english: "English", spanish: "Español", hinglish: "Hinglish", hindi: "हिंदी", marathi: "मराठी",
   gujarati: "ગુજરાતી", gujlish: "Gujlish", tamil: "தமிழ்", telugu: "తెలుగు",
   bengali: "বাংলা", kannada: "ಕನ್ನಡ",
 }
@@ -515,7 +515,14 @@ const MOOD_TAGS: Record<string, { icon: React.ReactNode; label: string; positive
 }
 
 function LanguageStep({ business, language, setLanguage, onContinue, onBack }: { business: any; language: string; setLanguage: (v: string) => void; onContinue: () => void; onBack: () => void }) {
-  const options = [
+  const isUsBusiness = business?.country === "US" || /\b(USA|United States)\b/i.test(business?.location || "") || /,\s*(AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY|DC)\b/i.test(business?.location || "");
+
+  const options = isUsBusiness
+    ? [
+        { value: "english", label: "English", code: "EN", sub: "Standard English" },
+        { value: "spanish", label: "Español", code: "ES", sub: "Spanish" },
+      ]
+    : [
     { value: "english", label: "English", code: "EN", sub: "Standard English" },
     { value: "hinglish", label: "Hinglish", code: "हिंEn", sub: "Hindi + English (Latin script)" },
     { value: "hindi", label: "हिंदी", code: "हिं", sub: "Hindi (Devanagari)" },
@@ -614,7 +621,8 @@ function MCQStep({
 
       // Map chosen language code for speech engine
       const langMap: Record<string, string> = {
-        english: "en-IN",
+        english: (business?.country === "US" || /\b(USA|United States)\b/i.test(business?.location || "")) ? "en-US" : "en-IN",
+        spanish: "es-US",
         hinglish: "hi-IN",
         hindi: "hi-IN",
         marathi: "mr-IN",
@@ -624,7 +632,7 @@ function MCQStep({
         bengali: "bn-IN",
         kannada: "kn-IN",
       }
-      recognition.lang = langMap[language] || "en-IN"
+      recognition.lang = langMap[language] || ((business?.country === "US" || /\b(USA|United States)\b/i.test(business?.location || "")) ? "en-US" : "en-IN")
 
       let initialText = specialMention
 

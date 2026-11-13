@@ -11,6 +11,7 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { useBusiness } from "@/lib/business-context";
 import { cn } from "@/lib/utils";
+import { formatCurrency } from "@/lib/format";
 import { SubscribeConfirmDialog } from "@/components/billing/subscribe-confirm-dialog";
 import {
   Dialog,
@@ -32,6 +33,7 @@ type Plan = {
   features: string[];
   description: string;
   sortOrder: number;
+  currency?: string;
 };
 
 type Balance = {
@@ -195,9 +197,12 @@ function BillingPage() {
     return { monthlyPct, monthlyUsed, monthlyLimit, topUpBalance, totalRemaining };
   }, [balance]);
 
-  function formatPrice(paise: number) {
-    if (paise === 0) return "Free";
-    return `₹${(paise / 100).toLocaleString("en-IN")}`;
+  const activeCurrency = useMemo(() => {
+    return businesses[0]?.currency || (businesses[0]?.country === "US" ? "USD" : "INR");
+  }, [businesses]);
+
+  function formatPrice(subunits: number, currency = activeCurrency) {
+    return formatCurrency(subunits, currency);
   }
 
   /** Monthly-equivalent price so yearly and monthly plans compare fairly. */
@@ -820,7 +825,7 @@ function BillingPage() {
                 {allInvoices.map((inv: any) => (
                   <div key={inv.id} className="flex items-center justify-between rounded-lg border p-3 text-sm">
                     <div>
-                      <p className="font-medium">₹{(inv.amount / 100).toLocaleString("en-IN")}</p>
+                      <p className="font-medium">{formatCurrency(inv.amount, inv.currency || activeCurrency)}</p>
                       <p className="text-muted-foreground">
                         {inv.kind === "topup" ? "Credits top-up" : "Subscription"} · {new Date(inv.createdAt).toLocaleDateString()}
                       </p>
@@ -846,23 +851,41 @@ function BillingPage() {
           </Card>
         )}
 
-        {/* ── RBI COMPLIANCE ── */}
-        <Card className="border-amber-200 bg-amber-50/50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-sm font-medium text-amber-800">
-              <Receipt className="size-4" />
-              Subscription & Recurring Payment Information
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 text-xs text-amber-700">
-            <p><strong>E-Mandate Registration:</strong> By subscribing, you authorize BEYONDVYU to collect recurring payments via Razorpay. The first payment requires your authentication via OTP (AFA) as per RBI guidelines. Subsequent recurring charges under ₹15,000 are processed without additional AFA.</p>
-            <p><strong>Pre-debit Notification:</strong> Your card issuer will send a notification at least 24 hours before each recurring debit with merchant name, amount, date, and e-mandate reference.</p>
-            <p><strong>Opt-out Facility:</strong> You may cancel your subscription at any time from this billing dashboard, which stops all future debits. Cancellation takes effect at the end of the current billing period (or immediately with a full refund if you are within 7 days of your last charge). A registered UPI/card mandate can also be revoked through your bank or UPI app. Your bank may require additional authentication (AFA) for mandate changes.</p>
-            <p><strong>Mandate Validity:</strong> This e-mandate is valid for the duration of your subscription. The validity period is specified in your Razorpay mandate confirmation.</p>
-            <p><strong>No Additional Charges:</strong> No charges are levied by BEYONDVYU for the e-mandate facility. Standard bank/internet charges may apply per your card issuer's terms.</p>
-            <p><strong>Grievance Redressal:</strong> For disputes or questions, contact us at support@beyondvyu.com or visit our <a href="/contact" className="underline hover:text-amber-900">Contact page</a>. See our <a href="/refund" className="underline hover:text-amber-900">Refund Policy</a> for cancellation and chargeback terms.</p>
-          </CardContent>
-        </Card>
+        {/* ── COMPLIANCE SECTION: US Click-to-Cancel or India RBI E-Mandate ── */}
+        {activeCurrency === "USD" ? (
+          <Card className="border-blue-200 bg-blue-50/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-sm font-medium text-blue-800">
+                <Receipt className="size-4" />
+                Subscription &amp; Auto-Renewal Terms (United States)
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-xs text-blue-700">
+              <p><strong>Auto-Renewal:</strong> Your subscription automatically renews at the end of each billing period at the then-current rate unless you cancel before the renewal date. The charge will appear on your payment method on file.</p>
+              <p><strong>Cancel Anytime (Click-to-Cancel):</strong> You may cancel directly from this billing dashboard in a single click — no phone call or email required. Cancellation takes effect at the end of your current paid period; you retain full access until then and are not charged again.</p>
+              <p><strong>Refund Policy:</strong> If you cancel within 7 days of a charge and have not materially used the service, you may request a full refund by contacting support@beyondvyu.com. After 7 days, charges are non-refundable but access continues through the paid period. See our <a href="/refund" className="underline hover:text-blue-900">Refund Policy</a>.</p>
+              <p><strong>Pricing Changes:</strong> We will notify you at least 30 days before any price increase by email. Continued use after the effective date constitutes acceptance.</p>
+              <p><strong>Contact &amp; Disputes:</strong> For billing questions, contact us at support@beyondvyu.com or visit our <a href="/contact" className="underline hover:text-blue-900">Contact page</a>. For unresolved disputes you may contact your card issuer or the FTC at ftc.gov/complaint.</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="border-amber-200 bg-amber-50/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-sm font-medium text-amber-800">
+                <Receipt className="size-4" />
+                Subscription &amp; Recurring Payment Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-xs text-amber-700">
+              <p><strong>E-Mandate Registration:</strong> By subscribing, you authorize BEYONDVYU to collect recurring payments via Razorpay. The first payment requires your authentication via OTP (AFA) as per RBI guidelines. Subsequent recurring charges under ₹15,000 are processed without additional AFA.</p>
+              <p><strong>Pre-debit Notification:</strong> Your card issuer will send a notification at least 24 hours before each recurring debit with merchant name, amount, date, and e-mandate reference.</p>
+              <p><strong>Opt-out Facility:</strong> You may cancel your subscription at any time from this billing dashboard, which stops all future debits. Cancellation takes effect at the end of the current billing period (or immediately with a full refund if you are within 7 days of your last charge). A registered UPI/card mandate can also be revoked through your bank or UPI app.</p>
+              <p><strong>Mandate Validity:</strong> This e-mandate is valid for the duration of your subscription. The validity period is specified in your Razorpay mandate confirmation.</p>
+              <p><strong>No Additional Charges:</strong> No charges are levied by BEYONDVYU for the e-mandate facility. Standard bank/internet charges may apply per your card issuer&apos;s terms.</p>
+              <p><strong>Grievance Redressal:</strong> For disputes or questions, contact us at support@beyondvyu.com or visit our <a href="/contact" className="underline hover:text-amber-900">Contact page</a>. See our <a href="/refund" className="underline hover:text-amber-900">Refund Policy</a> for cancellation and chargeback terms.</p>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* ── SUBSCRIBE CONFIRM DIALOG ── */}

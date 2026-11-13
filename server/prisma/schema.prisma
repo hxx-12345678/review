@@ -92,6 +92,8 @@ model Business {
   googleReviewUrl String?
   googlePlaceId   String?  // Google Place ID for Places API reviews (e.g., "ChIJN1t_tDeuEmsRUsoyG83frY4")
   location        String?
+  country         String   @default("IN") // "IN" | "US"
+  currency        String   @default("INR") // "INR" | "USD"
   phoneNumber     String?
   website         String?
   /**
@@ -272,7 +274,8 @@ model SubscriptionPlan {
   name          String
   slug          String         @unique
   description   String?
-  price         Int            // in paise (₹)
+  price         Int            // in smallest currency unit (paise for INR, cents for USD)
+  currency      String         @default("INR") // "INR" | "USD"
   interval      String         @default("month")
   creditsLimit  Int            @default(0)
   businessLimit Int            @default(1)

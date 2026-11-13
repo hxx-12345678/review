@@ -30,6 +30,8 @@ const createBusinessSchema = z.object({
   googleReviewUrl: z.string().url().optional().or(z.literal("")),
   googlePlaceId: z.string().max(200).optional().or(z.literal("")),
   location: z.string().max(500).optional().or(z.literal("")),
+  country: z.enum(["IN", "US"]).optional(),
+  currency: z.enum(["INR", "USD"]).optional(),
   phoneNumber: z.string().max(20).optional().or(z.literal("")),
   website: z.string().url().optional().or(z.literal("")),
   promptTopics: z.array(z.string().max(80)).max(30).optional(),
@@ -43,6 +45,8 @@ const updateBusinessSchema = z.object({
   googleReviewUrl: z.string().url().optional().or(z.literal("")),
   googlePlaceId: z.string().max(200).optional().or(z.literal("")),
   location: z.string().max(500).optional().or(z.literal("")),
+  country: z.enum(["IN", "US"]).optional(),
+  currency: z.enum(["INR", "USD"]).optional(),
   phoneNumber: z.string().max(20).optional().or(z.literal("")),
   website: z.string().url().optional().or(z.literal("")),
   promptTopics: z.array(z.string().max(80)).max(30).optional(),
@@ -57,6 +61,27 @@ const updateBusinessSchema = z.object({
   splashTagline: z.string().max(200).optional().or(z.literal("")),
   showPoweredBy: z.boolean().optional(),
 });
+
+export function inferCountryAndCurrency(location?: string | null, requestedCountry?: string | null): { country: "IN" | "US"; currency: "INR" | "USD" } {
+  if (requestedCountry === "US") return { country: "US", currency: "USD" };
+  if (requestedCountry === "IN") return { country: "IN", currency: "INR" };
+
+  if (location) {
+    const loc = location.toUpperCase();
+    if (loc.includes("USA") || loc.includes("UNITED STATES")) {
+      return { country: "US", currency: "USD" };
+    }
+    const usStateRegex = /,\s*(AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY|DC)\b/i;
+    if (usStateRegex.test(location)) {
+      return { country: "US", currency: "USD" };
+    }
+    if (loc.includes("INDIA") || /\b\d{6}\b/.test(location)) {
+      return { country: "IN", currency: "INR" };
+    }
+  }
+
+  return { country: "IN", currency: "INR" };
+}
 
 function generateSlug(name: string): string {
   return name
@@ -303,12 +328,16 @@ router.post("/", authRequired, async (req: AuthRequest, res: Response) => {
         slug = `${slug}-${Date.now().toString(36)}`;
       }
 
+      const { country, currency } = inferCountryAndCurrency(data.location, data.country);
+
       const business = await tx.business.create({
         data: {
           userId: req.userId!,
           name: data.name,
           slug,
           industry: data.industry,
+          country,
+          currency,
           googleReviewUrl: data.googleReviewUrl || null,
           googlePlaceId: data.googlePlaceId || null,
           location: data.location || null,
@@ -409,6 +438,12 @@ router.patch("/:id", authRequired, async (req: AuthRequest, res: Response) => {
           return res.status(409).json({ error: `This Google location is already registered by another account.`, code: "PLACEID_ALREADY_CLAIMED", conflictingBusinessId: owner.id });
         }
       }
+    }
+
+    if (cleaned.location !== undefined || (data as any).country !== undefined) {
+      const { country, currency } = inferCountryAndCurrency(cleaned.location ?? business.location, (data as any).country ?? (business as any).country);
+      cleaned.country = country;
+      cleaned.currency = currency;
     }
 
     const updated = await prisma.business.update({

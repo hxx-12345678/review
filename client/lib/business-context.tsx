@@ -16,6 +16,8 @@ interface Business {
   website: string | null;
   promptTopics: string[];
   createdAt: string;
+  country?: string;
+  currency?: string;
   _count?: { feedback: number; qrCodes: number; reviewClicks: number };
 }
 
