@@ -13,7 +13,7 @@ import { toast } from "sonner"
 import { api } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import { useBusiness } from "@/lib/business-context"
-import { INDUSTRY_OPTIONS } from "@/lib/industry-categories"
+import { getDefaultCategoryIds, getCustomTopicExampleForIndustry, INDUSTRY_OPTIONS } from "@/lib/industry-categories"
 
 const INDUSTRIES: { value: string; label: string; topics: string[] }[] = INDUSTRY_OPTIONS
 
@@ -27,6 +27,16 @@ type SearchResult = {
   totalRatings: number | null
 }
 
+type BusinessTypeInference = {
+  industry: string
+  label: string
+  confidence: "high" | "medium" | "low"
+  evidence: string[]
+  primaryType: string | null
+  types: string[]
+  defaultCategoryIds: string[]
+}
+
 export function OnboardingWizard({ embedded, onComplete }: {
   embedded?: boolean;
   onComplete?: () => void;
@@ -36,14 +46,13 @@ export function OnboardingWizard({ embedded, onComplete }: {
   const [step, setStep] = useState(0)
   const [name, setName] = useState("")
   const [location, setLocation] = useState("")
-  // Food-only founder-led sales: industry is allotted by admin, never picked
-  // by the customer. Onboarding always creates RESTAURANT businesses.
-  const [industry] = useState<string>("RESTAURANT")
+  const [industry, setIndustry] = useState<string>("")
+  const [industryInference, setIndustryInference] = useState<BusinessTypeInference | null>(null)
+  const [classifying, setClassifying] = useState(false)
+  const [enabledCategories, setEnabledCategories] = useState<string[]>([])
   const [googleUrl, setGoogleUrl] = useState("")
   const [googlePlaceId, setGooglePlaceId] = useState("")
-  const [topics, setTopics] = useState<string[]>(
-    () => INDUSTRY_OPTIONS.find((i) => i.value === "RESTAURANT")?.topics || []
-  )
+  const [topics, setTopics] = useState<string[]>([])
   const [newTopic, setNewTopic] = useState("")
 
   const [searching, setSearching] = useState(false)
@@ -66,8 +75,27 @@ export function OnboardingWizard({ embedded, onComplete }: {
 
   function canAdvance() {
     if (step === 0) return name.trim().length > 1
-    if (step === 1) return !!(googleUrl.trim().length > 4 || selectedPlace)
+    if (step === 1) return !!industry && !classifying && !!(googleUrl.trim().length > 4 || selectedPlace)
     return true
+  }
+
+  function applyIndustry(nextIndustry: string, opts?: { name?: string; defaultCategoryIds?: string[] }) {
+    const option = INDUSTRY_OPTIONS.find((item) => item.value === nextIndustry)
+    setIndustry(nextIndustry)
+    setTopics(option?.topics || [])
+    setEnabledCategories(
+      opts?.defaultCategoryIds && opts.defaultCategoryIds.length > 0
+        ? opts.defaultCategoryIds
+        : getDefaultCategoryIds(nextIndustry, {
+            name: opts?.name || selectedPlace?.name || name,
+            promptTopics: option?.topics || [],
+          }),
+    )
+  }
+
+  function chooseIndustry(nextIndustry: string) {
+    setIndustryInference(null)
+    applyIndustry(nextIndustry)
   }
 
   function next() {
@@ -95,10 +123,26 @@ export function OnboardingWizard({ embedded, onComplete }: {
     }
   }
 
-  function selectListing(place: SearchResult) {
+  async function selectListing(place: SearchResult) {
     setSelectedPlace(place)
     setGooglePlaceId(place.placeId)
     setGoogleUrl(`https://search.google.com/local/writereview?placeid=${place.placeId}`)
+    setIndustryInference(null)
+    setClassifying(true)
+    try {
+      const result = await api.googlePlaces.classify(place.placeId)
+      setIndustryInference(result)
+      applyIndustry(result.industry, {
+        name: result.name || place.name,
+        defaultCategoryIds: result.defaultCategoryIds,
+      })
+    } catch (err: any) {
+      // Auto-detection is a convenience, never a blocker. The selector below
+      // lets the owner choose manually when Places data is incomplete.
+      toast.error(err.message || "Could not detect business type — choose it below")
+    } finally {
+      setClassifying(false)
+    }
   }
 
   function clearSelection() {
@@ -117,6 +161,10 @@ export function OnboardingWizard({ embedded, onComplete }: {
 
   async function finish() {
     if (finishing) return
+    if (!industry) {
+      toast.error("Choose a business type so we can ask the right feedback questions")
+      return
+    }
     setFinishing(true)
     try {
       // Pre-check duplicate via PlaceID to give friendly UX before 409
@@ -142,6 +190,9 @@ export function OnboardingWizard({ embedded, onComplete }: {
         // These are question prompts ("What stood out?"), not dish names.
         // Signature dishes are added in dashboard settings.
         customReviewTopics: topics,
+        // Explicit defaults preserve the inferred profile's opt-ins (for
+        // example Drinks & Bar for a listing Google types as a bar).
+        enabledCategories,
       });
       toast.success("Business added");
       if (onComplete) {
@@ -449,6 +500,54 @@ export function OnboardingWizard({ embedded, onComplete }: {
                 )}
               </div>
             )}
+
+            <div className="mt-6 space-y-3 border-t border-border pt-5">
+              <div>
+                <Label htmlFor="biz-type">Business type</Label>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  This decides which feedback questions your customers see. We suggest it from your Google
+                  listing, and you can correct it here or later in Settings.
+                </p>
+              </div>
+
+              {classifying && (
+                <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                  <Loader2 className="size-4 animate-spin" />
+                  Detecting business type from Google…
+                </div>
+              )}
+
+              {!classifying && industryInference && industry === industryInference.industry && (
+                <div className="rounded-lg border border-teal-500/25 bg-teal-500/5 px-3 py-2 text-xs">
+                  <p className="font-medium text-teal-800 dark:text-teal-200">
+                    Suggested: {industryInference.label} · {industryInference.confidence} confidence
+                  </p>
+                  {industryInference.evidence.length > 0 && (
+                    <p className="mt-1 text-muted-foreground">
+                      {industryInference.evidence.join(" · ")}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <select
+                id="biz-type"
+                value={industry}
+                onChange={(e) => chooseIndustry(e.target.value)}
+                disabled={classifying}
+                className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <option value="" disabled>Select your business type</option>
+                {INDUSTRY_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+              {industryInference && industry !== industryInference.industry && (
+                <p className="text-xs text-muted-foreground">
+                  Using your correction instead of the Google suggestion. You can change this anytime.
+                </p>
+              )}
+            </div>
           </StepShell>
         )}
 
@@ -457,8 +556,8 @@ export function OnboardingWizard({ embedded, onComplete }: {
             <div>
               <Label>Review topics</Label>
               <p className="mt-1 text-xs text-muted-foreground">
-                These prompts jog your guests&apos; memory about taste, service, ambience and value. You can add
-                signature dishes and fine-tune the option groups later in Settings.
+                These prompts jog your guests&apos; memory about the parts of the visit that matter most.
+                You can add your own and fine-tune the option groups later in Settings.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {topics.map((t) => (
@@ -480,7 +579,7 @@ export function OnboardingWizard({ embedded, onComplete }: {
               </div>
               <div className="mt-3 flex gap-2">
                 <Input
-                  placeholder="Add a topic (e.g. Jain options)"
+                  placeholder={`Add a topic (e.g. ${getCustomTopicExampleForIndustry(industry).split(",")[0].replace(/"/g, "").trim()})`}
                   value={newTopic}
                   onChange={(e) => setNewTopic(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addTopic())}

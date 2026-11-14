@@ -804,12 +804,33 @@ router.get("/status/:businessId", authRequired, async (req: AuthRequest, res: Re
       where: { businessId },
     });
 
+    // A stub account created by Places API has ID starting with "places-" and no valid OAuth token.
+    // Only true GBP OAuth accounts with decrypted tokens should count as OAuth connected.
+    const isStub = !googleAccount || googleAccount.googleAccountId.startsWith("places-");
+    const hasToken = !!(
+      googleAccount &&
+      (googleAccount.tokenEncrypted || (googleAccount.accessToken && googleAccount.accessToken.length > 0))
+    );
+    const isOauthConnected = !isStub && hasToken;
+
+    const totalReviewCount = await prisma.googleReview.count({ where: { businessId } });
+    const placesReviewCount = await prisma.googleReview.count({
+      where: {
+        businessId,
+        googleReviewId: { startsWith: "places_" },
+      },
+    });
+    const gbpReviewCount = totalReviewCount - placesReviewCount;
+
     res.json({
-      connected: !!googleAccount,
-      googleAccountId: googleAccount?.googleAccountId || null,
-      reviewCount: googleAccount
-        ? await prisma.googleReview.count({ where: { businessId } })
-        : 0,
+      connected: isOauthConnected,
+      oauthConnected: isOauthConnected,
+      googleAccountId: isOauthConnected ? googleAccount?.googleAccountId : null,
+      reviewCount: totalReviewCount,
+      gbpReviewCount,
+      placesReviewCount,
+      hasPlaceId: !!business.googlePlaceId,
+      googlePlaceId: business.googlePlaceId || null,
     });
   } catch (err) {
     console.error("Google status error:", err);

@@ -13,9 +13,12 @@ import { api } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
 import {
   getCategoriesForIndustry,
+  getDefaultCategoryIds,
   getEffectiveCategoryIds,
   getIndustryLabel,
   getSignatureItems,
+  getCustomTopicExampleForIndustry,
+  INDUSTRY_OPTIONS,
 } from "@/lib/industry-categories"
 
 /**
@@ -175,6 +178,18 @@ export function SettingsForm({ business }: { business: any }) {
   function toggleCategory(categoryId: string) {
     setEnabledCategories((prev) =>
       prev.includes(categoryId) ? prev.filter((id) => id !== categoryId) : [...prev, categoryId],
+    )
+  }
+
+  function changeIndustry(nextIndustry: string) {
+    setIndustry(nextIndustry)
+    // Category ids are industry-scoped. Reset to safe defaults immediately so
+    // the owner never saves a stale selection from the previous profile.
+    setEnabledCategories(
+      getDefaultCategoryIds(nextIndustry, {
+        name,
+        promptTopics,
+      }),
     )
   }
 
@@ -525,13 +540,21 @@ export function SettingsForm({ business }: { business: any }) {
         </p>
         <div className="mt-5 space-y-4">
           <div className="space-y-2">
-            <Label>Industry</Label>
-            <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2.5 text-sm">
-              <span className="font-medium text-foreground">{getIndustryLabel(business?.industry || "RESTAURANT")}</span>
-              <span className="text-xs text-muted-foreground">· set by your account manager</span>
-            </div>
+            <Label htmlFor="industry">Business type</Label>
+            <select
+              id="industry"
+              value={industry}
+              onChange={(e) => changeIndustry(e.target.value)}
+              className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              {INDUSTRY_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
             <p className="text-[11px] text-muted-foreground">
-              Selling food-only right now — your industry is allotted at signup. Contact support if this looks wrong.
+              This controls the feedback questions customers see. Current profile:{" "}
+              <span className="font-medium text-foreground">{getIndustryLabel(industry)}</span>. Changing it
+              resets the option groups below to that profile&apos;s defaults.
             </p>
           </div>
 
@@ -584,8 +607,7 @@ export function SettingsForm({ business }: { business: any }) {
               <span className="text-xs text-muted-foreground">{customReviewTopics.length}/20</span>
             </div>
             <p className="text-xs text-muted-foreground">
-              Add business-specific things guests can tap, e.g. &quot;Jain options&quot;, &quot;Parking&quot;,
-              &quot;Outdoor seating&quot;.
+              Add business-specific things guests can tap — e.g. {getCustomTopicExampleForIndustry(industry)}.
             </p>
             <div className="flex flex-wrap gap-2">
               {customReviewTopics.map((topic) => (
@@ -607,7 +629,7 @@ export function SettingsForm({ business }: { business: any }) {
             </div>
             <div className="flex gap-2">
               <Input
-                placeholder="Add a review option (e.g. Jain options)"
+                placeholder={`Add a review option (e.g. ${getCustomTopicExampleForIndustry(industry).split(",")[0].replace(/"/g, "").trim()})`}
                 value={newReviewTopic}
                 onChange={(e) => setNewReviewTopic(e.target.value)}
                 onKeyDown={(e) => {
@@ -997,7 +1019,7 @@ export function SettingsForm({ business }: { business: any }) {
 }
 
 function GoogleAccountSection({ businessId }: { businessId: string }) {
-  const [status, setStatus] = useState<{ connected: boolean; googleAccountId: string | null; reviewCount: number } | null>(null);
+  const [status, setStatus] = useState<{ connected: boolean; googleAccountId: string | null; reviewCount: number; gbpReviewCount?: number; placesReviewCount?: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [syncingPlaces, setSyncingPlaces] = useState(false);
@@ -1038,11 +1060,23 @@ function GoogleAccountSection({ businessId }: { businessId: string }) {
     setSyncingPlaces(true);
     try {
       const result = await api.googleReviews.syncPlaces(businessId);
-      toast.success(`Imported ${result.synced} new public review(s) via Places API (${result.total} total)`);
+      if (result.total === 0) {
+        toast.info("No public reviews found. Ensure billing is enabled on your Google Cloud project (reviews are an Advanced Data SKU) and that your Place ID is correct.");
+      } else if (result.synced === 0) {
+        toast.info(`All ${result.total} review(s) already up to date.`);
+      } else {
+        toast.success(`Imported ${result.synced} new review(s) via Places API (${result.total} total).`);
+      }
       const s = await api.googleReviews.status(businessId);
       setStatus(s);
     } catch (err: any) {
-      toast.error(err.message || "Places API sync failed — set your Google Place ID above and ensure GOOGLE_PLACES_API_KEY is configured");
+      const msg = err.message || "Places API sync failed";
+      const isConfig = msg.includes("GOOGLE_PLACES_API_KEY") || msg.includes("No Google Place ID");
+      if (isConfig) {
+        toast.error("Setup required: set your Google Place ID in Settings and add GOOGLE_PLACES_API_KEY to server/.env");
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setSyncingPlaces(false);
     }
@@ -1084,8 +1118,8 @@ function GoogleAccountSection({ businessId }: { businessId: string }) {
           ) : status?.connected ? (
             <div className="space-y-3">
               <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm space-y-1">
-                <p><span className="text-muted-foreground">Account ID:</span> {status.googleAccountId}</p>
-                <p><span className="text-muted-foreground">Total reviews synced:</span> {status.reviewCount}</p>
+                <p><span className="text-muted-foreground">GBP Account ID:</span> {status.googleAccountId}</p>
+                <p><span className="text-muted-foreground">GBP reviews synced:</span> {status.gbpReviewCount ?? status.reviewCount}</p>
               </div>
               <div className="flex gap-2 flex-wrap">
                 <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing}>
@@ -1113,9 +1147,15 @@ function GoogleAccountSection({ businessId }: { businessId: string }) {
           <p className="text-sm font-medium text-foreground">Method 2: Places API <span className="text-xs font-normal text-green-600 ml-1">(No approval needed)</span></p>
           <p className="text-xs text-muted-foreground mt-0.5">
             Import up to 5 public reviews using your Google Place ID (set above) + a Places API key.
-            No GBP API approval required. Set <code className="text-xs bg-muted px-1 rounded">GOOGLE_PLACES_API_KEY</code> in server .env.
+            No GBP API approval required. Set <code className="text-xs bg-muted px-1 rounded">GOOGLE_PLACES_API_KEY</code> in server .env.{" "}
+            <span className="text-amber-600">Note: requires billing enabled on your Google Cloud project — reviews are an Advanced Data SKU.</span>
           </p>
         </div>
+        {status?.placesReviewCount !== undefined && status.placesReviewCount > 0 && (
+          <p className="text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">{status.placesReviewCount}</span> public review(s) currently synced via Places API.
+          </p>
+        )}
         <Button variant="outline" size="sm" onClick={handleSyncPlaces} disabled={syncingPlaces}>
           <RefreshCw className={`size-4 ${syncingPlaces ? "animate-spin" : ""}`} />
           {syncingPlaces ? "Importing..." : "Import Public Reviews"}
