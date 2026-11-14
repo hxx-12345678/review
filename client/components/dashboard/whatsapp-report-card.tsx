@@ -123,16 +123,14 @@ export function WhatsAppReportCard({ businessId }: Props) {
           <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
             <AlertTriangle className="mt-0.5 size-4 shrink-0" />
             <p>
-              WhatsApp Business API is not connected on this server yet. You can save your preference and generate
-              an honest preview below. Auto-delivery activates once <code>WHATSAPP_API_TOKEN</code> +{" "}
-              <code>WHATSAPP_PHONE_NUMBER_ID</code> are set with an approved Meta utility template and owner opt-in.
+              WhatsApp delivery is currently in preview mode. You can set your digest schedule and preview your reputation report below.
             </p>
           </div>
         )}
         {configured === true && (
           <div className="flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">
             <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
-            <p>WhatsApp Business API is connected. Add the owner number with opt-in, then send a test.</p>
+            <p>WhatsApp notifications are active. Add your WhatsApp number below to receive your scheduled reputation report.</p>
           </div>
         )}
 
@@ -168,8 +166,7 @@ export function WhatsAppReportCard({ businessId }: Props) {
                 inputMode="tel"
               />
               <p className="text-[11px] text-muted-foreground">
-                Business-initiated WhatsApp needs prior opt-in + an approved Meta template (Utility). Review requests and
-                digests are transactional — never promotional. Meta per-message rates apply (India utility ≈ ₹0.14–₹0.30).
+                Your reputation digest includes rating velocity, review highlights, and actionable customer feedback delivered directly to your WhatsApp.
               </p>
             </div>
           </>

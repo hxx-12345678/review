@@ -9,12 +9,6 @@ import { toast } from "sonner";
 
 type ConsentType = "data_processing" | "privacy_terms" | "marketing";
 
-/**
- * DPDP Act: consent must be withdrawable with the same ease as it was given.
- * Required consents (data_processing, privacy_terms) keep the account working —
- * withdrawing them means deleting the account via privacy@ email. Marketing
- * consent is a free toggle here, no support ticket needed.
- */
 export function PrivacyConsentCard() {
   const [consents, setConsents] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
@@ -36,9 +30,9 @@ export function PrivacyConsentCard() {
     try {
       await api.consent.save([{ type, granted, context: "settings" }]);
       setConsents((prev) => ({ ...prev, [type]: granted }));
-      toast.success(granted ? "Consent granted" : "Consent withdrawn");
+      toast.success(granted ? "Preferences updated" : "Consent withdrawn");
     } catch (err: any) {
-      toast.error(err.message || "Failed to update consent");
+      toast.error(err.message || "Failed to update preferences");
     } finally {
       setSaving(null);
     }
@@ -48,25 +42,23 @@ export function PrivacyConsentCard() {
     <Card className="p-6">
       <div className="flex items-center gap-2">
         <ShieldCheck className="size-5 text-primary" />
-        <h2 className="font-medium text-foreground">Privacy & consent</h2>
+        <h2 className="font-medium text-foreground">Privacy & communication preferences</h2>
       </div>
       <p className="mt-1 text-sm text-muted-foreground">
-        Your data rights under India&apos;s DPDP Act, 2023. Withdraw any consent at
-        any time —{" "}
+        Manage your communication preferences and data privacy. You can update your preferences or withdraw consent at any time —{" "}
         <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-primary underline-offset-2 hover:underline">
           Privacy Policy
-        </a>
-        .
+        </a>.
       </p>
-      <div className="mt-5 space-y-1">
+      <div className="mt-5 space-y-4">
         {loading ? (
           <div className="h-10 animate-pulse rounded-lg bg-muted" />
         ) : (
           <>
-            <div className="flex items-center justify-between gap-4 py-3">
+            <div className="flex items-center justify-between gap-4 py-2">
               <div>
-                <p className="text-sm font-medium text-foreground">Marketing updates</p>
-                <p className="text-sm text-muted-foreground">Tips and product announcements. Optional.</p>
+                <p className="text-sm font-medium text-foreground">Marketing & product updates</p>
+                <p className="text-sm text-muted-foreground">Receive periodic product tips, feature announcements, and insights.</p>
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 {saving === "marketing" && <Loader2 className="size-3.5 animate-spin text-muted-foreground" />}
@@ -78,19 +70,11 @@ export function PrivacyConsentCard() {
                 />
               </div>
             </div>
-            <div className="flex items-center justify-between gap-4 border-t border-border py-3">
-              <div>
-                <p className="text-sm font-medium text-foreground">Account data processing</p>
-                <p className="text-sm text-muted-foreground">Required to run your account. Withdrawing means deleting your account — email privacy@beyondvyu.com.</p>
-              </div>
-              <Switch checked disabled aria-label="Data processing consent (required, locked on)" />
-            </div>
-            <div className="flex items-center justify-between gap-4 border-t border-border py-3">
-              <div>
-                <p className="text-sm font-medium text-foreground">Privacy & Terms acceptance</p>
-                <p className="text-sm text-muted-foreground">Required to use the platform.</p>
-              </div>
-              <Switch checked disabled aria-label="Privacy terms consent (required, locked on)" />
+            <div className="border-t border-border pt-4 text-xs text-muted-foreground">
+              To request personal data export or account deletion, contact our privacy desk at{" "}
+              <a href="mailto:privacy@beyondvyu.com" className="text-primary hover:underline">
+                privacy@beyondvyu.com
+              </a>.
             </div>
           </>
         )}

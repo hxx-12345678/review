@@ -1061,19 +1061,18 @@ function GoogleAccountSection({ businessId }: { businessId: string }) {
     try {
       const result = await api.googleReviews.syncPlaces(businessId);
       if (result.total === 0) {
-        toast.info("No public reviews found. Ensure billing is enabled on your Google Cloud project (reviews are an Advanced Data SKU) and that your Place ID is correct.");
+        toast.info("No public review texts were returned by Google Maps for this listing. Connect your Google Business Profile above for full review history.");
       } else if (result.synced === 0) {
-        toast.info(`All ${result.total} review(s) already up to date.`);
+        toast.info(`All ${result.total} public review(s) are already up to date.`);
       } else {
-        toast.success(`Imported ${result.synced} new review(s) via Places API (${result.total} total).`);
+        toast.success(`Imported ${result.synced} public review(s) (${result.total} total).`);
       }
       const s = await api.googleReviews.status(businessId);
       setStatus(s);
     } catch (err: any) {
-      const msg = err.message || "Places API sync failed";
-      const isConfig = msg.includes("GOOGLE_PLACES_API_KEY") || msg.includes("No Google Place ID");
-      if (isConfig) {
-        toast.error("Setup required: set your Google Place ID in Settings and add GOOGLE_PLACES_API_KEY to server/.env");
+      const msg = err.message || "Public reviews sync failed";
+      if (msg.includes("No Google Place ID")) {
+        toast.error("Please connect your Google listing in the Google Review URL section above.");
       } else {
         toast.error(msg);
       }
@@ -1110,7 +1109,9 @@ function GoogleAccountSection({ businessId }: { businessId: string }) {
       <div className="mt-4 rounded-lg border border-border p-4 space-y-3">
         <div>
           <p className="text-sm font-medium text-foreground">Method 1: Business Profile OAuth (Full access)</p>
-          <p className="text-xs text-muted-foreground mt-0.5">Connect your GBP account for full review management and reply capabilities. Requires GBP API access approval from Google.</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Connect your verified Google Business Profile to manage, sync, and reply to all customer reviews directly from your dashboard.
+          </p>
         </div>
         <div>
           {loading ? (
@@ -1141,19 +1142,17 @@ function GoogleAccountSection({ businessId }: { businessId: string }) {
         </div>
       </div>
 
-      {/* Method 2: Places API (No GBP approval required) */}
+      {/* Method 2: Public Reviews Sync via Google Maps */}
       <div className="mt-3 rounded-lg border border-dashed border-border p-4 space-y-3">
         <div>
-          <p className="text-sm font-medium text-foreground">Method 2: Places API <span className="text-xs font-normal text-green-600 ml-1">(No approval needed)</span></p>
+          <p className="text-sm font-medium text-foreground">Method 2: Public Reviews Sync <span className="text-xs font-normal text-emerald-600 ml-1">(Google Maps listing)</span></p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Import up to 5 public reviews using your Google Place ID (set above) + a Places API key.
-            No GBP API approval required. Set <code className="text-xs bg-muted px-1 rounded">GOOGLE_PLACES_API_KEY</code> in server .env.{" "}
-            <span className="text-amber-600">Note: requires billing enabled on your Google Cloud project — reviews are an Advanced Data SKU.</span>
+            Import up to 5 recent public reviews from your Google Maps listing using your connected Place ID.
           </p>
         </div>
         {status?.placesReviewCount !== undefined && status.placesReviewCount > 0 && (
           <p className="text-xs text-muted-foreground">
-            <span className="font-medium text-foreground">{status.placesReviewCount}</span> public review(s) currently synced via Places API.
+            <span className="font-medium text-foreground">{status.placesReviewCount}</span> public review(s) currently synced via Google Maps.
           </p>
         )}
         <Button variant="outline" size="sm" onClick={handleSyncPlaces} disabled={syncingPlaces}>
