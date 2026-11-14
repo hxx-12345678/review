@@ -133,6 +133,7 @@ export function FeedbackFlow({ business, slug, demo: isDemo = false, table, staf
             rating,
             language,
             businessSlug: slug || business.slug,
+            industry: business.industry,
           }),
         })
         if (!res.ok) {
@@ -350,6 +351,7 @@ export function FeedbackFlow({ business, slug, demo: isDemo = false, table, staf
             customerReview={customerReview}
             onReviewChange={setCustomerReview}
             businessSlug={slug || business.slug}
+            industry={business.industry}
           />
         )}
         {step === "done" && (
@@ -396,6 +398,30 @@ export function FeedbackFlow({ business, slug, demo: isDemo = false, table, staf
 function WelcomeStep({ business, onStart }: { business: any; onStart: () => void }) {
   const getBranding = (industry: string) => {
     switch (industry) {
+      case "CAFE":
+        return { gradient: "from-amber-500 to-orange-700 dark:from-amber-600 dark:to-orange-800", icon: <Utensils className="size-10 text-white" />, tagline: "How was your coffee and time with us? We'd love to hear it." }
+      case "BAKERY":
+        return { gradient: "from-rose-400 to-amber-600 dark:from-rose-500 dark:to-amber-700", icon: <Utensils className="size-10 text-white" />, tagline: "From our oven to your table — tell us how it tasted." }
+      case "QUICK_SERVICE":
+        return { gradient: "from-orange-500 to-red-600 dark:from-orange-600 dark:to-red-700", icon: <Utensils className="size-10 text-white" />, tagline: "Quick service, real feedback. How did we do?" }
+      case "HOTEL":
+        return { gradient: "from-teal-600 to-cyan-800 dark:from-teal-700 dark:to-cyan-900", icon: <Building className="size-10 text-white" />, tagline: "Thank you for staying with us. How was your visit?" }
+      case "ELECTRONICS_REPAIR":
+        return { gradient: "from-cyan-600 to-blue-800 dark:from-cyan-700 dark:to-blue-900", icon: <Wrench className="size-10 text-white" />, tagline: "Was your device repaired properly? Tell us what happened." }
+      case "ELECTRICAL":
+        return { gradient: "from-yellow-500 to-amber-700 dark:from-yellow-600 dark:to-amber-800", icon: <Wrench className="size-10 text-white" />, tagline: "How was the electrical work? Your feedback keeps us safe." }
+      case "ELECTRICAL_RETAIL":
+        return { gradient: "from-yellow-500 to-orange-700 dark:from-yellow-600 dark:to-orange-800", icon: <Smartphone className="size-10 text-white" />, tagline: "Found what you needed? Share your experience with us." }
+      case "RETAIL":
+        return { gradient: "from-violet-500 to-purple-700 dark:from-violet-600 dark:to-purple-800", icon: <Building className="size-10 text-white" />, tagline: "How was your shopping experience today?" }
+      case "EDUCATION":
+        return { gradient: "from-blue-500 to-cyan-700 dark:from-blue-600 dark:to-cyan-800", icon: <Users className="size-10 text-white" />, tagline: "Your feedback helps us support every learner better." }
+      case "PET_CARE":
+        return { gradient: "from-emerald-500 to-teal-700 dark:from-emerald-600 dark:to-teal-800", icon: <Stethoscope className="size-10 text-white" />, tagline: "How did we care for your pet today?" }
+      case "REAL_ESTATE":
+        return { gradient: "from-slate-500 to-blue-800 dark:from-slate-600 dark:to-blue-900", icon: <Home className="size-10 text-white" />, tagline: "How was your experience working with us?" }
+      case "PROFESSIONAL_SERVICES":
+        return { gradient: "from-indigo-500 to-slate-700 dark:from-indigo-600 dark:to-slate-800", icon: <Users className="size-10 text-white" />, tagline: "How did we help? Share your experience." }
       case "DENTAL":
         return { gradient: "from-cyan-500 to-blue-600 dark:from-cyan-600 dark:to-blue-700", icon: <Stethoscope className="size-10 text-white" />, tagline: "Your smile is our absolute priority. Share your experience with us!" }
       case "MEDICAL":
@@ -857,7 +883,7 @@ function MCQStep({
 }
 
 function ReviewStep({
-  config, talkingPoints, loadingPoints, combinedInput, rawHighlights, selectedTopics, authenticity, submitting, onPostToGoogle, onBack, businessName, promptTopics, language, rating, customerReview, onReviewChange, businessSlug,
+  config, talkingPoints, loadingPoints, combinedInput, rawHighlights, selectedTopics, authenticity, submitting, onPostToGoogle, onBack, businessName, promptTopics, language, rating, customerReview, onReviewChange, businessSlug, industry,
 }: {
   config: ReturnType<typeof getReviewStepConfig>
   talkingPoints: string[]
@@ -876,6 +902,7 @@ function ReviewStep({
   customerReview: string
   onReviewChange: (v: string) => void
   businessSlug?: string
+  industry?: string
 }) {
   const isUsReview = /\b(USA|United States)\b/i.test(businessName || "") || language === "spanish";
   const { isListening: isListeningReview, toggleListening: toggleListeningReview } = useVoiceInput({
@@ -910,7 +937,7 @@ function ReviewStep({
 
   /** Build a stable fingerprint of the current input for change detection */
   function inputFingerprint() {
-    return `${rawHighlights || combinedInput}|${selectedTopics.sort().join(",")}|${rating}|${language}`
+    return `${rawHighlights || combinedInput}|${selectedTopics.sort().join(",")}|${rating}|${language}|${industry || ""}`
   }
 
   /** Core fetch logic — shared between auto-gen and manual click */
@@ -930,6 +957,7 @@ function ReviewStep({
           language,
           talkingPoints,
           businessSlug,
+          industry,
         }),
       })
       if (!res.ok) {

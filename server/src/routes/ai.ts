@@ -12,6 +12,8 @@ import {
   aiDailyLimiter,
 } from "../middleware/rate-limit";
 import { deriveTalkingPoints, buildFallbackReply, buildFallbackReview, generateInsights, generateWithFailover, extractTalkingPoints, estimateCostUsd } from "../utils/gemini";
+import { normalizeReviewIndustry } from "../utils/review-options";
+import { REVIEW_INDUSTRY_LABELS } from "../utils/business-type-inference";
 import type { ReviewInput } from "../utils/gemini";
 import { loadEntitledSubscription, resetMonthlyCreditsIfDue } from "../services/subscriptions";
 
@@ -64,8 +66,8 @@ const generateReplySchema = z.object({
 
 // Cache for talking points to prevent duplicate Gemini billing
 const resultCache = new Map<string, { value: string[]; expiresAt: number }>();
-function cacheKey(highlights: string, business: string, rating: number, lang: string) {
-  return `${lang}:${rating}:${business}:${highlights}`.slice(0, 256);
+function cacheKey(highlights: string, business: string, rating: number, lang: string, industry = "") {
+  return `${lang}:${rating}:${business}:${industry}:${highlights}`.slice(0, 256);
 }
 
 // ── T10: AI Reply Generation Route ──────────────────────────────────────────
@@ -282,20 +284,21 @@ const talkingPointsSchema = z.object({
   rating: z.number().min(1).max(5).optional(),
   language: z.string().max(30).optional().default("english"),
   businessSlug: z.string().max(200).optional(),
+  industry: z.string().max(100).optional(),
 });
 
 // Review cache for generate-review (in addition to talking-points cache)
 const reviewResultCache = new Map<string, { value: string; expiresAt: number }>();
-function reviewCacheKey(highlights: string, business: string, rating: number, lang: string, topics: string[]) {
-  return `${lang}:${rating}:${business}:${highlights}:${topics.sort().join(",")}`.slice(0, 512);
+function reviewCacheKey(highlights: string, business: string, rating: number, lang: string, topics: string[], industry = "") {
+  return `${lang}:${rating}:${business}:${industry}:${highlights}:${topics.sort().join(",")}`.slice(0, 512);
 }
 
 router.post("/talking-points", aiBurstLimiter, talkingPointsLimiter, aiDailyLimiter, async (req: Request, res: Response) => {
   try {
-    const { highlights, selectedTopics, businessName, promptTopics, rating, language, businessSlug } = talkingPointsSchema.parse(req.body);
+    const { highlights, selectedTopics, businessName, promptTopics, rating, language, businessSlug, industry } = talkingPointsSchema.parse(req.body);
 
     // Cache check: skip Gemini if we've seen this exact input recently
-    const key = cacheKey(highlights, businessName, rating ?? 0, language);
+    const key = cacheKey(highlights, businessName, rating ?? 0, language, industry || "");
     const cached = resultCache.get(key);
     if (cached && cached.expiresAt > Date.now()) {
       return res.json({ talkingPoints: cached.value, cached: true });
@@ -349,7 +352,10 @@ Your goal is to jog the customer's memory so THEY write an authentic review in t
     const bizTopicsLine = promptTopics.length > 0
       ? `\nSignature dishes, treatments, products, or services the business is known for (reference one only if the customer's notes show they tried it; never invent): ${promptTopics.join(", ")}`
       : "";
-    const prompt = `Business: ${businessName}
+    const indKey = industry ? normalizeReviewIndustry(industry) : undefined;
+    const indLabel = indKey ? REVIEW_INDUSTRY_LABELS[indKey] : undefined;
+    const industryLine = indLabel ? `\nBusiness Category: ${indLabel}` : "";
+    const prompt = `Business: ${businessName}${industryLine}
 Customer's star rating: ${rating ?? "unknown"}/5
 Customer's notes about their visit: "${highlights}"${topicsLine}${bizTopicsLine}
 
@@ -422,14 +428,15 @@ const generateReviewSchema = z.object({
   language: z.string().max(30).optional().default("english"),
   talkingPoints: z.array(z.string()).optional().default([]),
   businessSlug: z.string().max(200).optional(),
+  industry: z.string().max(100).optional(),
 });
 
 router.post("/generate-review", aiBurstLimiter, generateReviewLimiter, aiDailyLimiter, async (req: Request, res: Response) => {
   try {
-    const { highlights, selectedTopics, businessName, promptTopics, rating, language, talkingPoints, businessSlug } = generateReviewSchema.parse(req.body);
+    const { highlights, selectedTopics, businessName, promptTopics, rating, language, talkingPoints, businessSlug, industry } = generateReviewSchema.parse(req.body);
 
     // Cache check: return cached review if we've seen this exact input recently
-    const gKey = reviewCacheKey(highlights, businessName, rating ?? 0, language, selectedTopics);
+    const gKey = reviewCacheKey(highlights, businessName, rating ?? 0, language, selectedTopics, industry || "");
     const gCached = reviewResultCache.get(gKey);
     if (gCached && gCached.expiresAt > Date.now()) {
       return res.json({ review: gCached.value, cached: true });
@@ -481,10 +488,13 @@ CRITICAL RULES:
 11. HANDLE CONTRADICTIONS GRACEFULLY: The customer may select positive topic tags (e.g. "Friendly staff") but write negative highlights (e.g. "bad experience"). This IS possible — they liked the staff but had a bad overall experience. When topics and highlights conflict, PRIORITIZE the customer's own words (highlights) over pre-selected topic tags. Weave both sides naturally: acknowledge what was good (the staff) while addressing what went wrong (the overall experience). Don't ignore either side.
 12. Output ONLY the review text — no labels, no prefixes, no quotation marks, no emojis.`;
 
+    const indKey = industry ? normalizeReviewIndustry(industry) : undefined;
+    const indLabel = indKey ? REVIEW_INDUSTRY_LABELS[indKey] : undefined;
+    const industryLine = indLabel ? `\nBusiness Category: ${indLabel}` : "";
     const bizLine = businessName && businessName !== "a local business"
       ? `Business: ${businessName}`
       : "";
-    let prompt = `${bizLine}
+    let prompt = `${bizLine}${industryLine}
 Customer's rating: ${rating ?? "unknown"}/5
 Customer's own words: "${highlights || "(none provided)"}"`;
 
