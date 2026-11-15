@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   title: "Refund, Return & Cancellation Policy",
   description: "Refund, return, and cancellation policy for BEYONDVYU subscriptions. Learn about our billing terms and how to request a refund.",
   alternates: { canonical: "https://beyondvyu.com/refund" },
-  robots: { index: false, follow: false },
+  robots: { index: true, follow: true },
 };
 
 export default function RefundPage() {
@@ -98,9 +98,9 @@ export default function RefundPage() {
           </p>
           <p className="text-muted-foreground">
             Email: support@beyondvyu.com<br />
-            Grievance / privacy: privacy@beyondvyu.com<br />
-            Billing is in INR via Razorpay (UPI, cards); GST invoice is provided. Refunds, where approved,
-            go to the original payment method within 5-10 business days.
+            Privacy & compliance: privacy@beyondvyu.com<br />
+            Global billing is processed securely in USD; India billing is in INR with GST tax invoices. Refunds, where approved,
+            are credited back to the original payment method within 5–10 business days.
           </p>
         </section>
       </main>

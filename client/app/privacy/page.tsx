@@ -6,9 +6,9 @@ import { JsonLd } from "@/components/json-ld";
 export const metadata: Metadata = {
   title: "Privacy Policy",
   description:
-    "BEYONDVYU Privacy Policy — how we collect, use, store, and protect your personal data in compliance with the Digital Personal Data Protection Act 2023 (India), GDPR, and applicable privacy laws.",
+    "BEYONDVYU Privacy Policy — how we collect, use, store, and protect your personal data in compliance with global privacy standards, GDPR, and the DPDP Act.",
   alternates: { canonical: "https://beyondvyu.com/privacy" },
-  robots: { index: false, follow: false },
+  robots: { index: true, follow: true },
 };
 
 export default function PrivacyPage() {

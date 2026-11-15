@@ -21,14 +21,16 @@ export const metadata: Metadata = {
 };
 
 const ROWS: { label: string; google: string; vyu: string; googleOk: boolean }[] = [
-  { label: "Review QR / link", google: "Free link + QR from Google", vyu: "QR, link, WhatsApp + NFC-ready flows", googleOk: true },
-  { label: "Customer experience", google: "Blank review box, English-first", vyu: "Guided flow in 10 Indian languages", googleOk: false },
-  { label: "Funnel analytics", google: "None — you never see drop-offs", vyu: "Visits → starts → Google posts, per touchpoint", googleOk: false },
-  { label: "Touchpoint QRs", google: "One generic code", vyu: "Billing, reception, table, receipt, WhatsApp — compared", googleOk: false },
-  { label: "Review velocity", google: "Not tracked", vyu: "Reviews/location/month with safe-cadence guidance", googleOk: false },
-  { label: "Feedback intelligence", google: "None", vyu: "Praise/complaint themes, trends, follow-ups", googleOk: false },
-  { label: "Reply workflow", google: "Manual, easy to miss", vyu: "Inbox + AI-assisted replies, nothing unanswered", googleOk: false },
-  { label: "Review Health Check", google: "Do it yourself on Maps", vyu: "Rating, count, recency, gap vs competitors, velocity plan", googleOk: false },
+  { label: "Review QR / link", google: "Free link + generic QR from Google", vyu: "Custom QR, short link, touchpoint tracking & NFC-ready flows", googleOk: true },
+  { label: "Customer experience", google: "Blank review box, English-first", vyu: "Multilingual guided flow in English, Spanish + 10 languages", googleOk: false },
+  { label: "Voice-to-text feedback", google: "Manual typing only", vyu: "Voice recording with live waveform & automatic AI transcription", googleOk: false },
+  { label: "Industry-tailored questions", google: "One-size-fits-all blank comment", vyu: "Adaptive questions for dental, auto repair, salons, restaurants & retail", googleOk: false },
+  { label: "Funnel analytics", google: "None — you never see drop-offs", vyu: "Visits → starts → Google posts, per touchpoint and staff", googleOk: false },
+  { label: "Touchpoint QRs", google: "One static code for entire business", vyu: "Billing, reception, table, counter, receipt — compared", googleOk: false },
+  { label: "Review velocity & health", google: "Not tracked", vyu: "Reviews/location/month with safe-cadence guidance & competitor gap", googleOk: false },
+  { label: "Feedback intelligence", google: "None", vyu: "Praise/complaint themes, sentiment trends, follow-ups", googleOk: false },
+  { label: "Reply workflow", google: "Manual, easy to miss", vyu: "Unified inbox + AI-assisted replies with tone control", googleOk: false },
+  { label: "FTC & Google Compliance", google: "Compliant destination", vyu: "100% compliant with FTC 16 CFR Part 465 & Google policies (zero gating)", googleOk: true },
 ];
 
 export default function Page() {
@@ -119,6 +121,52 @@ export default function Page() {
           </div>
 
           <h2 className="mt-16 text-2xl font-bold tracking-tight">
+            How BeyondVyu compares to legacy platforms (Podium & Birdeye)
+          </h2>
+          <p className="mt-3 max-w-2xl text-muted-foreground">
+            Legacy reputation tools charge $289 to $449/month per location, push locked annual contracts, and often rely on aggressive SMS blasts. BeyondVyu is designed for modern local businesses: clean in-person QR & link collection, multi-industry questions, voice-to-text, and zero review gating starting at $0/month.
+          </p>
+
+          <div className="mt-6 overflow-x-auto rounded-2xl border border-border/60">
+            <table className="w-full min-w-[560px] text-left text-sm">
+              <thead>
+                <tr className="border-b border-border/60 bg-muted/40">
+                  <th className="px-4 py-3 font-semibold">Feature</th>
+                  <th className="px-4 py-3 font-semibold">BeyondVyu</th>
+                  <th className="px-4 py-3 font-semibold">Podium / Birdeye</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-border/40">
+                  <td className="px-4 py-3 font-medium">Pricing</td>
+                  <td className="px-4 py-3 text-primary font-semibold">Free to $29–$99/mo (no contract)</td>
+                  <td className="px-4 py-3 text-muted-foreground">$289–$449+/mo per location (annual lock-in)</td>
+                </tr>
+                <tr className="border-b border-border/40">
+                  <td className="px-4 py-3 font-medium">Customer Review Guidance</td>
+                  <td className="px-4 py-3 text-primary">Multilingual (English, Spanish, + 10 langs) + Voice</td>
+                  <td className="px-4 py-3 text-muted-foreground">Generic English SMS review links</td>
+                </tr>
+                <tr className="border-b border-border/40">
+                  <td className="px-4 py-3 font-medium">Industry Specificity</td>
+                  <td className="px-4 py-3 text-primary">Dental, Auto, Salon, Restaurant, Retail, Clinics</td>
+                  <td className="px-4 py-3 text-muted-foreground">Generic rating and feedback form</td>
+                </tr>
+                <tr className="border-b border-border/40">
+                  <td className="px-4 py-3 font-medium">FTC 16 CFR 465 Compliance</td>
+                  <td className="px-4 py-3 text-primary">100% compliant: zero review gating or suppression</td>
+                  <td className="px-4 py-3 text-muted-foreground">Historically flagged for gating practices</td>
+                </tr>
+                <tr className="border-b border-border/40 last:border-0">
+                  <td className="px-4 py-3 font-medium">Setup Time</td>
+                  <td className="px-4 py-3 text-primary">Under 2 minutes, self-serve</td>
+                  <td className="px-4 py-3 text-muted-foreground">Days to weeks with mandatory sales demo</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h2 className="mt-16 text-2xl font-bold tracking-tight">
             Trust is the moat, not AI
           </h2>
           <p className="mt-3 max-w-2xl text-muted-foreground">
@@ -144,6 +192,17 @@ export default function Page() {
       <JsonLd
         data={{
           "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            { "@type": "ListItem", position: 1, name: "Home", item: "https://beyondvyu.com" },
+            { "@type": "ListItem", position: 2, name: "Google Review QR vs BeyondVyu", item: "https://beyondvyu.com/google-review-qr-vs-beyondvyu" },
+          ],
+        }}
+      />
+
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
           "@type": "FAQPage",
           mainEntity: [
             {
@@ -151,7 +210,23 @@ export default function Page() {
               name: "Why not just use Google's free review QR?",
               acceptedAnswer: {
                 "@type": "Answer",
-                text: "Google's free QR opens the review box but shows no funnel analytics, no multilingual guidance, no per-touchpoint comparison, no velocity tracking and no reply workflow. BeyondVyu builds the guided system around the same link so more visits convert into reviews.",
+                text: "Google's free QR opens a blank review box with no guidance, no funnel analytics, no multilingual guidance, no per-touchpoint conversion tracking, and no velocity monitoring. BeyondVyu builds the complete guided system around your Google review link so more customers actually finish leaving their review.",
+              },
+            },
+            {
+              "@type": "Question",
+              name: "Is BeyondVyu an affordable alternative to Podium or Birdeye?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: "Yes. While legacy platforms like Podium and Birdeye charge $289 to $449/month with annual lock-in contracts, BeyondVyu provides compliant QR-based collection, voice-to-text input, multilingual support (English, Spanish + 10 languages), and AI reply drafting starting on a generous Free tier and low-cost transparent monthly plans ($29–$99/month).",
+              },
+            },
+            {
+              "@type": "Question",
+              name: "Does BeyondVyu comply with FTC rules against review gating?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: "Yes, 100%. BeyondVyu strictly complies with FTC 16 CFR Part 465 and Google's 2026 policies. All customers are given the direct Google review path regardless of whether their feedback is positive or critical. Negative reviews are never intercepted, filtered, or gated.",
               },
             },
             {
@@ -159,7 +234,15 @@ export default function Page() {
               name: "Does BeyondVyu write reviews for customers?",
               acceptedAnswer: {
                 "@type": "Answer",
-                text: "No. Customers describe their visit in their own words, edit and own the final review. AI only creates reminder talking points from what they wrote.",
+                text: "No. Customers describe their visit in their own words (or speak via microphone), then edit and approve the final review text. AI only creates reminder talking points drawn strictly from what the customer said.",
+              },
+            },
+            {
+              "@type": "Question",
+              name: "Can BeyondVyu be customized for dental clinics, auto repair shops, or salons?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: "Yes. BeyondVyu dynamically tailors feedback questions based on the business vertical — such as gentle care and hygiene for dental, transparent diagnostics and fair turnaround for auto repair, stylist skill and ambiance for salons, and food quality and atmosphere for restaurants.",
               },
             },
           ],

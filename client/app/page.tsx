@@ -38,9 +38,20 @@ export default function Page() {
           name: "BEYONDVYU",
           url: "https://beyondvyu.com",
           description:
-            "QR + link Google review collection in 10 Indian languages, review velocity funnel, and WhatsApp-ready weekly digest. Same review path for every customer — no gating.",
-          dateModified: "2026-09-09",
-          inLanguage: ["en-IN", "hi", "mr", "gu", "ta", "te", "bn", "kn"],
+            "Compliant QR + link Google review collection for local businesses. Multilingual review flow (English, Spanish, and regional languages), review velocity funnel, and AI-assisted drafting with zero review gating.",
+          dateModified: "2026-11-15",
+          inLanguage: ["en", "en-US", "es", "es-US", "en-IN", "hi", "mr", "gu", "ta", "te", "bn", "kn"],
+        }}
+      />
+
+      {/* 1b. BreadcrumbList (Root) */}
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            { "@type": "ListItem", position: 1, name: "Home", item: "https://beyondvyu.com" },
+          ],
         }}
       />
 
@@ -145,7 +156,7 @@ export default function Page() {
               name: "How does BEYONDVYU help collect Google reviews?",
               acceptedAnswer: {
                 "@type": "Answer",
-                text: "Customers scan a QR code or open a link, rate their visit, and describe it in their own words in one of 10 languages (English, Hinglish, Hindi, Marathi, Gujarati, Gujlish, Tamil, Telugu, Bengali, Kannada). They get reminder talking points drawn only from what they wrote, then edit and own their review before choosing what to post to Google. BEYONDVYU never posts on a customer's behalf.",
+                text: "Customers scan a QR code or open a link, rate their visit, and describe it in their own words or speak via voice in English, Spanish (es-US), or regional languages. They get reminder talking points drawn only from what they shared, then edit and own their review before choosing what to post to Google. BEYONDVYU never posts on a customer's behalf.",
               },
             },
             {

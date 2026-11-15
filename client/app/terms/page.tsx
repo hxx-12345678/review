@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   title: "Terms of Service",
   description: "Terms of Service for BEYONDVYU review management platform. Learn about your rights, obligations, and compliance requirements when using our service.",
   alternates: { canonical: "https://beyondvyu.com/terms" },
-  robots: { index: false, follow: false },
+  robots: { index: true, follow: true },
 };
 
 export default function TermsPage() {
