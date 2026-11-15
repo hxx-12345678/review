@@ -6,8 +6,9 @@ import Link from "next/link"
 import { ArrowLeft, Building2, MessageSquare, QrCode, Globe, Star } from "lucide-react"
 import { adminApi } from "@/lib/admin-api"
 import { ADMIN_BASE } from "@/lib/admin-path"
+import { INDUSTRY_OPTIONS } from "@/lib/industry-categories"
 
-const INDUSTRIES = ["RESTAURANT", "DENTAL", "SALON", "MEDICAL", "AUTO", "AUTO_DEALER", "FITNESS", "ELECTRONICS", "HOME_SERVICES", "OTHER"]
+const INDUSTRIES = INDUSTRY_OPTIONS.map((option) => option.value)
 
 export default function AdminBusinessDetailPage() {
   const { id } = useParams()
@@ -40,7 +41,7 @@ export default function AdminBusinessDetailPage() {
     try {
       const res = await adminApi.updateBusiness(id as string, { industry })
       setData({ business: res.business })
-      setSavedMsg(`Industry allotted: ${industry}. Review flow topics follow this industry.`)
+      setSavedMsg(`Business type corrected: ${industry}. Review flow questions follow this profile.`)
     } catch (e: any) {
       setSavedMsg(`Failed: ${e.message || "unknown error"}`)
     } finally {
@@ -65,9 +66,9 @@ export default function AdminBusinessDetailPage() {
           <p className="mt-1 text-sm text-zinc-500">
             {business.industry} | {business.location || "No location"} | Slug: {business.slug}
           </p>
-          {/* Industry allotment — customers never pick industry (food-only onboarding) */}
+          {/* Owner selects this in onboarding; admins can correct mistakes. */}
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <label htmlFor="admin-industry" className="text-xs text-zinc-500">Allot industry:</label>
+            <label htmlFor="admin-industry" className="text-xs text-zinc-500">Correct business type:</label>
             <select
               id="admin-industry"
               value={industry}
@@ -83,7 +84,7 @@ export default function AdminBusinessDetailPage() {
               disabled={saving || !industry || industry === business.industry}
               className="rounded-md bg-amber-500 px-3 py-1.5 text-sm font-medium text-black disabled:opacity-40"
             >
-              {saving ? "Saving…" : "Allot"}
+              {saving ? "Saving…" : "Save type"}
             </button>
           </div>
           {savedMsg && <p className="mt-2 text-xs text-zinc-400">{savedMsg}</p>}

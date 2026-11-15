@@ -261,7 +261,15 @@ export const api = {
         method: "POST",
       }),
     syncPlaces: (businessId: string) =>
-      request<{ synced: number; total: number }>(`/google-reviews/sync-places/${businessId}`, {
+      request<{
+        synced: number;
+        total: number;
+        source?: string;
+        rating?: number | null;
+        userRatingCount?: number | null;
+        reviewsFieldReturned?: boolean;
+        warning?: string;
+      }>(`/google-reviews/sync-places/${businessId}`, {
         method: "POST",
       }),
     reply: (reviewId: string, replyText: string) =>
@@ -337,6 +345,19 @@ export const api = {
   googlePlaces: {
     search: (query: string) =>
       request<{ results: { placeId: string; name: string; address: string; rating: number | null; totalRatings: number | null }[] }>(`/google-places/search?query=${encodeURIComponent(query)}`),
+    classify: (placeId: string) =>
+      request<{
+        placeId: string
+        name: string
+        address: string
+        industry: string
+        label: string
+        confidence: "high" | "medium" | "low"
+        evidence: string[]
+        primaryType: string | null
+        types: string[]
+        defaultCategoryIds: string[]
+      }>(`/google-places/classify?placeId=${encodeURIComponent(placeId)}`),
     details: (placeId: string) =>
       request<{ placeId: string; name: string; address: string; rating: number | null; totalRatings: number | null; lastReviewAt: string | null; reviewSampleCount: number; fetchedAt: string }>(`/google-places/details?placeId=${encodeURIComponent(placeId)}`),
     competitors: (placeId: string, query: string) =>

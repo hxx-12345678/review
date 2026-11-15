@@ -5,7 +5,7 @@ import { authRequired, authOptional, AuthRequest } from "../middleware/auth";
 import { sendFeedbackNotification } from "../services/email";
 import { sendWhatsAppNotification } from "../services/whatsapp";
 import { loadEntitledSubscription } from "../services/subscriptions";
-import { sanitizeSelectedSubOptions } from "../utils/review-options";
+import { normalizeReviewIndustry, sanitizeSelectedSubOptions } from "../utils/review-options";
 import {
   classifyFeedback,
 } from "../utils/task-classification";
@@ -124,11 +124,15 @@ router.post("/submit", authOptional, async (req: AuthRequest, res: Response) => 
     let taskSource = "negative_review";
     let taskDueHours = 24;
 
+    const isRestaurantIndustry = normalizeReviewIndustry(business.industry) === "RESTAURANT";
+    const safetyIssueLabel = isRestaurantIndustry ? "safety/allergen" : "safety";
     if (isCriticalSafety) {
       shouldCreateTask = true;
-      taskTitle = `🚨 CRITICAL SAFETY: Guest reported safety/allergen issue${locLabel}`;
+      taskTitle = isRestaurantIndustry
+        ? `🚨 CRITICAL SAFETY: Guest reported safety/allergen issue${locLabel}`
+        : `🚨 CRITICAL SAFETY: Guest reported safety issue${locLabel}`;
       taskPriority = "high";
-      taskSource = "food_safety_incident";
+      taskSource = isRestaurantIndustry ? "food_safety_incident" : "safety_incident";
       taskDueHours = 2;
     } else if (data.rating <= 2) {
       shouldCreateTask = true;
@@ -170,6 +174,7 @@ router.post("/submit", authOptional, async (req: AuthRequest, res: Response) => 
         .filter(Boolean)
         .join(" "),
       isCriticalSafety,
+      industry: business.industry,
     });
 
     if (shouldCreateTask) {
@@ -180,7 +185,11 @@ router.post("/submit", authOptional, async (req: AuthRequest, res: Response) => 
 
       if (!existingForFeedback) {
         const descParts = [
-          isCriticalSafety ? "⚠️ URGENT FOOD SAFETY OR ALLERGEN REPORT" : null,
+          isCriticalSafety
+            ? isRestaurantIndustry
+              ? "⚠️ URGENT FOOD SAFETY OR ALLERGEN REPORT"
+              : "⚠️ URGENT SAFETY REPORT"
+            : null,
           `Category: ${classification.label}`,
           data.customerName ? `Guest: ${data.customerName}` : null,
           data.customerEmail ? `Email: ${data.customerEmail}` : null,

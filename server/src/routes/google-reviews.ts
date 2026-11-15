@@ -770,11 +770,25 @@ router.post("/webhook/pubsub", async (req: any, res: Response) => {
       try {
         const result = await syncGoogleReviews(ga.businessId);
         if (result.synced > 0) {
-          await sendFeedbackNotification(
-            ga.business.userId,
-            ga.business.name,
-            0,
-          );
+          // Use the actual newest review. Passing 0 here produced a misleading
+          // "0-star review" alert and defeated the urgent-rating threshold.
+          const newest = await prisma.googleReview.findFirst({
+            where: { businessId: ga.businessId },
+            orderBy: { syncedAt: "desc" },
+            select: { starRating: true, comment: true, reviewerName: true },
+          });
+          if (newest) {
+            await sendFeedbackNotification(
+              ga.business.userId,
+              ga.business.name,
+              newest.starRating,
+              {
+                comment: newest.comment || undefined,
+                customerName: newest.reviewerName || undefined,
+                purchaseInfo: "Google review",
+              },
+            );
+          }
         }
       } catch (err) {
         console.error(`Failed to sync reviews for business ${ga.businessId}:`, err);

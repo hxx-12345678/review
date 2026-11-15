@@ -297,6 +297,7 @@ router.post("/auto-generate/:businessId", authRequired, async (req: AuthRequest,
           rating: fb.rating,
           selectedIds,
           text: [fb.improvement, fb.liked, fb.privateNote].filter(Boolean).join(" "),
+          industry: business.industry,
         });
 
         // If an open task already covers this operational bucket, don't add

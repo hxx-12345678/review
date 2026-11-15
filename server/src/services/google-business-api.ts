@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { prisma } from "../config/database";
 import { decrypt, type EncryptedData } from "../utils/encryption";
 import { getEnv } from "../config/env";
@@ -131,16 +132,31 @@ export async function fetchGoogleReviews(
  * - Set GOOGLE_PLACES_API_KEY in .env
  * - Business must have a Google Place ID (store in business.googlePlaceId)
  */
+export interface PlacesApiReviewResult {
+  reviews: GoogleReviewData[];
+  /** Listing rating returned by Google, when available. */
+  rating: number | null;
+  /** Google's total rating count, which can exceed the review texts returned. */
+  userRatingCount: number | null;
+  /**
+   * False when Google omitted the `reviews` field entirely (for example when
+   * review-content access is not enabled for the API key's project). An empty
+   * array means Google returned the field but had no review texts to include.
+   */
+  reviewsFieldReturned: boolean;
+}
+
 export async function fetchPlacesApiReviews(
   placeId: string,
-): Promise<GoogleReviewData[]> {
+): Promise<PlacesApiReviewResult> {
   const apiKey = getEnv().GOOGLE_PLACES_API_KEY;
   if (!apiKey) {
     throw new Error("GOOGLE_PLACES_API_KEY not set — cannot fetch via Places API");
   }
 
-  // Use Places API (New) endpoint
-  const url = `https://places.googleapis.com/v1/places/${placeId}`;
+  // Use Places API (New) endpoint. Encode the Place ID: it is opaque and can
+  // contain characters that must not be treated as path separators.
+  const url = `https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`;
 
   const res = await fetch(url, {
     headers: {
@@ -156,19 +172,36 @@ export async function fetchPlacesApiReviews(
   }
 
   const data: any = await res.json();
-  const reviews: any[] = data.reviews || [];
+  const rawReviews: any[] = Array.isArray(data.reviews) ? data.reviews : [];
+  const reviewsFieldReturned = Array.isArray(data.reviews);
 
-  return reviews.map((r: any, idx: number) => ({
-    reviewId: `places_${placeId}_${idx}_${r.publishTime || Date.now()}`,
-    reviewerName: r.authorAttribution?.displayName || null,
-    reviewerPhotoUrl: r.authorAttribution?.photoUri || null,
-    // Places API (New) returns rating as a number 1-5
-    starRating: parseStarRating(r.rating),
-    comment: r.text?.text || r.originalText?.text || null,
-    commentLanguage: r.text?.languageCode || null,
-    createTime: r.publishTime || new Date().toISOString(),
-    reviewReply: null, // Places API does not provide owner replies
-  }));
+  const reviews = rawReviews.map((r: any, idx: number) => {
+    // Places API review IDs are not exposed. Build a stable ID from the
+    // reviewer and publish time so repeated syncs update rather than duplicate
+    // when Google changes the order of its five returned reviews.
+    const stableKey = [r.publishTime || "", r.authorAttribution?.displayName || ""].join("|");
+    const idSuffix = stableKey.replace(/\|/g, "")
+      ? createHash("sha256").update(stableKey).digest("hex").slice(0, 24)
+      : `${idx}_${r.publishTime || Date.now()}`;
+    return {
+      reviewId: `places_${placeId}_${idSuffix}`,
+      reviewerName: r.authorAttribution?.displayName || null,
+      reviewerPhotoUrl: r.authorAttribution?.photoUri || null,
+      // Places API (New) returns rating as a number 1-5
+      starRating: parseStarRating(r.rating),
+      comment: r.text?.text || r.originalText?.text || null,
+      commentLanguage: r.text?.languageCode || null,
+      createTime: r.publishTime || new Date().toISOString(),
+      reviewReply: null, // Places API does not provide owner replies
+    };
+  });
+
+  return {
+    reviews,
+    rating: typeof data.rating === "number" ? data.rating : null,
+    userRatingCount: typeof data.userRatingCount === "number" ? data.userRatingCount : null,
+    reviewsFieldReturned,
+  };
 }
 
 // ── Legacy Places API (v1 with key parameter) ─────────────────────────────────
@@ -312,7 +345,17 @@ export async function syncGoogleReviews(businessId: string): Promise<{ synced: n
  * 
  * Requires: GOOGLE_PLACES_API_KEY in .env + google Place ID stored in business record.
  */
-export async function syncPlacesApiReviews(businessId: string): Promise<{ synced: number; total: number }> {
+export interface PlacesApiSyncResult {
+  synced: number;
+  total: number;
+  source: "places-new" | "places-legacy";
+  rating: number | null;
+  userRatingCount: number | null;
+  reviewsFieldReturned: boolean;
+  warning?: string;
+}
+
+export async function syncPlacesApiReviews(businessId: string): Promise<PlacesApiSyncResult> {
   const business = await prisma.business.findUnique({
     where: { id: businessId },
     select: { id: true, googlePlaceId: true },
@@ -323,16 +366,24 @@ export async function syncPlacesApiReviews(businessId: string): Promise<{ synced
   }
 
   let reviews: GoogleReviewData[] = [];
-  let source = "places-new";
+  let source: "places-new" | "places-legacy" = "places-new";
+  let rating: number | null = null;
+  let userRatingCount: number | null = null;
+  let reviewsFieldReturned = false;
 
   try {
     // Try new Places API first
-    reviews = await fetchPlacesApiReviews(business.googlePlaceId);
+    const result = await fetchPlacesApiReviews(business.googlePlaceId);
+    reviews = result.reviews;
+    rating = result.rating;
+    userRatingCount = result.userRatingCount;
+    reviewsFieldReturned = result.reviewsFieldReturned;
   } catch (e) {
     try {
       // Fallback to legacy Places API
       reviews = await fetchLegacyPlacesApiReviews(business.googlePlaceId);
       source = "places-legacy";
+      reviewsFieldReturned = true;
     } catch (e2) {
       throw new Error(`Both Places API endpoints failed. New API: ${(e as Error).message}. Legacy: ${(e2 as Error).message}`);
     }
@@ -360,7 +411,22 @@ export async function syncPlacesApiReviews(businessId: string): Promise<{ synced
     });
   }
 
-  return upsertReviews(businessId, googleAccount.id, reviews);
+  const upserted = await upsertReviews(businessId, googleAccount.id, reviews);
+  const reviewContentMissing = !reviewsFieldReturned && (userRatingCount ?? 0) > 0;
+
+  return {
+    ...upserted,
+    source,
+    rating,
+    userRatingCount,
+    reviewsFieldReturned,
+    ...(reviewContentMissing
+      ? {
+          warning:
+            "Google returned this listing's rating and review count, but not review text. Review-content access may not be enabled for the Places API key's project, or Google may be withholding review text for this listing.",
+        }
+      : {}),
+  };
 }
 
 // ── Shared Upsert Logic ───────────────────────────────────────────────────────

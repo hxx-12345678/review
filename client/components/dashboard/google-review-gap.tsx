@@ -40,7 +40,7 @@ export function GoogleReviewGap({ businessId, compact }: { businessId: string; c
       // Places API import — no GBP OAuth needed, uses stored Place ID
       const res: any = await api.googleReviews.syncPlaces(businessId);
       if (res && res.total === 0) {
-        setImportNote("Google returned no review texts for this listing (common for quieter profiles) — gap uses live rating/count plus your BeyondVyu feedback for recency and sentiment. Connect GBP OAuth in Settings for full review sync.");
+        setImportNote("Google did not return review text for this listing, so only its live rating and review count were used. Try again later, or connect your Google Business Profile in Settings for full review history.");
       }
       load();
     } catch (e: any) {
@@ -97,7 +97,7 @@ export function GoogleReviewGap({ businessId, compact }: { businessId: string; c
         <div className="rounded-xl border p-3">
           <div className="text-[11px] uppercase tracking-wide text-muted-foreground flex items-center gap-1"><TrendingUp className="size-3" /> Velocity</div>
           <div className="text-2xl font-black">{data.velocityHistory?.avgPerWeek ?? 0}<span className="text-sm font-normal text-muted-foreground">/week</span></div>
-          <div className="text-xs text-muted-foreground">Target: {data.velocity?.perWeek ?? 2}/week · {data.velocity?.perMonth ?? 8}/mo</div>
+          <div className="text-xs text-muted-foreground">Observed pace · no fixed target</div>
         </div>
         <div className="rounded-xl border p-3">
           <div className="text-[11px] uppercase tracking-wide text-muted-foreground flex items-center gap-1"><MessageSquareReply className="size-3" /> Responses</div>
@@ -142,7 +142,6 @@ export function GoogleReviewGap({ businessId, compact }: { businessId: string; c
         <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900">
           <p className="font-semibold">Review opportunity: {data.gap}</p>
           <p className="mt-1">{data.velocity.message}</p>
-          {!compact && <p className="mt-1 text-blue-700">Safe ceiling 2–5/week (Localo: 1–2/wk lasts 594 days, 100+/wk deleted in 6 days). Feb 2026 policy bans unusual volumes — steady beats spike.</p>}
         </div>
       )}
 

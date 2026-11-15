@@ -68,6 +68,53 @@ test("positive feedback with no issue falls through to other", () => {
   assert.equal(category({ rating: 5, text: "Loved it, thank you" }), "other");
 });
 
+test("restaurant food words still behave exactly as before", () => {
+  assert.equal(category({ rating: 2, selectedIds: ["food_taste"] }), "food_quality");
+  assert.equal(category({ rating: 2, text: "Loved the coffee" }), "other");
+});
+
+test("café tags use café buckets instead of restaurant buckets", () => {
+  assert.equal(category({ rating: 4, industry: "CAFE", selectedIds: ["cafe_coffee"] }), "food_quality");
+  assert.equal(category({ rating: 3, industry: "CAFE", selectedIds: ["cafe_wifi"] }), "ambience");
+  assert.equal(category({ rating: 2, industry: "CAFE", text: "Waited 20 minutes for my coffee" }), "speed");
+});
+
+test("bakery, QSR, and hotel never inherit restaurant-only buckets", () => {
+  assert.equal(category({ rating: 3, industry: "BAKERY", selectedIds: ["bakery_packaging"] }), "takeaway");
+  assert.equal(category({ rating: 3, industry: "QUICK_SERVICE", selectedIds: ["qs_order_accuracy"] }), "ordering");
+  assert.equal(category({ rating: 2, industry: "HOTEL", selectedIds: ["hotel_bed"] }), "comfort");
+  assert.equal(category({ rating: 2, industry: "HOTEL", selectedIds: ["hotel_ac"] }), "facilities");
+});
+
+test("repair shop and new-car dealer are classified separately", () => {
+  assert.equal(category({ rating: 2, industry: "AUTO", selectedIds: ["auto_repair"] }), "workmanship");
+  assert.equal(category({ rating: 3, industry: "AUTO_DEALER", selectedIds: ["dealer_test_drive"] }), "service");
+  assert.equal(category({ rating: 3, industry: "AUTO_DEALER", selectedIds: ["dealer_financing"] }), "billing");
+});
+
+test("electronics sales and electronics repair are classified separately", () => {
+  assert.equal(category({ rating: 2, industry: "ELECTRONICS", selectedIds: ["elec_quality"] }), "product_quality");
+  assert.equal(category({ rating: 2, industry: "ELECTRONICS", selectedIds: ["elec_availability"] }), "stock");
+  assert.equal(category({ rating: 2, industry: "ELECTRONICS_REPAIR", selectedIds: ["erep_quality"] }), "workmanship");
+  assert.equal(category({ rating: 1, industry: "ELECTRONICS_REPAIR", selectedIds: ["erep_data_privacy"] }), "data_privacy");
+});
+
+test("electrician and electrical shop are classified separately", () => {
+  assert.equal(category({ rating: 1, industry: "ELECTRICAL", selectedIds: ["electric_safety"] }), "safety");
+  assert.equal(category({ rating: 2, industry: "ELECTRICAL", selectedIds: ["electric_quote"] }), "billing");
+  assert.equal(category({ rating: 2, industry: "ELECTRICAL_RETAIL", selectedIds: ["elecshop_genuine"] }), "product_quality");
+  assert.equal(category({ rating: 2, industry: "ELECTRICAL_RETAIL", selectedIds: ["elecshop_stock"] }), "stock");
+  assert.equal(category({ rating: 2, industry: "ELECTRICAL_RETAIL", selectedIds: ["elecshop_billing"] }), "billing");
+});
+
+test("retail, education, pet care, real estate, and professional services have specific buckets", () => {
+  assert.equal(category({ rating: 2, industry: "RETAIL", selectedIds: ["retail_stock"] }), "stock");
+  assert.equal(category({ rating: 3, industry: "EDUCATION", selectedIds: ["edu_teaching"] }), "education_quality");
+  assert.equal(category({ rating: 2, industry: "PET_CARE", selectedIds: ["pet_cleanliness"] }), "cleanliness");
+  assert.equal(category({ rating: 2, industry: "REAL_ESTATE", selectedIds: ["re_paperwork"] }), "ordering");
+  assert.equal(category({ rating: 2, industry: "PROFESSIONAL_SERVICES", selectedIds: ["prof_clarity"] }), "communication");
+});
+
 test("all categories are declared and labelled consistently", () => {
   assert.equal(new Set(TASK_CATEGORIES).size, TASK_CATEGORIES.length);
 });

@@ -3,6 +3,7 @@ import { getEnv } from "../config/env";
 import { authRequired, AuthRequest } from "../middleware/auth";
 import { publicPlacesLimiter } from "../middleware/rate-limit";
 import { prisma } from "../config/database";
+import { inferBusinessType } from "../utils/business-type-inference";
 
 const router = Router();
 
@@ -304,6 +305,55 @@ router.get("/health-check", publicPlacesLimiter, async (req: Request, res: Respo
   }
 });
 
+// ── GET /classify?placeId= — Suggest the review profile from Google types ──
+// Uses primaryType + all types + the listing name. The owner can always
+// correct the suggestion in onboarding or settings.
+router.get("/classify", authRequired, async (req: Request, res: Response) => {
+  try {
+    const placeId = ((req.query.placeId as string) || "").trim();
+    if (!placeId) return res.status(400).json({ error: "placeId required" });
+
+    const cacheKey = `classify:${placeId}`;
+    const cached = getCache(cacheKey);
+    if (cached) return res.json({ ...cached, cached: true });
+
+    let data: any;
+    try {
+      data = await fetchPlaceDetails(
+        placeId,
+        "id,displayName,formattedAddress,primaryType,types",
+      );
+    } catch (e: any) {
+      const msg = e.message || "";
+      if (msg.includes("API key not configured")) {
+        return res.status(500).json({ error: "Google Places API key not configured" });
+      }
+      console.error("Places classify error:", msg);
+      return res.status(502).json({ error: "Places details failed" });
+    }
+
+    const inference = inferBusinessType({
+      name: data.displayName?.text || "",
+      primaryType: data.primaryType || null,
+      types: Array.isArray(data.types) ? data.types : [],
+    });
+    const out = {
+      ...inference,
+      placeId: data.id || placeId,
+      name: data.displayName?.text || "",
+      address: data.formattedAddress || "",
+      fetchedAt: new Date().toISOString(),
+      source: "google_places",
+    };
+    // Listing types are stable; 24h avoids burning quota during onboarding.
+    setCache(cacheKey, out, 24 * 60 * 60 * 1000);
+    res.json(out);
+  } catch (err: any) {
+    console.error("Places classify route error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // ── GET /details?placeId= — Live rating, total, last review, location ──
 // Source: Places API (New) Place Details. No hallucination — all numbers from Google.
 router.get("/details", authRequired, async (req: Request, res: Response) => {
@@ -408,7 +458,8 @@ router.get("/competitors", authRequired, async (req: Request, res: Response) => 
 
 // ── GET /review-gap?businessId= — Pain visualization: you vs nearby ──
 // Returns: your rating/reviews/lastReview + competitors + gap High/Med/Low + velocity plan.
-// Velocity guidance follows Feb 2026 policy + Localo study: 2-5/week safe, no bulk.
+// Velocity guidance follows Google's published rating-manipulation policy only.
+// Google does not publish a numeric "safe" review rate; never imply that it does.
 router.get("/review-gap", authRequired, async (req: AuthRequest, res: Response) => {
   try {
     const businessId = (req.query.businessId as string) || "";
@@ -547,25 +598,24 @@ router.get("/review-gap", authRequired, async (req: AuthRequest, res: Response) 
       ? { positive: Math.round((pos / allRatings.length) * 100), neutral: Math.round((neu / allRatings.length) * 100), negative: Math.round((neg / allRatings.length) * 100), sample: allRatings.length, source: "googleReview+feedback" }
       : null;
 
-    // 5. Velocity plan — honest math per Feb 2026 policy + Localo (1-2/wk 594d, 100+/wk 6d)
-    // Never recommend bulk: cap 2-5/week (8-20/mo safe ceiling). Honest timeline = ceil(deficit/perMonth).
+    // 5. Velocity guidance — policy-safe and honest.
+    // Google's rating-manipulation policy targets "unusual volumes or patterns of
+    // review contributions" but publishes no numeric safe rate. We therefore
+    // report the observed pace and recommend steady, genuine invitations rather
+    // than inventing a weekly quota or claiming a guaranteed retention period.
     let velocity: any = null;
     if (gapDeficit != null && gapDeficit > 0) {
-      const perMonth = 20; // safe ceiling (5/wk)
-      const perWeek = 5;
-      const honestMonths = Math.ceil(gapDeficit / perMonth);
-      const sevenMonthProgress = Math.min(gapDeficit, perMonth * 7);
       velocity = {
         deficit: gapDeficit,
-        monthsToClose: honestMonths,
-        perMonth,
-        perWeek,
         currentAvgPerWeek: avgPerWeek,
-        sevenMonthProgress,
-        message: `At your current customer volume, target ${perWeek} reviews/week (~${perMonth}/month) steadily — not ${gapDeficit} overnight. Full parity takes ~${honestMonths} months at safe pace; 7-month milestone closes ~${sevenMonthProgress}. Bulk spikes trigger Google's Feb 2026 unusual-volume filter and batch deletions.`,
+        message: "Invite reviews steadily after genuine visits, from each customer's own device. Google's policy targets unusual volumes or patterns of reviews intended to manipulate a rating, and it does not publish a numeric safe rate. Never batch requests, offer incentives, or gate negative feedback.",
       };
     } else if (gapDeficit === 0) {
-      velocity = { deficit: 0, perWeek: 2, perMonth: 8, monthsToClose: 0, sevenMonthProgress: 0, currentAvgPerWeek: avgPerWeek, message: "You're at parity — hold 2 reviews/week to stay ahead. Recency (last 90 days) matters more than lifetime count." };
+      velocity = {
+        deficit: 0,
+        currentAvgPerWeek: avgPerWeek,
+        message: "You're at parity. Keep inviting reviews steadily after genuine visits; recency and an accurate, complete listing matter more than a one-off burst.",
+      };
     }
 
     res.json({

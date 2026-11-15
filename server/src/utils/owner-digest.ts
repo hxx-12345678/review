@@ -30,7 +30,7 @@ export function buildOwnerDigest({
   report: IssueReport;
   dashboardUrl: string;
 }): OwnerDigest {
-  const safeName = (businessName.trim() || "Your restaurant").replace(/[\r\n]+/g, " ");
+  const safeName = (businessName.trim() || "Your business").replace(/[\r\n]+/g, " ");
   const windowLabel = `${report.windowDays}-day`;
   const subject = `${windowLabel} guest-experience summary — ${safeName}`;
 

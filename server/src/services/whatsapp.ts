@@ -10,6 +10,13 @@ export async function sendWhatsAppNotification(
   if (!env.WHATSAPP_API_TOKEN || !env.WHATSAPP_PHONE_NUMBER_ID) {
     return { success: false, error: "WhatsApp API not configured (WHATSAPP_API_TOKEN and WHATSAPP_PHONE_NUMBER_ID required in server/.env)" };
   }
+  if (!env.WHATSAPP_ALERT_TEMPLATE_NAME) {
+    return {
+      success: false,
+      error:
+        "WhatsApp owner alerts need an approved utility template. Set WHATSAPP_ALERT_TEMPLATE_NAME (and WHATSAPP_ALERT_TEMPLATE_LANG) with one body variable.",
+    };
+  }
 
   const normalized = normalizePhoneNumber(toPhone, defaultCountry);
   if (!normalized.isValid) {
@@ -29,8 +36,17 @@ export async function sendWhatsAppNotification(
         messaging_product: "whatsapp",
         recipient_type: "individual",
         to: recipient,
-        type: "text",
-        text: { preview_url: false, body: message.slice(0, 4000) },
+        type: "template",
+        template: {
+          name: env.WHATSAPP_ALERT_TEMPLATE_NAME,
+          language: { code: env.WHATSAPP_ALERT_TEMPLATE_LANG },
+          components: [
+            {
+              type: "body",
+              parameters: [{ type: "text", text: message.slice(0, 900) }],
+            },
+          ],
+        },
       }),
       signal: AbortSignal.timeout(15000),
     });

@@ -121,7 +121,7 @@ test("an empty week still produces a useful, finite summary", () => {
     dashboardUrl: "https://beyondvyu.com/v2/tasks",
   });
 
-  assert.match(digest.text, /Your restaurant/);
+  assert.match(digest.text, /Your business/);
   assert.match(digest.text, /Average resolution time: —/);
   assert.doesNotMatch(digest.text, /undefined/);
   assert.doesNotMatch(digest.html, /undefined/);

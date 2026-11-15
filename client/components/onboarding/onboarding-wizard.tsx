@@ -356,7 +356,6 @@ export function OnboardingWizard({ embedded, onComplete }: {
                   const avgTotal = rivals.length ? Math.round(rivals.reduce((s, r) => s + (r.totalRatings || 0), 0) / rivals.length) : null;
                   const deficit = avgTotal != null && selectedPlace.totalRatings != null ? Math.max(0, avgTotal - selectedPlace.totalRatings) : null;
                   const gap = deficit == null ? "Unknown" : deficit > 200 ? "High" : deficit > 50 ? "Medium" : "Low";
-                  const perWeek = deficit ? Math.min(5, Math.max(2, Math.round(Math.min(20, Math.max(8, Math.ceil(deficit / 7))) / 4))) : 2;
                   return (
                     <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4 text-sm">
                       <p className="font-semibold">Your Google Review Gap: <span className={gap === "High" ? "text-red-600" : gap === "Medium" ? "text-amber-600" : "text-emerald-600"}>{gap}</span></p>
@@ -370,7 +369,7 @@ export function OnboardingWizard({ embedded, onComplete }: {
                         </div>
                       )}
                       {deficit != null && deficit > 0 && (
-                        <p className="mt-2 text-xs">At your current customer volume, target <strong>{perWeek} reviews/week</strong> steadily — not {deficit} overnight. Bulk spikes trigger Google&apos;s Feb 2026 filter.</p>
+                        <p className="mt-2 text-xs">Invite reviews steadily from genuine customers, from each person&apos;s own device. Google does not publish a safe numeric rate; it targets unusual volumes or patterns. Never batch requests, offer incentives, or gate negative feedback.</p>
                       )}
                     </div>
                   );

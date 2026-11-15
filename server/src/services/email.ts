@@ -21,10 +21,9 @@ function getTransporter(): nodemailer.Transporter | null {
         user: env.SMTP_USER,
         pass: env.SMTP_PASS,
       },
-      tls: {
-        ciphers: "SSLv3",
-        rejectUnauthorized: false
-      },
+      // Keep certificate verification on. A local development SMTP relay with
+      // a self-signed certificate can opt out explicitly; production must not.
+      tls: env.NODE_ENV === "production" ? undefined : { rejectUnauthorized: false },
       connectionTimeout: 5000,
       greetingTimeout: 5000,
       socketTimeout: 5000

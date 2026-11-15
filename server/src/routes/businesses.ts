@@ -1,5 +1,6 @@
 import { Router, Response } from "express";
 import { z } from "zod";
+import { Industry } from "@prisma/client";
 import { prisma } from "../config/database";
 import { authRequired, AuthRequest } from "../middleware/auth";
 import { syncPlacesApiReviews } from "../services/google-business-api";
@@ -26,7 +27,7 @@ async function getEffectiveBusinessLimit(userId: string, client: any = prisma): 
 
 const createBusinessSchema = z.object({
   name: z.string().min(1).max(200),
-  industry: z.enum(["DENTAL", "MEDICAL", "SALON", "GYM", "HOME_SERVICES", "RESTAURANT", "AUTO", "AUTO_DEALER", "FITNESS", "ELECTRONICS", "OTHER"]),
+  industry: z.nativeEnum(Industry),
   googleReviewUrl: z.string().url().optional().or(z.literal("")),
   googlePlaceId: z.string().max(200).optional().or(z.literal("")),
   location: z.string().max(500).optional().or(z.literal("")),
@@ -41,7 +42,7 @@ const createBusinessSchema = z.object({
 
 const updateBusinessSchema = z.object({
   name: z.string().min(1).max(200).optional(),
-  industry: z.enum(["DENTAL", "MEDICAL", "SALON", "GYM", "HOME_SERVICES", "RESTAURANT", "AUTO", "AUTO_DEALER", "FITNESS", "ELECTRONICS", "OTHER"]).optional(),
+  industry: z.nativeEnum(Industry).optional(),
   googleReviewUrl: z.string().url().optional().or(z.literal("")),
   googlePlaceId: z.string().max(200).optional().or(z.literal("")),
   location: z.string().max(500).optional().or(z.literal("")),

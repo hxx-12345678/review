@@ -21,14 +21,30 @@ export function useVoiceInput({
   const [isSupported, setIsSupported] = useState(true);
   const recognitionRef = useRef<any>(null);
   const accumulatedRef = useRef<string>(initialText);
+  // Finalized speech only. Interim text is displayed but not committed until the
+  // engine marks it final. If a mobile session ends mid-phrase, onend promotes
+  // the visible interim text so a restart cannot drop the guest's last words.
+  const committedRef = useRef<string>(initialText.trim());
   const onTranscriptChangeRef = useRef(onTranscriptChange);
+  // Mobile browsers often end a continuous recognition session after a pause.
+  // Keep the user's intent separate from the browser session so we can restart
+  // without making them tap the microphone again. Each instance has a token so
+  // an old aborted session cannot restart over a newer one.
+  const shouldListenRef = useRef(false);
+  const instanceIdRef = useRef(0);
+  const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const announcedRef = useRef(false);
 
   useEffect(() => {
     onTranscriptChangeRef.current = onTranscriptChange;
   }, [onTranscriptChange]);
 
   useEffect(() => {
+    // Ignore the echo from our own transcript update. Only an external edit
+    // (typing, AI rewrite, clearing) should replace the committed base text.
+    if (initialText === accumulatedRef.current) return;
     accumulatedRef.current = initialText;
+    committedRef.current = initialText.trim();
   }, [initialText]);
 
   useEffect(() => {
@@ -39,6 +55,13 @@ export function useVoiceInput({
   }, []);
 
   const stopListening = useCallback(() => {
+    shouldListenRef.current = false;
+    announcedRef.current = false;
+    instanceIdRef.current += 1;
+    if (restartTimerRef.current) {
+      clearTimeout(restartTimerRef.current);
+      restartTimerRef.current = null;
+    }
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
@@ -60,7 +83,14 @@ export function useVoiceInput({
       return;
     }
 
-    // Stop existing instance if any
+    shouldListenRef.current = false;
+    instanceIdRef.current += 1;
+    if (restartTimerRef.current) {
+      clearTimeout(restartTimerRef.current);
+      restartTimerRef.current = null;
+    }
+
+    // Stop existing instance if any.
     if (recognitionRef.current) {
       try {
         recognitionRef.current.abort();
@@ -69,7 +99,9 @@ export function useVoiceInput({
 
     try {
       const recognition = new SpeechRec();
+      const instanceId = instanceIdRef.current;
       recognitionRef.current = recognition;
+      shouldListenRef.current = true;
       recognition.continuous = true;
       recognition.interimResults = true;
 
@@ -90,7 +122,7 @@ export function useVoiceInput({
 
       recognition.lang = langMap[language] || (isUS ? "en-US" : "en-IN");
 
-      let currentFinal = accumulatedRef.current.trim();
+      committedRef.current = accumulatedRef.current.trim();
 
       recognition.onstart = () => {
         setIsListening(true);
@@ -98,13 +130,16 @@ export function useVoiceInput({
         if (typeof navigator !== "undefined" && navigator.vibrate) {
           navigator.vibrate(50);
         }
-        toast.success(
-          language === "spanish"
-            ? "¡Escuchando! Hable naturalmente..."
-            : language === "hindi"
-            ? "सुन रहे हैं... कृपया बोलें!"
-            : "Listening... speak your experience naturally!"
-        );
+        if (!announcedRef.current) {
+          announcedRef.current = true;
+          toast.success(
+            language === "spanish"
+              ? "¡Escuchando! Hable naturalmente..."
+              : language === "hindi"
+              ? "सुन रहे हैं... कृपया बोलें!"
+              : "Listening... speak your experience naturally!"
+          );
+        }
       };
 
       recognition.onresult = (event: any) => {
@@ -113,8 +148,8 @@ export function useVoiceInput({
           const res = event.results[i];
           const transcriptPiece = res[0]?.transcript || "";
           if (res.isFinal) {
-            currentFinal = currentFinal
-              ? `${currentFinal} ${transcriptPiece.trim()}`
+            committedRef.current = committedRef.current
+              ? `${committedRef.current} ${transcriptPiece.trim()}`
               : transcriptPiece.trim();
           } else {
             interim += transcriptPiece;
@@ -122,34 +157,69 @@ export function useVoiceInput({
         }
 
         setInterimText(interim);
-        const combined = interim ? (currentFinal ? `${currentFinal} ${interim}` : interim) : currentFinal;
+        const combined = interim
+          ? committedRef.current
+            ? `${committedRef.current} ${interim}`
+            : interim
+          : committedRef.current;
         accumulatedRef.current = combined;
         onTranscriptChangeRef.current(combined);
       };
 
       recognition.onerror = (event: any) => {
+        if (instanceId !== instanceIdRef.current) return;
         setIsListening(false);
         setInterimText("");
         if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+          shouldListenRef.current = false;
+          announcedRef.current = false;
           toast.error("Microphone access blocked. Please allow microphone permissions in your browser.");
         } else if (event.error === "network") {
+          shouldListenRef.current = false;
+          announcedRef.current = false;
           toast.error("Voice input network error. Please check your internet connection.");
+        } else if (event.error === "audio-capture") {
+          shouldListenRef.current = false;
+          announcedRef.current = false;
+          toast.error("No microphone was found. Please check your device and try again.");
         } else if (event.error !== "no-speech") {
-          // ignore silent timeout
+          // Speech engines emit "no-speech" for ordinary pauses. Any other
+          // error is not safely retryable, so stop instead of looping.
+          shouldListenRef.current = false;
+          announcedRef.current = false;
           console.warn("Speech recognition error:", event.error);
         }
       };
 
       recognition.onend = () => {
+        if (instanceId !== instanceIdRef.current) return;
         setIsListening(false);
         setInterimText("");
+        // Do not drop the last visible phrase when a mobile session closes
+        // before the engine marks it final. It becomes the new base text.
+        committedRef.current = accumulatedRef.current.trim();
+        if (!shouldListenRef.current) return;
+
+        // The browser ended the session while the guest still wants to speak
+        // (common on mobile and after a short pause). Restart the same session.
+        restartTimerRef.current = setTimeout(() => {
+          if (!shouldListenRef.current || instanceId !== instanceIdRef.current) return;
+          try {
+            recognition.start();
+          } catch {
+            shouldListenRef.current = false;
+            setIsListening(false);
+          }
+        }, 250);
       };
 
       recognition.start();
     } catch (err) {
       console.error("Speech recognition start failed:", err);
+      shouldListenRef.current = false;
       setIsListening(false);
       setInterimText("");
+      toast.error("Voice input could not start. Please type your feedback below.");
     }
   }, [language, isUS]);
 
@@ -164,6 +234,12 @@ export function useVoiceInput({
   // Clean up on unmount
   useEffect(() => {
     return () => {
+      shouldListenRef.current = false;
+      instanceIdRef.current += 1;
+      if (restartTimerRef.current) {
+        clearTimeout(restartTimerRef.current);
+        restartTimerRef.current = null;
+      }
       if (recognitionRef.current) {
         try {
           recognitionRef.current.abort();

@@ -59,6 +59,11 @@ const envSchema = z.object({
   WHATSAPP_BUSINESS_ACCOUNT_ID: z.string().optional().default(""),
   WHATSAPP_API_VERSION: z.string().default("v25.0"),
   WHATSAPP_WEBHOOK_VERIFY_TOKEN: z.string().optional().default(""),
+  // Approved utility template for owner safety/low-rating alerts. Free-form
+  // text is only valid inside a 24-hour customer service window; we do not
+  // track that window for owner alerts, so alerts must use a template.
+  WHATSAPP_ALERT_TEMPLATE_NAME: z.string().optional().default(""),
+  WHATSAPP_ALERT_TEMPLATE_LANG: z.string().default("en"),
 
   // Instagram Graph API
   INSTAGRAM_APP_ID: z.string().optional().default(""),

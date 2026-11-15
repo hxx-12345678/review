@@ -13,6 +13,10 @@
 
 export type ReviewIndustry =
   | "RESTAURANT"
+  | "CAFE"
+  | "BAKERY"
+  | "QUICK_SERVICE"
+  | "HOTEL"
   | "DENTAL"
   | "SALON"
   | "MEDICAL"
@@ -20,11 +24,36 @@ export type ReviewIndustry =
   | "AUTO_DEALER"
   | "FITNESS"
   | "ELECTRONICS"
+  | "ELECTRONICS_REPAIR"
+  | "ELECTRICAL"
+  | "ELECTRICAL_RETAIL"
   | "HOME_SERVICES"
+  | "RETAIL"
+  | "EDUCATION"
+  | "PET_CARE"
+  | "REAL_ESTATE"
+  | "PROFESSIONAL_SERVICES"
   | "OTHER";
 
 const INDUSTRY_ALIASES: Record<string, ReviewIndustry> = {
   RESTAURANT: "RESTAURANT",
+  CAFE: "CAFE",
+  COFFEE_SHOP: "CAFE",
+  COFFEE: "CAFE",
+  CAFETERIA: "CAFE",
+  BAKERY: "BAKERY",
+  DESSERT: "BAKERY",
+  CAKE_SHOP: "BAKERY",
+  PATISSERIE: "BAKERY",
+  QUICK_SERVICE: "QUICK_SERVICE",
+  QSR: "QUICK_SERVICE",
+  FAST_FOOD: "QUICK_SERVICE",
+  TAKEAWAY: "QUICK_SERVICE",
+  HOTEL: "HOTEL",
+  MOTEL: "HOTEL",
+  RESORT: "HOTEL",
+  LODGING: "HOTEL",
+  HOMESTAY: "HOTEL",
   DENTAL: "DENTAL",
   SALON: "SALON",
   MEDICAL: "MEDICAL",
@@ -42,15 +71,48 @@ const INDUSTRY_ALIASES: Record<string, ReviewIndustry> = {
   ELECTRONICS: "ELECTRONICS",
   ELECTRONIC: "ELECTRONICS",
   ELECTRONICS_STORE: "ELECTRONICS",
-  ELECTRONIC_SERVICE: "ELECTRONICS",
-  MOBILE_REPAIR: "ELECTRONICS",
+  ELECTRONIC_SERVICE: "ELECTRONICS_REPAIR",
+  MOBILE_REPAIR: "ELECTRONICS_REPAIR",
+  PHONE_REPAIR: "ELECTRONICS_REPAIR",
+  ELECTRONICS_REPAIR: "ELECTRONICS_REPAIR",
+  ELECTRICAL: "ELECTRICAL",
+  ELECTRICIAN: "ELECTRICAL",
+  ELECTRICAL_RETAIL: "ELECTRICAL_RETAIL",
+  ELECTRICAL_SHOP: "ELECTRICAL_RETAIL",
+  ELECTRICALS: "ELECTRICAL_RETAIL",
   HOME_SERVICES: "HOME_SERVICES",
+  RETAIL: "RETAIL",
+  SHOP: "RETAIL",
+  STORE: "RETAIL",
+  EDUCATION: "EDUCATION",
+  SCHOOL: "EDUCATION",
+  COLLEGE: "EDUCATION",
+  ACADEMY: "EDUCATION",
+  TUITION: "EDUCATION",
+  PET_CARE: "PET_CARE",
+  VET: "PET_CARE",
+  VETERINARY: "PET_CARE",
+  PET_STORE: "PET_CARE",
+  PET_GROOMING: "PET_CARE",
+  REAL_ESTATE: "REAL_ESTATE",
+  REAL_ESTATE_AGENCY: "REAL_ESTATE",
+  REALTOR: "REAL_ESTATE",
+  PROPERTY: "REAL_ESTATE",
+  PROFESSIONAL_SERVICES: "PROFESSIONAL_SERVICES",
+  CONSULTANT: "PROFESSIONAL_SERVICES",
+  LAWYER: "PROFESSIONAL_SERVICES",
+  ACCOUNTANT: "PROFESSIONAL_SERVICES",
+  AGENCY: "PROFESSIONAL_SERVICES",
   OTHER: "OTHER",
 };
 
 /** All category IDs that exist for each industry (client taxonomy is the source of labels). */
 export const INDUSTRY_CATEGORY_IDS: Record<ReviewIndustry, string[]> = {
   RESTAURANT: ["food", "service", "ambience", "value", "drinks", "operations"],
+  CAFE: ["beverages", "food", "service", "space", "value"],
+  BAKERY: ["products", "service", "hygiene", "value"],
+  QUICK_SERVICE: ["food", "speed", "accuracy", "packaging", "cleanliness", "value"],
+  HOTEL: ["booking", "room", "staff", "facilities", "value"],
   DENTAL: ["treatment", "staff", "facility", "scheduling", "communication", "value"],
   SALON: ["service_quality", "stylist", "atmosphere", "scheduling", "value"],
   MEDICAL: ["provider", "staff", "facility", "access", "communication", "value"],
@@ -58,7 +120,15 @@ export const INDUSTRY_CATEGORY_IDS: Record<ReviewIndustry, string[]> = {
   FITNESS: ["equipment", "classes", "cleanliness", "staff", "atmosphere", "value"],
   AUTO_DEALER: ["sales", "selection", "pricing", "process", "service"],
   ELECTRONICS: ["products", "staff", "repair", "pricing", "after_sales"],
+  ELECTRONICS_REPAIR: ["repair", "quote", "turnaround", "data", "warranty", "service"],
+  ELECTRICAL: ["work", "safety", "reliability", "pricing", "cleanliness", "warranty"],
+  ELECTRICAL_RETAIL: ["products", "advice", "pricing", "service", "returns"],
   HOME_SERVICES: ["work_quality", "staff", "communication", "timeliness", "pricing", "cleanliness"],
+  RETAIL: ["products", "store", "staff", "checkout", "after_sales", "value"],
+  EDUCATION: ["teaching", "communication", "safety", "facilities", "activities", "admin"],
+  PET_CARE: ["care", "communication", "facility", "access", "value"],
+  REAL_ESTATE: ["service", "expertise", "process", "outcome", "value"],
+  PROFESSIONAL_SERVICES: ["expertise", "communication", "delivery", "relationship", "value"],
   OTHER: ["staff", "quality", "experience", "value", "communication", "convenience"],
 };
 
@@ -82,6 +152,34 @@ const CATEGORY_ID_PREFIXES: Record<ReviewIndustry, Record<string, string[]>> = {
     value: ["value_"],
     drinks: ["drink_"],
     operations: ["op_"],
+  },
+  CAFE: {
+    beverages: ["cafe_coffee", "cafe_tea", "cafe_cold", "cafe_consistency"],
+    food: ["cafe_food_quality", "cafe_freshness", "cafe_portions", "cafe_dietary"],
+    service: ["cafe_friendly", "cafe_speed", "cafe_accuracy", "cafe_knowledge"],
+    space: ["cafe_seating", "cafe_wifi", "cafe_noise", "cafe_cleanliness"],
+    value: ["cafe_pricing", "cafe_loyalty"],
+  },
+  BAKERY: {
+    products: ["bakery_freshness", "bakery_taste", "bakery_variety", "bakery_custom"],
+    service: ["bakery_friendly", "bakery_accuracy", "bakery_speed"],
+    hygiene: ["bakery_cleanliness", "bakery_storage", "bakery_packaging"],
+    value: ["bakery_pricing", "bakery_portions"],
+  },
+  QUICK_SERVICE: {
+    food: ["qs_taste", "qs_freshness", "qs_temperature", "qs_portion"],
+    speed: ["qs_order_time", "qs_served_time"],
+    accuracy: ["qs_order_accuracy", "qs_customization"],
+    packaging: ["qs_packaging", "qs_spill", "qs_delivery"],
+    cleanliness: ["qs_seating", "qs_restroom", "qs_counter"],
+    value: ["qs_pricing", "qs_combo"],
+  },
+  HOTEL: {
+    booking: ["hotel_booking", "hotel_checkin", "hotel_checkout"],
+    room: ["hotel_cleanliness", "hotel_bed", "hotel_bathroom", "hotel_noise", "hotel_ac", "hotel_maintenance"],
+    staff: ["hotel_front_desk", "hotel_housekeeping", "hotel_responsiveness", "hotel_requests"],
+    facilities: ["hotel_wifi", "hotel_parking", "hotel_pool", "hotel_gym", "hotel_breakfast"],
+    value: ["hotel_price", "hotel_extra_charges"],
   },
   DENTAL: {
     treatment: ["dent_"],
@@ -130,11 +228,34 @@ const CATEGORY_ID_PREFIXES: Record<ReviewIndustry, Record<string, string[]>> = {
     service: ["dealer_"],
   },
   ELECTRONICS: {
-    products: ["elec_"],
-    staff: ["elec_"],
-    repair: ["elec_"],
-    pricing: ["elec_"],
-    after_sales: ["elec_"],
+    products: ["elec_quality", "elec_authenticity", "elec_selection", "elec_availability"],
+    staff: ["elec_knowledge", "elec_helpfulness", "elec_honesty"],
+    repair: ["elec_repair_quality", "elec_turnaround", "elec_diagnostics", "elec_genuine_parts"],
+    pricing: ["elec_price_fairness", "elec_quote", "elec_warranty"],
+    after_sales: ["elec_support", "elec_returns", "elec_followup"],
+  },
+  ELECTRONICS_REPAIR: {
+    repair: ["erep_quality", "erep_diagnostics", "erep_parts"],
+    quote: ["erep_quote", "erep_final_bill"],
+    turnaround: ["erep_turnaround", "erep_updates"],
+    data: ["erep_data_privacy", "erep_device_safety"],
+    warranty: ["erep_warranty", "erep_rework"],
+    service: ["erep_front_desk", "erep_communication"],
+  },
+  ELECTRICAL: {
+    work: ["electric_workmanship", "electric_completion", "electric_testing"],
+    safety: ["electric_safety", "electric_certified", "electric_earthing"],
+    reliability: ["electric_punctuality", "electric_responsiveness", "electric_updates"],
+    pricing: ["electric_quote", "electric_final_bill", "electric_value"],
+    cleanliness: ["electric_cleanup", "electric_damage"],
+    warranty: ["electric_warranty", "electric_callback"],
+  },
+  ELECTRICAL_RETAIL: {
+    products: ["elecshop_genuine", "elecshop_brands", "elecshop_stock", "elecshop_quality"],
+    advice: ["elecshop_guidance", "elecshop_load_advice", "elecshop_availability"],
+    pricing: ["elecshop_price", "elecshop_quote", "elecshop_bulk"],
+    service: ["elecshop_staff", "elecshop_wait", "elecshop_billing"],
+    returns: ["elecshop_warranty", "elecshop_returns", "elecshop_delivery"],
   },
   HOME_SERVICES: {
     work_quality: ["home_"],
@@ -143,6 +264,43 @@ const CATEGORY_ID_PREFIXES: Record<ReviewIndustry, Record<string, string[]>> = {
     timeliness: ["home_"],
     pricing: ["home_"],
     cleanliness: ["home_"],
+  },
+  RETAIL: {
+    products: ["retail_range", "retail_quality", "retail_stock", "retail_authenticity"],
+    store: ["retail_cleanliness", "retail_layout", "retail_signage", "retail_comfort"],
+    staff: ["retail_greeting", "retail_knowledge", "retail_courtesy", "retail_response"],
+    checkout: ["retail_wait", "retail_billing", "retail_payment"],
+    after_sales: ["retail_returns", "retail_warranty", "retail_delivery"],
+    value: ["retail_pricing", "retail_offers"],
+  },
+  EDUCATION: {
+    teaching: ["edu_teaching", "edu_curriculum", "edu_homework", "edu_progress"],
+    communication: ["edu_updates", "edu_teacher_access", "edu_concerns"],
+    safety: ["edu_safety", "edu_bullying", "edu_supervision"],
+    facilities: ["edu_classrooms", "edu_library", "edu_transport", "edu_cleanliness"],
+    activities: ["edu_extracurricular", "edu_sports", "edu_arts"],
+    admin: ["edu_admissions", "edu_fees", "edu_paperwork"],
+  },
+  PET_CARE: {
+    care: ["pet_handling", "pet_vet_care", "pet_treatment", "pet_outcome"],
+    communication: ["pet_explanation", "pet_options", "pet_followup"],
+    facility: ["pet_cleanliness", "pet_equipment", "pet_boarding"],
+    access: ["pet_booking", "pet_wait", "pet_emergency"],
+    value: ["pet_pricing", "pet_estimates"],
+  },
+  REAL_ESTATE: {
+    service: ["re_agent", "re_responsiveness", "re_availability"],
+    expertise: ["re_market", "re_pricing", "re_advice"],
+    process: ["re_communication", "re_paperwork", "re_timeline", "re_negotiation"],
+    outcome: ["re_listing", "re_handover", "re_after_sale"],
+    value: ["re_fees", "re_value"],
+  },
+  PROFESSIONAL_SERVICES: {
+    expertise: ["prof_expertise", "prof_advice", "prof_solution"],
+    communication: ["prof_clarity", "prof_responsiveness", "prof_updates"],
+    delivery: ["prof_quality", "prof_timeline", "prof_scope"],
+    relationship: ["prof_trust", "prof_courtesy"],
+    value: ["prof_fees", "prof_value"],
   },
   OTHER: {
     staff: ["other_"],

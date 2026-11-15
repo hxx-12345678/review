@@ -1060,8 +1060,10 @@ function GoogleAccountSection({ businessId }: { businessId: string }) {
     setSyncingPlaces(true);
     try {
       const result = await api.googleReviews.syncPlaces(businessId);
-      if (result.total === 0) {
-        toast.info("No public review texts were returned by Google Maps for this listing. Connect your Google Business Profile above for full review history.");
+      if (result.warning) {
+        toast.info("Google returned your listing's rating and review count, but no review text. Try again later, or connect your Google Business Profile above for full review history.");
+      } else if (result.total === 0) {
+        toast.info("Google returned no public review text for this listing. Connect your Google Business Profile above for full review history.");
       } else if (result.synced === 0) {
         toast.info(`All ${result.total} public review(s) are already up to date.`);
       } else {

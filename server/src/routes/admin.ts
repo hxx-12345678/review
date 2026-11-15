@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import Razorpay from "razorpay";
 import crypto from "crypto";
-import { Prisma } from "@prisma/client";
+import { Industry, Prisma } from "@prisma/client";
 import { prisma } from "../config/database";
 import { getEnv } from "../config/env";
 import { adminAuthRequired, AdminRequest } from "../middleware/admin";
@@ -641,11 +641,10 @@ router.get("/businesses/:id", async (req: AdminRequest, res: Response) => {
 });
 
 // ─── Update business industry (superadmin allotment) ─────────────────────────
-// Founder-led food-only sales: customers never pick an industry in onboarding
-// (it defaults to RESTAURANT). The admin allots/changes it here. Validated
-// against the Prisma Industry enum; logged for audit.
+// Owners choose their industry during onboarding; admins can correct it here.
+// Validated against the Prisma Industry enum; logged for audit.
 const adminUpdateBusinessSchema = z.object({
-  industry: z.enum(["DENTAL", "MEDICAL", "SALON", "GYM", "HOME_SERVICES", "RESTAURANT", "AUTO", "AUTO_DEALER", "FITNESS", "ELECTRONICS", "OTHER"]),
+  industry: z.nativeEnum(Industry),
   promptTopics: z.array(z.string().max(100)).max(30).optional(),
   enabledCategories: z.array(z.string().max(50)).max(30).optional(),
   customReviewTopics: z.array(z.string().max(80)).max(20).optional(),

@@ -118,4 +118,64 @@ test("cross-industry IDs are rejected", () => {
   assert.deepEqual(kept, ["dent_pain"]);
 });
 
+test("new food profiles keep their own category IDs", () => {
+  assert.deepEqual(sanitizeEnabledCategories("CAFE", ["beverages", "food", "treatment"]), [
+    "beverages",
+    "food",
+  ]);
+  assert.deepEqual(sanitizeEnabledCategories("BAKERY", ["products", "hygiene", "drinks"]), [
+    "products",
+    "hygiene",
+  ]);
+  assert.deepEqual(sanitizeEnabledCategories("QUICK_SERVICE", ["speed", "packaging"]), [
+    "speed",
+    "packaging",
+  ]);
+  assert.deepEqual(sanitizeEnabledCategories("HOTEL", ["room", "facilities", "food"]), [
+    "room",
+    "facilities",
+  ]);
+});
+
+test("repair, retail, and service profiles reject each other's IDs", () => {
+  const electronics = sanitizeSelectedSubOptions(
+    "ELECTRONICS",
+    [],
+    [],
+    "Croma Electronics",
+    [],
+    ["elec_quality", "elec_repair_quality", "erep_quality", "retail_stock"],
+  );
+  assert.deepEqual(electronics, ["elec_quality", "elec_repair_quality"]);
+
+  const repair = sanitizeSelectedSubOptions(
+    "ELECTRONICS_REPAIR",
+    [],
+    [],
+    "Mobile Repair Hub",
+    [],
+    ["erep_quality", "elec_quality", "electric_safety"],
+  );
+  assert.deepEqual(repair, ["erep_quality"]);
+
+  const electrical = sanitizeSelectedSubOptions(
+    "ELECTRICAL",
+    [],
+    [],
+    "SafeWire Electricals",
+    [],
+    ["electric_safety", "elecshop_genuine", "retail_stock"],
+  );
+  assert.deepEqual(electrical, ["electric_safety"]);
+});
+
+test("new profile aliases normalize to the right taxonomy", () => {
+  assert.equal(defaultCategoryIds("COFFEE_SHOP").includes("beverages"), true);
+  assert.equal(defaultCategoryIds("MOTEL").includes("room"), true);
+  assert.equal(defaultCategoryIds("MOBILE_REPAIR").includes("data"), true);
+  assert.equal(defaultCategoryIds("ELECTRICIAN").includes("safety"), true);
+  assert.equal(defaultCategoryIds("SCHOOL").includes("teaching"), true);
+  assert.equal(defaultCategoryIds("VET").includes("care"), true);
+});
+
 console.log(`\n${passed} review-option tests passed`);
