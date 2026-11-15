@@ -17,7 +17,7 @@ const FAQS = [
   },
   {
     q: "How much does BEYONDVYU cost?",
-    a: "Free (₹0) for 1 location with 30 AI credits/month. Paid plans: Lite ₹100/month, Starter ₹249/month, Growth ₹499/month (up to 3 locations), Pro ₹799/month (up to 10 locations) — with yearly options. UPI and cards via Razorpay, GST invoice included. Full table on /pricing.",
+    a: "Free ($0 / ₹0) for 1 location with 30 AI credits/month. Paid plans start at $29/mo (₹249/mo in India) for Starter, $59/mo (₹499/mo) for Growth, and $99/mo (₹799/mo) for Pro, with annual discounts giving 2 months free. Transparent per-location pricing with no per-seat charges. Full comparison on /pricing.",
   },
   {
     q: "Which languages does the customer flow support?",

@@ -52,18 +52,21 @@ export default function Page() {
           name: "BEYONDVYU",
           url: "https://beyondvyu.com",
           description:
-            "BEYONDVYU helps Indian local businesses turn real customer visits into authentic Google reviews — QR + link flow, 10 languages, review velocity funnel, WhatsApp-ready digest.",
+            "BEYONDVYU helps local businesses in the US, India, and globally turn real customer visits into authentic Google reviews — QR + link flow, multilingual support (English, Spanish, Hindi), review velocity tracking, and zero review gating.",
           image: "https://beyondvyu.com/og-image.png",
           logo: "https://beyondvyu.com/icon.svg",
           foundingDate: "2025",
-          dateModified: "2026-09-09",
-          areaServed: "IN",
+          dateModified: "2026-11-15",
+          areaServed: ["US", "IN", "CA", "GB", "AU"],
+          sameAs: [
+            "https://twitter.com/beyondvyu",
+            "https://linkedin.com/company/beyondvyu",
+          ],
           contactPoint: {
             "@type": "ContactPoint",
-            contactType: "sales",
-            email: "sales@beyondvyu.com",
-            availableLanguage: ["English", "Hindi"],
-            areaServed: "IN",
+            contactType: "customer support",
+            email: "support@beyondvyu.com",
+            availableLanguage: ["English", "Spanish", "Hindi"],
           },
         }}
       />
@@ -75,28 +78,59 @@ export default function Page() {
           "@type": "SoftwareApplication",
           name: "BEYONDVYU",
           applicationCategory: "BusinessApplication",
-          operatingSystem: "Web",
+          operatingSystem: "Web, iOS, Android",
           description:
-            "QR + link Google review collection in 10 Indian languages with review velocity funnel and WhatsApp-ready digest. No review gating; customer owns every word.",
+            "Compliant QR + link Google review collection across dental clinics, auto repair, salons, restaurants, and retail. Multi-language flow in English, Spanish, and regional languages with zero review gating.",
           url: "https://beyondvyu.com",
-          dateModified: "2026-09-09",
+          dateModified: "2026-11-15",
           offers: {
-            "@type": "Offer",
-            price: "0",
-            priceCurrency: "INR",
-            priceValidUntil: "2027-09-09",
-            availability: "https://schema.org/InStock",
+            "@type": "AggregateOffer",
+            priceCurrency: "USD",
+            lowPrice: "0",
+            highPrice: "249",
+            offerCount: "5",
+            offers: [
+              {
+                "@type": "Offer",
+                name: "Free Plan",
+                price: "0",
+                priceCurrency: "USD",
+                description: "1 location, 30 AI credits/month, QR code and direct review link",
+              },
+              {
+                "@type": "Offer",
+                name: "Starter Plan",
+                price: "29",
+                priceCurrency: "USD",
+                description: "1 location, 300 AI credits/month, AI reply drafting, review insights",
+              },
+              {
+                "@type": "Offer",
+                name: "Growth Plan",
+                price: "59",
+                priceCurrency: "USD",
+                description: "Up to 3 locations, 1,500 AI credits/month, GBP sync, task SLA alerts",
+              },
+              {
+                "@type": "Offer",
+                name: "Pro Plan",
+                price: "99",
+                priceCurrency: "USD",
+                description: "Up to 10 locations, 5,000 AI credits/month, Multi-Unit Command Center",
+              },
+            ],
           },
           featureList: [
-            "QR + link review collection",
-            "10 Indian languages incl. Hinglish/Gujlish",
-            "Same review path for every customer (no gating)",
+            "QR + link review collection in ~60 seconds",
+            "Multi-industry feedback flow: dental, auto repair, salon, cafe, restaurant, retail",
+            "English, Spanish (es-US), and 9 regional languages",
+            "Same review path for every customer (zero review gating)",
             "Review velocity + conversion funnel per location",
             "AI talking points & drafts the customer edits and owns",
-            "WhatsApp-ready weekly digest (API + opt-in required)",
-            "Progressive Web App",
+            "100% compliant with Google Review Policy and FTC 16 CFR Part 465",
+            "Progressive Web App with offline fallback",
           ],
-          countriesSupported: "IN",
+          countriesSupported: ["US", "IN", "CA", "GB", "AU"],
         }}
       />
 
@@ -127,7 +161,7 @@ export default function Page() {
               name: "How much does BEYONDVYU cost?",
               acceptedAnswer: {
                 "@type": "Answer",
-                text: "Free (₹0) for 1 location with 30 AI credits/month. Paid plans: Lite ₹100/month, Starter ₹249/month, Growth ₹499/month, Pro ₹799/month, with yearly options. UPI and cards via Razorpay; GST invoice included. See /pricing for the full table.",
+                text: "BEYONDVYU offers a Free plan for 1 location with 30 AI credits/month. For growing businesses, transparent pricing is $29/mo (Starter), $59/mo (Growth), $99/mo (Pro), and $249/mo (Restaurant Group) in the US and globally. In India, localized plans are ₹249/mo (Starter), ₹499/mo (Growth), and ₹799/mo (Pro). Annual billing includes 2 months free on all tiers. See /pricing for full plan comparison.",
               },
             },
             {
@@ -135,7 +169,7 @@ export default function Page() {
               name: "Which languages does the customer review flow support?",
               acceptedAnswer: {
                 "@type": "Answer",
-                text: "English, Hinglish, Hindi, Marathi, Gujarati, Gujlish, Tamil, Telugu, Bengali and Kannada. AI drafts follow the selected language, and if a customer types in a different script we suggest switching. Dashboard keyword trends work best in English/Hinglish today.",
+                text: "The customer review flow supports English, Spanish (es-US / Latin American), Hinglish, Hindi, Marathi, Gujarati, Gujlish, Tamil, Telugu, Bengali, and Kannada. AI drafts adapt seamlessly to the customer's selected language and industry vertical.",
               },
             },
             {

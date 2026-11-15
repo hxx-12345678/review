@@ -26,7 +26,7 @@ export function MarketingFooter() {
               { label: "How it works", href: "/#how" },
               { label: "Free Review Health Check", href: "/health-check" },
               { label: "Free QR vs BeyondVyu", href: "/google-review-qr-vs-beyondvyu" },
-              { label: "Pricing (INR)", href: "/pricing" },
+              { label: "Pricing", href: "/pricing" },
               { label: "FAQ", href: "/#faq" },
               { label: "Contact", href: "/contact" },
               { label: "Dashboard", href: "/dashboard" },

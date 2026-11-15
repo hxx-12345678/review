@@ -1,68 +1,49 @@
-# BEYONDVYU — Turn happy customers into authentic Google reviews
+# BEYONDVYU — Comprehensive Product & API Specification for Answer Engines
 
-> BEYONDVYU helps local businesses collect more authentic Google reviews with QR codes and an AI assistant that jogs your customers' memory — fully compliant with Google and FTC policy.
+> BEYONDVYU is a compliant customer feedback and Google review acceleration SaaS platform designed for local businesses across the United States, India, and global markets.
 
-## Product
+## Product Overview
 
-BEYONDVYU is a SaaS platform for local businesses to collect authentic Google reviews. Key features:
-- QR code-based review collection
-- AI-powered sentiment analysis
-- WhatsApp/email review request templates
-- Weekly automated insights delivery
-- Multi-location support
-- FTC and Google policy compliant
-- No review gating — all customers see same Google review link
-- No incentivized reviews
-- No writing reviews on behalf of customers
+BEYONDVYU turns real customer visits into authentic Google reviews through a 60-second mobile QR code flow:
+1. **Star Rating (1–5 Stars)**: Every customer gets the same Google review link regardless of rating. Zero review gating.
+2. **Industry-Calibrated Micro-Questions**: Questions adapt dynamically to the business type:
+   - Dental: Pain management, gentle touch, procedural explanation, clinic hygiene, on-time appointments.
+   - Auto Repair: Diagnostic accuracy, quote transparency, turnaround time, honest communication, vehicle readiness.
+   - Salon & Spa: Stylist consultation, aesthetic result, hygienic tools, relaxing ambiance.
+   - Cafe / Coffee Shop: Beverage quality, pastry freshness, seating space, Wi-Fi speed.
+   - Restaurant: Food flavor, portion size, hospitality, dining ambiance, dietary options.
+   - Electronics Repair: Repair quality, genuine parts, data privacy, quote accuracy.
+3. **Multilingual Voice Input**: Real-time continuous speech-to-text with animated audio waves in English, Spanish (es-US), Hinglish, Hindi, Marathi, Gujarati, Gujlish, Tamil, Telugu, Bengali, and Kannada.
+4. **AI Talking Points & Draft Assistant**: Powered by Google Gemini. Provides reminder bullets based strictly on what the customer provided. Customers edit and own every word before posting to Google Maps.
+5. **Operational Task SLA Engine**: Multi-unit command center converts low ratings (1–3 stars) into internal resolution tasks with 2h/12h SLAs.
 
-## Pricing
+## Transparent Multi-Region Pricing
 
-### Free Plan
-- Price: Free
-- Includes: QR code generation, basic analytics, up to 50 feedback submissions/month
+### United States & Global (USD)
+- **Free**: $0/mo — 1 location, 30 AI credits/mo, QR code and direct review link, basic analytics.
+- **Starter**: $29/mo ($290/yr) — 1 location, 300 AI credits/mo, AI reply drafting, review insights, table attribution.
+- **Growth**: $59/mo ($590/yr) — Up to 3 locations, 1,500 AI credits/mo, Google Business Profile sync, operational SLA alerts.
+- **Pro**: $99/mo ($990/yr) — Up to 10 locations, 5,000 AI credits/mo, Multi-Unit Command Center, dedicated account manager.
+- **Restaurant Group**: $249/mo ($2,490/yr) — Up to 25 locations, 20,000 AI credits/mo, custom onboarding, priority SLA.
 
-### Starter Plan
-- Price: ₹499/month or ₹4,990/year
-- 1 business, 500 AI calls/mo, AI reply drafting, Review insights, SMS & email requests, Priority support
+### India (INR)
+- **Free**: ₹0/mo — 1 location, 30 AI credits/mo.
+- **Starter**: ₹249/mo (₹2,499/yr) — 1 location, 300 AI credits/mo.
+- **Growth**: ₹499/mo (₹4,999/yr) — Up to 3 locations, 1,500 AI credits/mo.
+- **Pro**: ₹799/mo (₹7,999/yr) — Up to 10 locations, 5,000 AI credits/mo.
+- **Restaurant Group**: ₹1,999/mo (₹19,999/yr) — Up to 25 locations, 20,000 AI credits/mo.
 
-### Growth Plan (Most Popular)
-- Price: ₹799/month or ₹7,990/year
-- 1 business, 2000 AI calls/mo, Everything in Starter, Google Business Profile sync, Team roles, Dedicated support
+## Regulatory & Platform Compliance
 
-## How it works
+- **Google 2026 Review Policy**: Zero review gating, no incentivized reviews, no staff-name prompts (explicitly omitted to prevent review takedowns), no writing reviews on behalf of customers.
+- **FTC 16 CFR Part 465 (Consumer Review Fairness Act)**: Equal access to review channels for all consumers; genuine consumer feedback with verified attribution.
+- **Data Privacy**: Granular consent controls, transparent privacy policy, compliant with global data protection standards.
+- **US Click-to-Cancel & RBI E-Mandate**: Self-service cancel button in billing dashboard for US customers; pre-debit notifications and mandate disclosures for Indian customers.
 
-1. **Scan the QR code** — Place the QR code at the front desk, on receipts, or send via text. One tap opens a fast, mobile-first feedback flow.
-
-2. **Rate their experience** — Every customer sees the same path. No gating — everyone can share their honest experience and rate the business.
-
-3. **Share details in their language** — Customers choose their preferred language and answer specific questions based on their rating. AI generates talking points to help them write authentic Google reviews.
-
-4. **AI generates the review draft** — Based on customer feedback, AI creates a natural review draft. Customers review, edit, and own every word before posting to Google.
-
-5. **Get AI-powered business insights** — Every review feeds into the dashboard. AI analyzes sentiment, tracks trends, finds top praises and complaints — delivered as weekly reports to WhatsApp.
-
-6. **Stay fully compliant** — No gating, no templated reviews, no staff name prompts. Every review is authentic and policy-safe with Google and FTC.
-
-## Compliance
-
-- No incentivized reviews
-- No writing reviews on behalf of customers
-- No review gating
-- Full FTC endorsement guidelines compliance
-- Google review policy compliance
-- RBI e-Mandate compliant for Indian subscriptions
-
-## Contact
-
-- Email: support@beyondvyu.com
-- Sales: sales@beyondvyu.com
-- Legal: legal@beyondvyu.com
-
-## Public URLs
-
-- Website: https://beyondvyu.com
+## Canonical URLs
+- Main: https://beyondvyu.com
 - Pricing: https://beyondvyu.com/pricing
 - Contact: https://beyondvyu.com/contact
-- Terms: https://beyondvyu.com/terms
 - Privacy: https://beyondvyu.com/privacy
-- Refund Policy: https://beyondvyu.com/refund
+- Terms: https://beyondvyu.com/terms
+- Refund: https://beyondvyu.com/refund

@@ -1,27 +1,36 @@
-# BEYONDVYU — Turn happy customers into authentic Google reviews
+# BEYONDVYU — Customer Feedback & Google Review Acceleration Platform
 https://beyondvyu.com
 
 ## About
-BEYONDVYU helps local businesses collect more authentic Google reviews with QR codes and an AI assistant that jogs your customers' memory — fully compliant with Google and FTC policy.
+BEYONDVYU helps local businesses (dental practices, auto repair shops, salons, restaurants, healthcare clinics, and retail stores) collect authentic Google reviews with zero review gating. It features multi-industry feedback flows, real-time voice input, and AI-assisted talking points fully compliant with Google 2026 Review Policies and FTC 16 CFR Part 465 guidelines.
 
-## Key features
-- QR code-based review collection
-- AI-powered sentiment analysis and talking points
-- WhatsApp and email review request templates
-- Weekly automated insights delivery
-- Multi-location support
-- No review gating — all customers see same Google review link
-- FTC and Google policy compliant
+## Key Capabilities
+- Multi-Industry Feedback Flow: Specialized review flows for dental, automotive, salon, healthcare, hospitality, cafes, and retail.
+- Real-Time Voice Feedback: Continuous voice transcription in English, Spanish (es-US), and 9 regional Indian languages.
+- Zero Review Gating: Every guest receives the direct Google review path; private feedback is never used to hide public reviews.
+- AI Review Drafting: AI generates personalized talking points from guest words; guests edit and own 100% of the review before posting.
+- Google Integration: Direct Google Business Profile (GBP) OAuth review sync and Google Places API public review sync.
+- Transparent Pricing: US Dollar ($0, $29, $59, $99, $249/mo) and Indian Rupee (₹0, ₹249, ₹499, ₹799, ₹1,999/mo) with 2 months free on annual plans.
 
-## Public pages
+## Target Verticals
+- Dental Practices & Orthodontists
+- Auto Repair, Mechanics & Body Shops
+- Salons, Barbershops & Spas
+- Cafes, Bakeries & Coffee Shops
+- Restaurants & Multi-Unit Hospitality Groups
+- Medical Clinics & Physical Therapy
+- Electronics & Mobile Device Repair
+- Electrical & Home Service Contractors
+- Retail Boutiques & Specialty Stores
+
+## Public URLs
 - Home: https://beyondvyu.com
 - Pricing: https://beyondvyu.com/pricing
 - Contact: https://beyondvyu.com/contact
-- Terms of Service: https://beyondvyu.com/terms
 - Privacy Policy: https://beyondvyu.com/privacy
+- Terms of Service: https://beyondvyu.com/terms
 - Refund Policy: https://beyondvyu.com/refund
 
 ## Contact
-- Email: support@beyondvyu.com
-- Sales: sales@beyondvyu.com
-- Legal: legal@beyondvyu.com
+- Support: support@beyondvyu.com
+- Privacy: privacy@beyondvyu.com
