@@ -1024,6 +1024,8 @@ function GoogleAccountSection({ businessId }: { businessId: string }) {
   const [syncing, setSyncing] = useState(false);
   const [syncingPlaces, setSyncingPlaces] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [placesApiState, setPlacesApiState] = useState<"idle" | "no-text" | "success" | "already-synced">("idle");
+  const [placesRatingData, setPlacesRatingData] = useState<{ rating: number | null; userRatingCount: number | null } | null>(null);
 
   useEffect(() => {
     if (!businessId) return;
@@ -1058,15 +1060,24 @@ function GoogleAccountSection({ businessId }: { businessId: string }) {
 
   async function handleSyncPlaces() {
     setSyncingPlaces(true);
+    setPlacesApiState("idle");
     try {
       const result = await api.googleReviews.syncPlaces(businessId);
-      if (result.warning) {
-        toast.info("Google returned your listing's rating and review count, but no review text. Try again later, or connect your Google Business Profile above for full review history.");
+      // Capture rating data even when review text is unavailable
+      if (result.rating != null || result.userRatingCount != null) {
+        setPlacesRatingData({ rating: result.rating ?? null, userRatingCount: result.userRatingCount ?? null });
+      }
+      if (result.warning || result.reviewsFieldReturned === false) {
+        setPlacesApiState("no-text");
+        toast.info("Google returned your listing's rating and review count — full review text needs Google Business Profile (Method 1 above).");
       } else if (result.total === 0) {
-        toast.info("Google returned no public review text for this listing. Connect your Google Business Profile above for full review history.");
+        setPlacesApiState("no-text");
+        toast.info("No public review text available from Google Maps for this listing. Try Method 1 above for full access.");
       } else if (result.synced === 0) {
+        setPlacesApiState("already-synced");
         toast.info(`All ${result.total} public review(s) are already up to date.`);
       } else {
+        setPlacesApiState("success");
         toast.success(`Imported ${result.synced} public review(s) (${result.total} total).`);
       }
       const s = await api.googleReviews.status(businessId);
@@ -1149,17 +1160,44 @@ function GoogleAccountSection({ businessId }: { businessId: string }) {
         <div>
           <p className="text-sm font-medium text-foreground">Method 2: Public Reviews Sync <span className="text-xs font-normal text-emerald-600 ml-1">(Google Maps listing)</span></p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Import up to 5 recent public reviews from your Google Maps listing using your connected Place ID.
+            Fetch your Google Maps rating and up to 5 recent public reviews using your connected Place ID. Rating data is always available; review text may require Method 1 for full access.
           </p>
         </div>
-        {status?.placesReviewCount !== undefined && status.placesReviewCount > 0 && (
+
+        {/* Persistent status banners after sync attempt */}
+        {placesApiState === "no-text" && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-3 text-xs text-amber-800 space-y-1">
+            <p className="font-medium">Review text not available from Google Maps</p>
+            <p>
+              Google returned your listing&apos;s public data
+              {placesRatingData?.rating != null && ` — ${placesRatingData.rating}★`}
+              {placesRatingData?.userRatingCount != null && ` from ${placesRatingData.userRatingCount.toLocaleString()} reviews`}
+              , but review text is restricted by Google&apos;s API.{" "}
+              <strong>Use Method 1 (Business Profile OAuth)</strong> above for full review history and reply access.
+            </p>
+          </div>
+        )}
+        {placesApiState === "already-synced" && (
+          <div className="rounded-lg border border-blue-200 bg-blue-50/70 p-3 text-xs text-blue-800">
+            <p className="font-medium">Already up to date</p>
+            <p>All available public reviews from Google Maps are already in your dashboard.</p>
+          </div>
+        )}
+        {placesApiState === "success" && (
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50/70 p-3 text-xs text-emerald-800">
+            <p className="font-medium">Public reviews imported</p>
+            <p>Google Maps reviews have been added to your dashboard.</p>
+          </div>
+        )}
+
+        {status?.placesReviewCount !== undefined && status.placesReviewCount > 0 && placesApiState === "idle" && (
           <p className="text-xs text-muted-foreground">
             <span className="font-medium text-foreground">{status.placesReviewCount}</span> public review(s) currently synced via Google Maps.
           </p>
         )}
         <Button variant="outline" size="sm" onClick={handleSyncPlaces} disabled={syncingPlaces}>
           <RefreshCw className={`size-4 ${syncingPlaces ? "animate-spin" : ""}`} />
-          {syncingPlaces ? "Importing..." : "Import Public Reviews"}
+          {syncingPlaces ? "Checking Google Maps..." : "Import Public Reviews"}
         </Button>
       </div>
     </Card>
