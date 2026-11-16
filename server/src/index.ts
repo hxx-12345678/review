@@ -497,7 +497,8 @@ app.use(notFoundHandler);
 app.use(errorHandler);
 
 async function seedDefaultPlans() {
-  const plans = [
+  try {
+    const plans = [
     // ── India Plans (INR) ──────────────────────────────────────────────────
     { name: "Free", slug: "free", price: 0, currency: "INR", interval: "month", sortOrder: 0, creditsLimit: 30, businessLimit: 1, teamSeats: 1, features: ["1 business", "30 Credits/mo", "Review collection (email + QR)", "Review inbox (Google)", "Basic analytics"], description: "For businesses just getting started." },
     { name: "Lite (Monthly)", slug: "lite", price: 10000, currency: "INR", interval: "month", sortOrder: 1, creditsLimit: 100, businessLimit: 1, teamSeats: 1, features: ["1 business", "100 Credits/mo", "Review collection (email + QR)", "Review inbox (Google)", "Basic analytics", "Priority email support"], description: "Affordable entry-level plan." },
@@ -538,6 +539,9 @@ async function seedDefaultPlans() {
     console.log("Plans up to date — no seed writes");
   }
   console.log("Default subscription plans ready");
+  } catch (err) {
+    console.error("Non-fatal error in seedDefaultPlans:", err);
+  }
 }
 
 async function start() {
