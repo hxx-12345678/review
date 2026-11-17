@@ -22,8 +22,9 @@ import { OnboardingDialog } from "@/components/onboarding/onboarding-dialog"
 import { api } from "@/lib/api"
 import { isV2Visible } from "@/lib/feature-flags"
 
-const NAV = [
+const NAV: { href: string; label: string; icon: any; badge?: string }[] = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
+  { href: "/dashboard/whatsapp", label: "WhatsApp Marketing", icon: MessageSquare, badge: "New" },
   { href: "/dashboard/inbox", label: "Feedback inbox", icon: Inbox },
   { href: "/dashboard/insights", label: "AI Insights", icon: BarChart3 },
   { href: "/dashboard/reputation", label: "AI Reputation", icon: Sparkles },
@@ -63,7 +64,7 @@ export function DashboardSidebar() {
 
       <nav className="flex-1 min-h-0 space-y-1 overflow-y-auto p-3" aria-label="Dashboard">
         {NAV.map((item) => {
-          const active = pathname === item.href
+          const active = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href))
           return (
             <Link
               key={item.href}
@@ -76,8 +77,13 @@ export function DashboardSidebar() {
               )}
               aria-current={active ? "page" : undefined}
             >
-              <item.icon className="size-4" />
-              {item.label}
+              <item.icon className="size-4 shrink-0" />
+              <span className="flex-1 truncate">{item.label}</span>
+              {item.badge && (
+                <span className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                  {item.badge}
+                </span>
+              )}
             </Link>
           )
         })}

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Building2, QrCode } from "lucide-react";
+import { Building2, MessageSquare, QrCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { StatCards } from "@/components/dashboard/stat-cards";
@@ -194,6 +194,29 @@ if (!biz) {
           totalClicks={stats?.totalClicks || 0}
           conversionRate={stats?.conversionRate || 0}
         />
+
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 transition hover:border-emerald-500/30">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              <MessageSquare className="size-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-semibold text-foreground">WhatsApp Automation &amp; Marketing</p>
+                <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                  New
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Send festival wishes (Diwali, New Year, Eid), exclusive offers, review requests, and payment reminders directly to your customers.
+              </p>
+            </div>
+          </div>
+          <Button render={<Link href="/dashboard/whatsapp" />} nativeButton={false} size="sm" className="gap-1.5 shrink-0 bg-emerald-600 text-white hover:bg-emerald-700">
+            <MessageSquare className="size-3.5" />
+            Open WhatsApp
+          </Button>
+        </div>
 
         <AiCreditsBar />
 
