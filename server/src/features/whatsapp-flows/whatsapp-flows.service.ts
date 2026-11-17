@@ -1,5 +1,7 @@
+import { prisma } from "../../config/database";
 import { getEnv } from "../../config/env";
-import { cleanPhoneNumber } from "../../utils/phone";
+import { normalizePhoneNumber } from "../../utils/phone";
+import { sendTemplateToContact } from "../whatsapp/whatsapp.service";
 
 interface WhatsAppApiResult {
   success: boolean;
@@ -8,215 +10,77 @@ interface WhatsAppApiResult {
   data?: any;
 }
 
-interface FlowResponse {
-  flowToken: string;
-  flowId: string;
-  responseData: Record<string, any>;
-  completed: boolean;
-}
-
-function getWhatsAppBaseUrl(): string {
-  const env = getEnv();
-  return `https://graph.facebook.com/${env.WHATSAPP_API_VERSION}`;
-}
-
-function getWhatsAppHeaders(): Record<string, string> {
-  const env = getEnv();
-  return {
-    Authorization: `Bearer ${env.WHATSAPP_API_TOKEN}`,
-    "Content-Type": "application/json",
-  };
-}
-
-
-
-function buildReviewFlowJson(businessName: string): object {
-  return {
-    type: "flow",
-    flow_id: "review-collection-flow",
-    flow_cta: "Rate your experience",
-    flow_action: "data_exchange",
-    flow_action_payload: {
-      screen: "REVIEW_FORM",
-      data: {
-        business_name: businessName,
-      },
-    },
-  };
-}
-
+/**
+ * Legacy multi-platform entry point.
+ *
+ * The old implementation used a single global BEYONDVYU number and hard-coded
+ * placeholder template/flow names, so it could never work for a real client.
+ * This now routes through the business's own connected WhatsApp account and a
+ * template the business actually had approved by Meta.
+ */
 export async function sendWhatsAppReviewFlow(
+  businessId: string,
   phoneNumber: string,
-  businessName: string,
   customerName?: string,
 ): Promise<WhatsAppApiResult> {
-  const env = getEnv();
-  if (!env.WHATSAPP_API_TOKEN) {
-    return { success: false, error: "WhatsApp API not configured" };
-  }
-
-  const to = cleanPhoneNumber(phoneNumber);
-
-  const body = {
-    messaging_product: "whatsapp",
-    recipient_type: "individual",
-    to,
-    type: "template",
-    template: {
-      name: "review_request_flow",
-      language: { code: "en" },
-      components: [
-        {
-          type: "header",
-          parameters: [
-            { type: "text", text: businessName },
-          ],
-        },
-        {
-          type: "body",
-          parameters: customerName
-            ? [{ type: "text", text: customerName }]
-            : [],
-        },
-        {
-          type: "button",
-          sub_type: "flow",
-          index: 0,
-          parameters: [
-            {
-              type: "action",
-              action: {
-                data: JSON.stringify({ business_name: businessName }),
-              },
-            },
-          ],
-        },
-      ],
-    },
-  };
-
   try {
-    const res = await fetch(
-      `${getWhatsAppBaseUrl()}/${env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
-      {
-        method: "POST",
-        headers: getWhatsAppHeaders(),
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(15000),
-      },
-    );
-    const data: any = await res.json();
+    const business = await prisma.business.findUnique({
+      where: { id: businessId },
+      select: { name: true, slug: true, country: true },
+    });
+    if (!business) return { success: false, error: "Business not found" };
 
-    if (data.messages?.[0]?.id) {
-      return { success: true, messageId: data.messages[0].id, data };
+    const template = await prisma.whatsAppTemplate.findFirst({
+      where: {
+        businessId,
+        status: "APPROVED",
+        category: "UTILITY",
+        OR: [
+          { useCase: "REVIEW_REQUEST" },
+          { name: { contains: "review", mode: "insensitive" } },
+        ],
+      },
+      orderBy: { updatedAt: "desc" },
+    });
+    if (!template) {
+      return {
+        success: false,
+        error:
+          "No approved review-request Utility template is connected. Create a review-request template in WhatsApp automation and wait for Meta approval.",
+      };
     }
-    return { success: false, error: data.error?.message || "Failed to send", data };
-  } catch (err: any) {
-    return { success: false, error: err.message || "WhatsApp send failed" };
-  }
-}
 
-export async function sendWhatsAppDirectReviewFlow(
-  phoneNumber: string,
-  businessName: string,
-  flowToken: string,
-  customerName?: string,
-): Promise<WhatsAppApiResult> {
-  const env = getEnv();
-  if (!env.WHATSAPP_API_TOKEN) {
-    return { success: false, error: "WhatsApp API not configured" };
-  }
+    const country = business.country === "US" ? "US" : "IN";
+    const normalized = normalizePhoneNumber(phoneNumber, country);
+    if (!normalized.isValid) return { success: false, error: "Invalid customer phone number" };
 
-  const to = cleanPhoneNumber(phoneNumber);
-  const flowJson = buildReviewFlowJson(businessName);
-
-  const body = {
-    messaging_product: "whatsapp",
-    recipient_type: "individual",
-    to,
-    type: "interactive",
-    interactive: {
-      type: "flow",
-      header: {
-        type: "text",
-        text: `Rate ${businessName}`,
-      },
-      body: {
-        text: customerName
-          ? `Hi ${customerName}, how was your experience at ${businessName}? Tap below to rate us.`
-          : `How was your experience at ${businessName}? Tap below to rate us.`,
-      },
-      footer: {
-        text: "Your feedback helps us improve.",
-      },
-      action: {
-        name: "flow",
-        parameters: {
-          flow_message_version: "3",
-          flow_token: flowToken,
-          flow_id: "review-collection-flow",
-          flow_cta: "Rate experience",
-          flow_action: "data_exchange",
-          flow_action_payload: {
-            screen: "REVIEW_FORM",
-            data: {
-              business_name: businessName,
-            },
-          },
-        },
-      },
-    },
-  };
-
-  try {
-    const res = await fetch(
-      `${getWhatsAppBaseUrl()}/${env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
-      {
-        method: "POST",
-        headers: getWhatsAppHeaders(),
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(15000),
-      },
-    );
-    const data: any = await res.json();
-
-    if (data.messages?.[0]?.id) {
-      return { success: true, messageId: data.messages[0].id, data };
+    const contact = await prisma.whatsAppContact.findUnique({
+      where: { businessId_phone: { businessId, phone: normalized.digits } },
+    });
+    if (!contact) {
+      return {
+        success: false,
+        error:
+          "Customer has not opted in. Add them as a WhatsApp contact with consent before sending a review request.",
+      };
     }
-    return { success: false, error: data.error?.message || "Failed to send", data };
+
+    const env = getEnv();
+    const reviewUrl = `${env.FRONTEND_URL.split(",")[0].trim()}/r/${business.slug}`;
+    const candidates = [customerName || "there", business.name, reviewUrl];
+    const variables = Array.from({ length: template.parameterCount }, (_, index) => candidates[index] || "");
+    const headerVariables = template.headerParameterCount > 0 ? [business.name] : [];
+
+    const message = await sendTemplateToContact({
+      businessId,
+      contactId: contact.id,
+      templateId: template.id,
+      variables,
+      headerVariables,
+    });
+
+    return { success: true, messageId: message.metaMessageId || undefined, data: message };
   } catch (err: any) {
-    return { success: false, error: err.message || "WhatsApp send failed" };
+    return { success: false, error: err?.message || "WhatsApp send failed" };
   }
-}
-
-export function parseFlowResponse(payload: any): FlowResponse | null {
-  try {
-    const data = payload?.data || payload;
-    return {
-      flowToken: data.flow_token,
-      flowId: data.flow_id,
-      responseData: data.response || data.data || {},
-      completed: data.completed !== false,
-    };
-  } catch {
-    return null;
-  }
-}
-
-export function extractReviewFromFlowResponse(responseData: Record<string, any>): {
-  rating: number;
-  liked?: string;
-  improvement?: string;
-  customerName?: string;
-  customerEmail?: string;
-  privateNote?: string;
-} {
-  return {
-    rating: Math.min(5, Math.max(1, Number(responseData.rating) || 5)),
-    liked: responseData.liked || undefined,
-    improvement: responseData.improvement || undefined,
-    customerName: responseData.customer_name || undefined,
-    customerEmail: responseData.customer_email || undefined,
-    privateNote: responseData.private_note || undefined,
-  };
 }

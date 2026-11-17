@@ -46,40 +46,40 @@ enum ReplyStatus {
 }
 
 model User {
-  id                  String     @id @default(cuid())
-  email               String     @unique
+  id                  String    @id @default(cuid())
+  email               String    @unique
   passwordHash        String
   name                String?
-  googleId            String?    @unique
+  googleId            String?   @unique
   resetToken          String?
   resetTokenExpiresAt DateTime?
-  suspended           Boolean    @default(false)
+  suspended           Boolean   @default(false)
   suspendedAt         DateTime?
   suspendedReason     String?
   deletedAt           DateTime?
-  showLitePlan        Boolean    @default(false)
-  visiblePlanSlugs    Json?       // Base monthly plan slugs visible to this user (e.g. ["lite","starter"]); yearly follows its monthly base. null = default
-  createdAt           DateTime   @default(now())
-  updatedAt           DateTime   @updatedAt
+  showLitePlan        Boolean   @default(false)
+  visiblePlanSlugs    Json? // Base monthly plan slugs visible to this user (e.g. ["lite","starter"]); yearly follows its monthly base. null = default
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
-  businesses          Business[]
-  sessions            Session[]
-  activityLogs        ActivityLog[]
-  subscriptions       Subscription[]
-  consents            Consent[]
+  businesses    Business[]
+  sessions      Session[]
+  activityLogs  ActivityLog[]
+  subscriptions Subscription[]
+  consents      Consent[]
 }
 
 model Consent {
   id        String   @id @default(cuid())
   userId    String
-  type      String   // "data_processing" | "privacy_terms" | "marketing"
+  type      String // "data_processing" | "privacy_terms" | "marketing"
   granted   Boolean  @default(true)
-  context   String?  // "signup" | "oauth"
+  context   String? // "signup" | "oauth"
   ipAddress String?
   userAgent String?
   createdAt DateTime @default(now())
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, type])
   @@index([userId])
@@ -92,108 +92,124 @@ model Session {
   expiresAt DateTime
   createdAt DateTime @default(now())
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Business {
-  id              String   @id @default(cuid())
-  userId          String
-  name            String
-  slug            String   @unique
-  industry        Industry @default(OTHER)
-  googleReviewUrl String?
-  googlePlaceId   String?  // Google Place ID for Places API reviews (e.g., "ChIJN1t_tDeuEmsRUsoyG83frY4")
-  location        String?
-  country         String   @default("IN") // "IN" | "US"
-  currency        String   @default("INR") // "INR" | "USD"
-  phoneNumber     String?
-  website         String?
+  id                 String   @id @default(cuid())
+  userId             String
+  name               String
+  slug               String   @unique
+  industry           Industry @default(OTHER)
+  googleReviewUrl    String?
+  googlePlaceId      String? // Google Place ID for Places API reviews (e.g., "ChIJN1t_tDeuEmsRUsoyG83frY4")
+  location           String?
+  country            String   @default("IN") // "IN" | "US"
+  currency           String   @default("INR") // "INR" | "USD"
+  phoneNumber        String?
+  website            String?
   /**
    * Signature dishes / services shown as one-tap chips in the customer flow.
    * These are real menu items (e.g. "Truffle Burger"), not generic topics.
    */
-  promptTopics    String[]
+  promptTopics       String[]
   /**
    * Review-question configuration. `enabledCategories` holds category IDs from
    * the industry taxonomy (empty = industry defaults); `customReviewTopics`
    * holds owner-defined extra options (e.g. "Jain options", "Parking").
    */
-  enabledCategories   String[] @default([])
-  customReviewTopics  String[] @default([])
-  emailTemplate   String?
-  smsTemplate     String?
+  enabledCategories  String[] @default([])
+  customReviewTopics String[] @default([])
+  emailTemplate      String?
+  smsTemplate        String?
 
   // Branding
   logoUrl         String?
-  primaryColor    String?    @default("#1c3a35")
-  backgroundColor String?    @default("#ffffff")
+  primaryColor    String?  @default("#1c3a35")
+  backgroundColor String?  @default("#ffffff")
   splashTagline   String?
-  showPoweredBy   Boolean?   @default(true)
+  showPoweredBy   Boolean? @default(true)
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  qrCodes         QrCode[]
-  feedback        Feedback[]
-  reviewDrafts    ReviewDraft[]
-  reviewClicks    ReviewClick[]
-  generatedReplies GeneratedReply[]
-  activityLogs    ActivityLog[]
-  googleAccount   GoogleAccount?
-  googleReviews   GoogleReview[]
-   whatsAppTemplates WhatsAppTemplate[]
-   whatsAppFlows    WhatsAppFlow[]
-   whatsAppFlowResponses WhatsAppFlowResponse[]
-   reviewTasks      ReviewTask[]
-   instagramMentions InstagramMention[]
-   crossPlatformMessages CrossPlatformMessage[]
-   aiVisibilityChecks AiVisibilityCheck[]
+  user                    User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  qrCodes                 QrCode[]
+  feedback                Feedback[]
+  reviewDrafts            ReviewDraft[]
+  reviewClicks            ReviewClick[]
+  generatedReplies        GeneratedReply[]
+  activityLogs            ActivityLog[]
+  googleAccount           GoogleAccount?
+  googleReviews           GoogleReview[]
+  whatsAppTemplates       WhatsAppTemplate[]
+  whatsAppFlows           WhatsAppFlow[]
+  whatsAppFlowResponses   WhatsAppFlowResponse[]
+  whatsAppConnection      WhatsAppConnection?
+  whatsAppContacts        WhatsAppContact[]
+  whatsAppConsentEvents   WhatsAppConsentEvent[]
+  whatsAppMessages        WhatsAppMessage[]
+  whatsAppAutomations     WhatsAppAutomation[]
+  whatsAppAutomationRules WhatsAppAutomationRule[]
+  reviewTasks             ReviewTask[]
+  instagramMentions       InstagramMention[]
+  crossPlatformMessages   CrossPlatformMessage[]
+  aiVisibilityChecks      AiVisibilityCheck[]
 }
 
 model QrCode {
   id         String   @id @default(cuid())
   businessId String
   type       String   @default("review")
-  /** Placement: table | bill | packaging | reception | takeaway | ... */
+  /**
+   * Placement: table | bill | packaging | reception | takeaway | ...
+   */
   touchpoint String?
   label      String?
   url        String
   createdAt  DateTime @default(now())
 
-  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
   @@index([businessId, touchpoint])
 }
 
 model Feedback {
-  id                  String       @id @default(cuid())
-  businessId          String
-  rating              Int
-  purchaseInfo        String?
-  liked               String?
-  improvement         String?
-  voiceNoteUrl        String?
-  customerName        String?
-  customerEmail       String?
-  privateNote         String?
-  selectedSubOptions  Json?        // Industry-specific category sub-option IDs selected by the customer
+  id                       String       @id @default(cuid())
+  businessId               String
+  rating                   Int
+  purchaseInfo             String?
+  liked                    String?
+  improvement              String?
+  voiceNoteUrl             String?
+  customerName             String?
+  customerEmail            String?
+  /**
+   * Optional customer WhatsApp number captured with explicit consent on the
+   * public feedback/opt-in flow. Never populated from purchased lists.
+   */
+  customerPhone            String?
+  whatsappConsent          Boolean      @default(false)
+  whatsappMarketingConsent Boolean      @default(false)
+  whatsappConsentAt        DateTime?
+  privateNote              String?
+  selectedSubOptions       Json? // Industry-specific category sub-option IDs selected by the customer
   /**
    * Where the customer scanned/opened the flow: table | bill | packaging |
    * reception | takeaway | whatsapp | sms | email | link | other.
    * Non-sensitive placement metadata — never a table number or staff name.
    */
-  touchpoint          String?
-  status              ReviewStatus @default(PRIVATE_FEEDBACK)
-  createdAt           DateTime     @default(now())
-  updatedAt           DateTime     @updatedAt
+  touchpoint               String?
+  status                   ReviewStatus @default(PRIVATE_FEEDBACK)
+  createdAt                DateTime     @default(now())
+  updatedAt                DateTime     @updatedAt
+
+  business       Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  reviewDraft    ReviewDraft?
+  reviewClicks   ReviewClick[]
+  generatedReply GeneratedReply?
 
   @@index([businessId, touchpoint])
-
-  business      Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  reviewDraft   ReviewDraft?
-  reviewClicks  ReviewClick[]
-  generatedReply GeneratedReply?
 }
 
 model ReviewDraft {
@@ -204,18 +220,18 @@ model ReviewDraft {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  feedback   Feedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
-  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  feedback Feedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 }
 
 model ReviewClick {
-  id         String       @id @default(cuid())
+  id         String   @id @default(cuid())
   feedbackId String
   businessId String
-  type       String       @default("google_redirect")
-  createdAt  DateTime     @default(now())
+  type       String   @default("google_redirect")
+  createdAt  DateTime @default(now())
 
-  feedback   Feedback     @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+  feedback Feedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 }
 
@@ -240,101 +256,101 @@ model GeneratedReply {
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
 
-  feedback   Feedback    @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
-  business   Business    @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  feedback Feedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 }
 
 model GoogleAccount {
   id               String    @id @default(cuid())
   businessId       String    @unique
   googleAccountId  String
-  googleLocationId String?   // Google location ID for GBP API URL construction
-  accessToken      String    @default("")  // Legacy plaintext — use tokenEncrypted for new connections
-  refreshToken     String?                // Legacy plaintext — use tokenEncrypted
-  tokenEncrypted   Json?                  // { accessToken: { encrypted, iv, tag }, refreshToken?: { encrypted, iv, tag } }
+  googleLocationId String? // Google location ID for GBP API URL construction
+  accessToken      String    @default("") // Legacy plaintext — use tokenEncrypted for new connections
+  refreshToken     String? // Legacy plaintext — use tokenEncrypted
+  tokenEncrypted   Json? // { accessToken: { encrypted, iv, tag }, refreshToken?: { encrypted, iv, tag } }
   tokenExpiresAt   DateTime?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-  business        Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  googleReviews   GoogleReview[]
+  business      Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  googleReviews GoogleReview[]
 }
 
 model GoogleReview {
-  id             String   @id @default(cuid())
-  googleReviewId String   @unique
-  googleAccountId String
-  businessId     String
-  reviewerName   String?
+  id               String   @id @default(cuid())
+  googleReviewId   String   @unique
+  googleAccountId  String
+  businessId       String
+  reviewerName     String?
   reviewerPhotoUrl String?
-  starRating     Int
-  comment        String?
-  commentLanguage String?
-  createTime     DateTime
-  reviewReply    String?
-  replyStatus    String   @default("NEEDS_REPLY")
-  syncedAt       DateTime @default(now())
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  starRating       Int
+  comment          String?
+  commentLanguage  String?
+  createTime       DateTime
+  reviewReply      String?
+  replyStatus      String   @default("NEEDS_REPLY")
+  syncedAt         DateTime @default(now())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  googleAccount  GoogleAccount @relation(fields: [googleAccountId], references: [id], onDelete: Cascade)
-  business       Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  googleAccount GoogleAccount @relation(fields: [googleAccountId], references: [id], onDelete: Cascade)
+  business      Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
 }
 
 model SubscriptionPlan {
-  id            String         @id @default(cuid())
-  name          String
-  slug          String         @unique
-  description   String?
-  price         Int            // in smallest currency unit (paise for INR, cents for USD)
-  currency      String         @default("INR") // "INR" | "USD"
-  interval      String         @default("month")
-  creditsLimit  Int            @default(0)
-  businessLimit Int            @default(1)
-  teamSeats     Int            @default(1)
-  features      String[]
+  id             String   @id @default(cuid())
+  name           String
+  slug           String   @unique
+  description    String?
+  price          Int // in smallest currency unit (paise for INR, cents for USD)
+  currency       String   @default("INR") // "INR" | "USD"
+  interval       String   @default("month")
+  creditsLimit   Int      @default(0)
+  businessLimit  Int      @default(1)
+  teamSeats      Int      @default(1)
+  features       String[]
   razorpayPlanId String?
-  active        Boolean        @default(true)
-  sortOrder     Int            @default(0)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  active         Boolean  @default(true)
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  subscriptions      Subscription[]
+  subscriptions        Subscription[]
   pendingSubscriptions Subscription[] @relation("PendingPlan")
 
   @@index([active, sortOrder])
 }
 
 model Subscription {
-  id                    String            @id @default(cuid())
-  userId                String
-  planId                String
-  status                String            @default("created")
-  razorpaySubscriptionId String?
-  razorpayCustomerId    String?
-  currentPeriodStart    DateTime?
-  currentPeriodEnd      DateTime?
-  trialEnd              DateTime?
-  creditsUsed           Int               @default(0)
-  creditsLimit          Int               @default(0)
-  creditsLastResetAt    DateTime          @default(now())
-  creditsTopUpBalance   Int               @default(0)
-  autoRechargeEnabled   Boolean           @default(false)
-  autoRechargeThreshold Int               @default(20)
-  autoRechargeAmount    Int               @default(100)
+  id                        String    @id @default(cuid())
+  userId                    String
+  planId                    String
+  status                    String    @default("created")
+  razorpaySubscriptionId    String?
+  razorpayCustomerId        String?
+  currentPeriodStart        DateTime?
+  currentPeriodEnd          DateTime?
+  trialEnd                  DateTime?
+  creditsUsed               Int       @default(0)
+  creditsLimit              Int       @default(0)
+  creditsLastResetAt        DateTime  @default(now())
+  creditsTopUpBalance       Int       @default(0)
+  autoRechargeEnabled       Boolean   @default(false)
+  autoRechargeThreshold     Int       @default(20)
+  autoRechargeAmount        Int       @default(100)
   autoRechargeLastAttemptAt DateTime?
-  businessLimit         Int               @default(1)
-  cancelledAt           DateTime?
-  pendingPlanId         String?
-  scheduledChangeAt     DateTime?
-  createdAt             DateTime          @default(now())
-  updatedAt             DateTime          @updatedAt
+  businessLimit             Int       @default(1)
+  cancelledAt               DateTime?
+  pendingPlanId             String?
+  scheduledChangeAt         DateTime?
+  createdAt                 DateTime  @default(now())
+  updatedAt                 DateTime  @updatedAt
 
-  user                  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  plan                  SubscriptionPlan  @relation(fields: [planId], references: [id])
-  pendingPlan           SubscriptionPlan? @relation("PendingPlan", fields: [pendingPlanId], references: [id])
-  invoices              Invoice[]
-  creditTopUps          CreditTopUp[]
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan         SubscriptionPlan  @relation(fields: [planId], references: [id])
+  pendingPlan  SubscriptionPlan? @relation("PendingPlan", fields: [pendingPlanId], references: [id])
+  invoices     Invoice[]
+  creditTopUps CreditTopUp[]
 
   @@unique([razorpaySubscriptionId])
   @@index([userId, status])
@@ -342,17 +358,17 @@ model Subscription {
 }
 
 model Invoice {
-  id                String       @id @default(cuid())
+  id                String    @id @default(cuid())
   subscriptionId    String?
-  razorpayPaymentId String?      @unique
-  invoiceNumber     String?      @unique
-  amount            Int          // in paise, total charged (incl. tax)
-  taxableAmount     Int          @default(0) // paise, net of tax
-  taxAmount         Int          @default(0) // paise, GST component
-  refundedAmount    Int          @default(0)
-  currency          String       @default("INR")
-  status            String       @default("created")
-  kind              String       @default("subscription") // subscription | topup
+  razorpayPaymentId String?   @unique
+  invoiceNumber     String?   @unique
+  amount            Int // in paise, total charged (incl. tax)
+  taxableAmount     Int       @default(0) // paise, net of tax
+  taxAmount         Int       @default(0) // paise, GST component
+  refundedAmount    Int       @default(0)
+  currency          String    @default("INR")
+  status            String    @default("created")
+  kind              String    @default("subscription") // subscription | topup
   planId            String?
   description       String?
   customerEmail     String?
@@ -360,10 +376,10 @@ model Invoice {
   customerGstin     String?
   periodStart       DateTime?
   periodEnd         DateTime?
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
-  subscription      Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
 
   @@index([subscriptionId, createdAt])
   @@index([createdAt])
@@ -372,19 +388,19 @@ model Invoice {
 }
 
 model CreditTopUp {
-  id                    String       @id @default(cuid())
+  id                    String   @id @default(cuid())
   subscriptionId        String
   credits               Int
-  amount                Int          // in paise
-  razorpayPaymentId     String?      @unique
-  razorpayPaymentLinkId String?      @unique
+  amount                Int // in paise
+  razorpayPaymentId     String?  @unique
+  razorpayPaymentLinkId String?  @unique
   referenceId           String?
-  type                  String       @default("manual") // manual | auto_recharge
-  status                String       @default("pending")
-  createdAt             DateTime     @default(now())
-  updatedAt             DateTime     @updatedAt
+  type                  String   @default("manual") // manual | auto_recharge
+  status                String   @default("pending")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
-  subscription          Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
 
   @@index([subscriptionId, createdAt])
 }
@@ -429,6 +445,7 @@ model AiVisibilityCheck {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
   business           Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
   @@index([businessId, createdAt])
   @@index([shareSlug])
 }
@@ -444,88 +461,311 @@ enum FlowStatus {
   EXPIRED
 }
 
-model WhatsAppTemplate {
-  id         String   @id @default(cuid())
-  businessId String
-  name       String
-  language   String   @default("en")
-  category   String   @default("MARKETING")
-  status     String   @default("APPROVED") // PENDING | APPROVED | REJECTED
-  flowId     String?  // WhatsApp Flow ID (for interactive flows)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+/**
+ * Per-business WhatsApp connection created through Meta Embedded Signup.
+ * Ownership model: the business owns its WhatsApp Business Account (Messaging
+ * account) and business phone number. BEYONDVYU is only a Tech Provider with
+ * delegated access. Message charges are billed by Meta to the business's own
+ * payment method in WhatsApp Manager — never silently bundled into our plans.
+ * The business token is a Business Integration System User access token. It is
+ * stored encrypted (AES-256-GCM) and must never be logged or returned to the
+ * client.
+ */
+model WhatsAppConnection {
+  id                       String    @id @default(cuid())
+  businessId               String    @unique
+  wabaId                   String // Messaging account ID (Meta still returns it as waba_id)
+  phoneNumberId            String    @unique
+  businessPortfolioId      String?
+  displayPhoneNumber       String?
+  verifiedName             String?
+  status                   String    @default("CONNECTED") // CONNECTED | NEEDS_ATTENTION | DISCONNECTED
+  accessTokenCiphertext    String
+  accessTokenIv            String
+  accessTokenTag           String
+  tokenExpiresAt           DateTime?
+  webhookSubscribed        Boolean   @default(false)
+  numberRegistered         Boolean   @default(false)
+  paymentMethodConfirmedAt DateTime?
+  qualityRating            String?
+  messagingLimitTier       String?
+  lastSyncedAt             DateTime?
+  lastError                String?
+  connectedAt              DateTime  @default(now())
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
 
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  flows    WhatsAppFlow[]
+
+  @@index([wabaId])
+  @@index([status])
+}
+
+/**
+ * A customer known to one business. Consent is scoped per business: a customer
+ * opting in to Business A must never be messaged by Business B.
+ */
+model WhatsAppContact {
+  id                String    @id @default(cuid())
+  businessId        String
+  phone             String // international digits without "+", e.g. 919876543210
+  name              String?
+  consentStatus     String    @default("UNKNOWN") // UNKNOWN | OPTED_IN | OPTED_OUT
+  consentSource     String?
+  consentAt         DateTime?
+  optOutAt          DateTime?
+  /**
+   * Marketing consent is separate from service/utility consent. Meta requires
+   * opt-in for marketing templates, and a marketing stop must not silently
+   * block a necessary Utility message.
+   */
+  marketingOptIn    Boolean   @default(false)
+  marketingOptInAt  DateTime?
+  marketingOptOut   Boolean   @default(false)
+  marketingOptOutAt DateTime?
+  lastInboundAt     DateTime?
+  lastOutboundAt    DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  business      Business               @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  consentEvents WhatsAppConsentEvent[]
+  messages      WhatsAppMessage[]
+  automations   WhatsAppAutomation[]
+
+  @@unique([businessId, phone])
+  @@index([businessId, consentStatus])
+  @@index([businessId, lastInboundAt])
+}
+
+/**
+ * Append-only consent audit trail. Required to prove opt-in/opt-out.
+ */
+model WhatsAppConsentEvent {
+  id         String   @id @default(cuid())
+  businessId String
+  contactId  String
+  type       String // OPT_IN | OPT_OUT | MARKETING_OPT_IN | MARKETING_OPT_OUT
+  source     String // owner_attested | inbound_keyword | meta_user_preferences | owner_settings
+  note       String?
+  createdAt  DateTime @default(now())
+
+  business Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  contact  WhatsAppContact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, createdAt])
+  @@index([contactId, createdAt])
+}
+
+/**
+ * Outbound template/text messages and inbound customer messages. `pricing` is
+ * copied from Meta's delivery webhook so owners can see what Meta charged them;
+ * we do not add our own markup to those amounts.
+ */
+model WhatsAppMessage {
+  id               String    @id @default(cuid())
+  businessId       String
+  contactId        String?
+  metaMessageId    String?   @unique
+  direction        String // INBOUND | OUTBOUND
+  messageType      String    @default("TEMPLATE") // TEMPLATE | TEXT | SYSTEM
+  templateId       String?
+  templateName     String?
+  templateLanguage String?
+  templateCategory String?
+  status           String    @default("QUEUED") // QUEUED | SENT | DELIVERED | READ | RECEIVED | FAILED
+  bodyPreview      String?
+  errorCode        String?
+  errorMessage     String?
+  pricing          Json?
+  metadata         Json?
+  sentAt           DateTime?
+  deliveredAt      DateTime?
+  readAt           DateTime?
+  receivedAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  business Business          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  contact  WhatsAppContact?  @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  template WhatsAppTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  @@index([businessId, createdAt])
+  @@index([businessId, contactId, createdAt])
+  @@index([businessId, status])
+}
+
+/**
+ * A scheduled template send. Processed at most once by the due-message job.
+ */
+model WhatsAppAutomation {
+  id              String    @id @default(cuid())
+  businessId      String
+  contactId       String
+  templateId      String
+  variables       String[]  @default([])
+  headerVariables String[]  @default([])
+  purpose         String? // REVIEW_REQUEST | PAYMENT_REMINDER | OFFER | FEEDBACK | OWNER_REPORT | CAMPAIGN | CUSTOM
+  status          String    @default("SCHEDULED") // SCHEDULED | SENT | FAILED | CANCELLED | SKIPPED
+  scheduledAt     DateTime
+  sentAt          DateTime?
+  error           String?
+  createdBy       String?
+  /**
+   * Groups every row created by one bulk campaign so the owner can reason
+   * about the whole send. Rows remain independently cancellable.
+   */
+  batchId         String?
+  /**
+   * Prevents the same trigger (for example one feedback submission) from
+   * enqueueing the same automation rule twice.
+   */
+  dedupeKey       String?   @unique
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  business Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  contact  WhatsAppContact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  template WhatsAppTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([status, scheduledAt])
+  @@index([businessId, scheduledAt])
+  @@index([businessId, batchId])
+}
+
+model WhatsAppAutomationRule {
+  id                String    @id @default(cuid())
+  businessId        String
+  name              String
+  trigger           String // FEEDBACK_RECEIVED | OPT_IN_RECEIVED
+  templateId        String
+  delayMinutes      Int       @default(0)
+  /**
+   * Positional variable mapping. Each entry is
+   * `{ type: "TOKEN" | "TEXT", value: string }`.
+   */
+  variableMap       Json?
+  headerVariableMap Json?
+  active            Boolean   @default(true)
+  lastTriggeredAt   DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  business Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  template WhatsAppTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, trigger, active])
+  @@index([businessId, createdAt])
+}
+
+model WhatsAppTemplate {
+  id                   String    @id @default(cuid())
+  businessId           String
+  metaTemplateId       String?   @unique
+  name                 String
+  language             String    @default("en")
+  category             String    @default("MARKETING") // MARKETING | UTILITY | AUTHENTICATION
+  status               String    @default("DRAFT") // DRAFT | PENDING | APPROVED | REJECTED | PAUSED | DISABLED
+  useCase              String? // REVIEW_REQUEST | PAYMENT_REMINDER | OFFER | FEEDBACK | OWNER_REPORT | CUSTOM
+  headerText           String?
+  bodyText             String?
+  footerText           String?
+  parameterFormat      String    @default("POSITIONAL")
+  parameterCount       Int       @default(0)
+  headerParameterCount Int       @default(0)
+  components           Json?
+  rejectedReason       String?
+  qualityScore         Json?
+  lastSyncedAt         DateTime?
+  flowId               String? // WhatsApp Flow ID (for interactive flows)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  business        Business                 @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  flows           WhatsAppFlow[]
+  messages        WhatsAppMessage[]
+  automations     WhatsAppAutomation[]
+  automationRules WhatsAppAutomationRule[]
+
+  @@index([businessId, status])
+  @@index([businessId, name, language])
 }
 
 model WhatsAppFlow {
-  id             String     @id @default(cuid())
-  businessId     String
-  templateId     String?
-  customerPhone  String
-  customerName   String?
-  status         FlowStatus @default(SENT)
-  flowSessionId  String?    @unique // WhatsApp Flow session ID
-  expiresAt      DateTime?
-  sentAt         DateTime   @default(now())
-  completedAt    DateTime?
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
+  id            String     @id @default(cuid())
+  businessId    String
+  templateId    String?
+  customerPhone String
+  customerName  String?
+  status        FlowStatus @default(SENT)
+  flowSessionId String?    @unique // WhatsApp Flow session ID
+  expiresAt     DateTime?
+  sentAt        DateTime   @default(now())
+  completedAt   DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
 
-  business Business             @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  template WhatsAppTemplate?   @relation(fields: [templateId], references: [id])
+  business Business              @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  template WhatsAppTemplate?     @relation(fields: [templateId], references: [id])
   response WhatsAppFlowResponse?
 }
 
 model WhatsAppFlowResponse {
-  id              String   @id @default(cuid())
-  flowId          String   @unique
-  businessId      String
-  rating          Int
-  liked           String?
-  improvement     String?
-  customerName    String?
-  customerEmail   String?
-  privateNote     String?
-  rawResponse     Json?
-  createdAt       DateTime @default(now())
+  id            String   @id @default(cuid())
+  flowId        String   @unique
+  businessId    String
+  rating        Int
+  liked         String?
+  improvement   String?
+  customerName  String?
+  customerEmail String?
+  privateNote   String?
+  rawResponse   Json?
+  createdAt     DateTime @default(now())
 
   flow     WhatsAppFlow @relation(fields: [flowId], references: [id], onDelete: Cascade)
   business Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
 }
 
 model ReviewTask {
-  id             String   @id @default(cuid())
-  businessId     String
-  title          String
-  description    String?
-  taskType       String   @default("follow_up") // follow_up | reply | review_request
-  priority       String   @default("normal")    // low | normal | high
-  status         String   @default("pending")   // pending | in_progress | overdue | escalated | done
-  source         String?  // "negative_review" | "overdue_reply" | "manual"
-  referenceId    String?  // ID of the review/feedback that triggered this
-  /** Operational bucket: safety | food_quality | service | speed | ... */
-  category       String?
-  /** Stable recurrence key (category) used to merge repeat issues. */
-  issueKey       String?
-  occurrenceCount Int     @default(1)
+  id                      String    @id @default(cuid())
+  businessId              String
+  title                   String
+  description             String?
+  taskType                String    @default("follow_up") // follow_up | reply | review_request
+  priority                String    @default("normal") // low | normal | high
+  status                  String    @default("pending") // pending | in_progress | overdue | escalated | done
+  source                  String? // "negative_review" | "overdue_reply" | "manual"
+  referenceId             String? // ID of the review/feedback that triggered this
+  /**
+   * Operational bucket: safety | food_quality | service | speed | ...
+   */
+  category                String?
+  /**
+   * Stable recurrence key (category) used to merge repeat issues.
+   */
+  issueKey                String?
+  occurrenceCount         Int       @default(1)
   /**
    * True when this issue reappeared after a previous task with the same
    * issueKey was marked resolved. This is the measurable proof that a
    * manager's fix did or did not hold.
    */
-  recurredAfterResolution Boolean @default(false)
-  /** The resolved task this recurrence was measured against. */
-  previousTaskId String?
-  /** How the issue was closed — required context for the owner/manager. */
-  resolutionNotes String?
-  escalatedAt    DateTime?
-  dueAt          DateTime?
-  assignedTo     String?  // agent name or user id
-  completedAt    DateTime?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  recurredAfterResolution Boolean   @default(false)
+  /**
+   * The resolved task this recurrence was measured against.
+   */
+  previousTaskId          String?
+  /**
+   * How the issue was closed — required context for the owner/manager.
+   */
+  resolutionNotes         String?
+  escalatedAt             DateTime?
+  dueAt                   DateTime?
+  assignedTo              String? // agent name or user id
+  completedAt             DateTime?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
 
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
@@ -535,46 +775,46 @@ model ReviewTask {
 }
 
 model InstagramMention {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   businessId      String
-  igMediaId       String   @unique
-  igCommentId     String?  @unique
+  igMediaId       String    @unique
+  igCommentId     String?   @unique
   mentionerName   String
   mentionerIgId   String
   commentText     String
-  mediaType       String   @default("image") // image | video | carousel
+  mediaType       String    @default("image") // image | video | carousel
   mediaUrl        String?
   permalink       String?
-  isReply         Boolean  @default(false)
+  isReply         Boolean   @default(false)
   parentCommentId String?
-  sentiment       String?  // auto-detected: positive | neutral | negative
-  replied         Boolean  @default(false)
+  sentiment       String? // auto-detected: positive | neutral | negative
+  replied         Boolean   @default(false)
   replyText       String?
   repliedAt       DateTime?
-  syncedAt        DateTime @default(now())
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  syncedAt        DateTime  @default(now())
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 }
 
 model CrossPlatformMessage {
-  id              String   @id @default(cuid())
-  businessId      String
-  platform        String   // "google" | "instagram" | "whatsapp" | "sms" | "email"
-  externalId      String?  // ID on the platform
-  direction       String   @default("inbound") // inbound | outbound
-  authorName      String?
+  id               String    @id @default(cuid())
+  businessId       String
+  platform         String // "google" | "instagram" | "whatsapp" | "sms" | "email"
+  externalId       String? // ID on the platform
+  direction        String    @default("inbound") // inbound | outbound
+  authorName       String?
   authorPlatformId String?
-  content         String
-  contentType     String   @default("text")
-  status          String   @default("unread") // unread | read | replied
-  replyText       String?
-  repliedAt       DateTime?
-  conversationId  String?  // Group messages into conversations
-  syncedAt        DateTime @default(now())
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  content          String
+  contentType      String    @default("text")
+  status           String    @default("unread") // unread | read | replied
+  replyText        String?
+  repliedAt        DateTime?
+  conversationId   String? // Group messages into conversations
+  syncedAt         DateTime  @default(now())
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 }

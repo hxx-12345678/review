@@ -27,6 +27,8 @@ import adminAnalyticsRoutes from "./routes/admin-analytics";
 import consentRoutes from "./routes/consent";
 import aiVisibilityRoutes from "./routes/ai-visibility";
 import v2Features from "./features/index";
+import { handleWhatsAppWebhook, verifyWhatsAppWebhook } from "./features/whatsapp/whatsapp.webhook";
+import { processDueWhatsAppAutomations } from "./features/whatsapp/whatsapp.service";
 
 const env = loadEnv();
 
@@ -108,6 +110,15 @@ app.options("*", cors({
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
   maxAge: 86400,
 }));
+// WhatsApp webhooks must receive the exact raw bytes so X-Hub-Signature-256
+// can be verified. Registered before express.json().
+app.get("/api/v2/whatsapp/webhook", verifyWhatsAppWebhook);
+app.post(
+  "/api/v2/whatsapp/webhook",
+  express.raw({ type: "application/json" }),
+  handleWhatsAppWebhook,
+);
+
 // Raw body parser for Razorpay webhook (must be before express.json to receive raw body)
 app.post("/api/payments/webhook", express.raw({ type: "application/json" }), async (req, res) => {
   try {
@@ -550,6 +561,18 @@ async function start() {
     await prisma.$connect();
     console.log(`Connected to PostgreSQL in ${Date.now() - bootStart}ms`);
     await seedDefaultPlans();
+
+    // Process due WhatsApp template schedules once a minute when the Meta app
+    // is configured. `unref` keeps the timer from blocking shutdown in tests.
+    if (env.WHATSAPP_APP_ID && env.WHATSAPP_APP_SECRET) {
+      const timer = setInterval(() => {
+        processDueWhatsAppAutomations().catch((err) => {
+          console.error("WhatsApp due-message job failed:", err?.message || err);
+        });
+      }, 60_000);
+      timer.unref?.();
+      console.log("WhatsApp due-message scheduler started");
+    }
 
     app.listen(env.PORT, () => {
       console.log(`BEYONDVYU API server running on port ${env.PORT} (boot ${Date.now() - bootStart}ms)`);

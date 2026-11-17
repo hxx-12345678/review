@@ -119,8 +119,8 @@ router.post("/send", authRequired, async (req: AuthRequest, res: Response) => {
       promises.push(
         (async () => {
           const result = await sendWhatsAppReviewFlow(
+            business.id,
             data.phoneNumber!,
-            business.name,
             data.customerName,
           );
           results.whatsapp = result;
@@ -131,7 +131,7 @@ router.post("/send", authRequired, async (req: AuthRequest, res: Response) => {
                 userId: req.userId!,
                 businessId: business.id,
                 action: "multi_platform_whatsapp_sent",
-                details: { phoneNumber: data.phoneNumber },
+                details: { channel: "whatsapp", templateBased: true },
               },
             });
           }

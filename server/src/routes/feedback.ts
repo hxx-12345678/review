@@ -3,7 +3,6 @@ import { z } from "zod";
 import { prisma } from "../config/database";
 import { authRequired, authOptional, AuthRequest } from "../middleware/auth";
 import { sendFeedbackNotification } from "../services/email";
-import { sendWhatsAppNotification } from "../services/whatsapp";
 import { loadEntitledSubscription } from "../services/subscriptions";
 import { normalizeReviewIndustry, sanitizeSelectedSubOptions } from "../utils/review-options";
 import {
@@ -11,6 +10,10 @@ import {
 } from "../utils/task-classification";
 import { normalizeTouchpoint, touchpointLabel } from "../utils/review-touchpoints";
 import { postResolutionCutoff } from "../utils/recurrence";
+import {
+  triggerWhatsAppAutomations,
+  upsertContactWithConsent,
+} from "../features/whatsapp/whatsapp.service";
 
 const router = Router();
 
@@ -22,6 +25,9 @@ const submitFeedbackSchema = z.object({
   improvement: z.string().max(2000).optional().or(z.literal("")),
   customerName: z.string().max(100).optional().or(z.literal("")),
   customerEmail: z.string().email().optional().or(z.literal("")),
+  customerPhone: z.string().max(30).optional().or(z.literal("")),
+  whatsappConsent: z.boolean().optional().default(false),
+  whatsappMarketingConsent: z.boolean().optional().default(false),
   privateNote: z.string().max(5000).optional().or(z.literal("")),
   selectedSubOptions: z.array(z.string().max(80)).max(20).optional(),
   // Readable labels for the selected options. Stored inside `liked` is preferred
@@ -81,12 +87,44 @@ router.post("/submit", authOptional, async (req: AuthRequest, res: Response) => 
         improvement: data.improvement || null,
         customerName: data.customerName || null,
         customerEmail: data.customerEmail || null,
+        // Only retain a phone number when the customer explicitly consented to
+        // WhatsApp contact. A number typed without consent is not stored.
+        customerPhone: data.whatsappConsent ? data.customerPhone || null : null,
+        whatsappConsent: data.whatsappConsent === true,
+        whatsappMarketingConsent:
+          data.whatsappConsent === true && data.whatsappMarketingConsent === true,
+        whatsappConsentAt: data.whatsappConsent ? new Date() : null,
         privateNote: data.privateNote || null,
         selectedSubOptions: selectedIds.length > 0 ? selectedIds : undefined,
         touchpoint,
         status: data.privateNote ? "PRIVATE_FEEDBACK" : "ABANDONED",
       },
     });
+
+    const consentPhone = data.whatsappConsent ? data.customerPhone?.trim() : "";
+    if (consentPhone) {
+      try {
+        const contact = await upsertContactWithConsent({
+          businessId: business.id,
+          phone: consentPhone,
+          name: data.customerName || null,
+          source: "feedback_form",
+          note: `Customer opted in on the feedback form (feedback ${feedback.id})`,
+          consentConfirmed: true,
+          marketingConsent: data.whatsappMarketingConsent === true,
+        });
+        await triggerWhatsAppAutomations({
+          businessId: business.id,
+          trigger: "FEEDBACK_RECEIVED",
+          contactId: contact.id,
+          context: { customerName: contact.name, rating: data.rating, feedbackId: feedback.id },
+        });
+      } catch (err: any) {
+        // The feedback must still save even if the optional WhatsApp consent
+        // step fails (invalid number, automation misconfiguration, etc.).
+        console.error("Feedback WhatsApp opt-in capture failed:", err?.message || err);
+      }
+    }
 
     await prisma.activityLog.create({
       data: {
@@ -261,16 +299,10 @@ router.post("/submit", authOptional, async (req: AuthRequest, res: Response) => 
             })
             .catch((err) => console.error("Recurring task update failed:", err));
 
-          // Tell the owner once when an open issue crosses the escalation
-          // threshold. Sending on every later report would train them to mute it.
-          if (shouldEscalate && existingIssue.status !== "escalated" && business.phoneNumber) {
-            const alertMsg =
-              `BeyondVyu escalation: "${classification.label}" has now been reported ${nextCount} times at ${business.name}. ` +
-              "A previous fix may not be holding. Open the manager queue to investigate and record the action.";
-            sendWhatsAppNotification(business.phoneNumber, alertMsg).catch((err) => {
-              console.warn("Escalation WhatsApp alert error:", err);
-            });
-          }
+          // WhatsApp owner alerts are intentionally disabled until the owner
+          // has a per-business WhatsApp connection, an approved Utility
+          // template, and a recorded opt-in. The escalation still appears in
+          // the manager queue and activity log.
 
           await prisma.activityLog
             .create({
@@ -361,17 +393,12 @@ router.post("/submit", authOptional, async (req: AuthRequest, res: Response) => 
       console.error("Feedback notification email failure:", err);
     });
 
-    // 🚨 Closed Loop Urgent WhatsApp Alert to Owner
-    if ((isCriticalSafety || data.rating <= 2) && business.phoneNumber) {
-      const loc = attributionParts.length > 0 ? ` at ${attributionParts.join(" · ")}` : "";
-      const prefix = isCriticalSafety ? "🚨 CRITICAL SAFETY ALERT" : "🚨 URGENT BEYONDVYU ALERT";
-      const alertMsg = `${prefix}: A customer${loc} left ${data.rating}★ feedback for ${business.name}: "${commentDetails || 'Customer expressed dissatisfaction'}". Immediate operational recovery recommended!`;
-      sendWhatsAppNotification(business.phoneNumber, alertMsg).catch((err) => {
-        console.warn("Feedback WhatsApp alert error:", err);
-      });
-    }
-
-    res.status(201).json({ feedback });
+    // Live WhatsApp owner alerts require a per-business connection, an
+    // approved Utility template, and explicit owner opt-in. Until the owner
+    // completes that setup, the urgent alert remains in-app and by email.
+    // Only return the ID. The public response must not echo customer phone
+    // numbers or other PII back to an unauthenticated caller.
+    res.status(201).json({ feedback: { id: feedback.id } });
   } catch (err) {
     if (err instanceof z.ZodError) {
       return res.status(400).json({ error: "Invalid input", details: err.errors });
@@ -418,20 +445,51 @@ router.get("/business/:businessId", authRequired, async (req: AuthRequest, res: 
       ];
     }
 
-    const [feedback, total] = await Promise.all([
-      prisma.feedback.findMany({
-        where,
-        include: {
-          reviewDraft: true,
-          generatedReply: true,
-          _count: { select: { reviewClicks: true } },
-        },
-        orderBy: { createdAt: "desc" },
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      prisma.feedback.count({ where }),
-    ]);
+    let feedback: any[] = [];
+    let total = 0;
+    try {
+      [feedback, total] = await Promise.all([
+        prisma.feedback.findMany({
+          where,
+          include: {
+            reviewDraft: true,
+            generatedReply: true,
+            _count: { select: { reviewClicks: true } },
+          },
+          orderBy: { createdAt: "desc" },
+          skip: (page - 1) * limit,
+          take: limit,
+        }),
+        prisma.feedback.count({ where }),
+      ]);
+    } catch (fbErr: any) {
+      if (fbErr?.code === "P2022") {
+        [feedback, total] = await Promise.all([
+          prisma.feedback.findMany({
+            where,
+            select: {
+              id: true,
+              businessId: true,
+              rating: true,
+              liked: true,
+              improvement: true,
+              purchaseInfo: true,
+              touchpoint: true,
+              createdAt: true,
+              reviewDraft: true,
+              generatedReply: true,
+              _count: { select: { reviewClicks: true } },
+            },
+            orderBy: { createdAt: "desc" },
+            skip: (page - 1) * limit,
+            take: limit,
+          }),
+          prisma.feedback.count({ where }),
+        ]);
+      } else {
+        throw fbErr;
+      }
+    }
 
     res.json({
       feedback,

@@ -330,13 +330,13 @@ export const api = {
         method: "POST",
         body: JSON.stringify(data),
       }),
-    whatsappReport: (data: { businessId: string; frequency: "weekly" | "monthly" | "none"; test?: boolean; ownerPhone?: string }) =>
+    whatsappReport: (data: { businessId: string; frequency: "weekly" | "monthly" | "none"; test?: boolean; ownerPhone?: string; ownerConsent?: boolean }) =>
       request<{ success: boolean; message: string; report?: string; metrics?: any; whatsappConfigured?: boolean; deliveredVia?: "whatsapp" | "preview" }>("/communications/whatsapp-report", {
         method: "POST",
         body: JSON.stringify(data),
       }),
     whatsappReportStatus: (businessId: string) =>
-      request<{ preference: string; ownerPhone: string | null; deliveredVia: string | null; updatedAt: string | null; whatsappConfigured: boolean }>(`/communications/whatsapp-report/${businessId}`),
+      request<{ preference: string; ownerPhone: string | null; deliveredVia: string | null; updatedAt: string | null; whatsappConfigured: boolean; whatsappReason?: string | null }>(`/communications/whatsapp-report/${businessId}`),
   },
   activity: {
     list: (businessId: string) =>
@@ -382,6 +382,200 @@ export const api = {
         request<{ flows: any[] }>(`/v2/whatsapp-flows/flows/${businessId}`),
       stats: (businessId: string) =>
         request<{ totalFlows: number; completedFlows: number; completionRate: number; averageRating: number | null }>(`/v2/whatsapp-flows/stats/${businessId}`),
+    },
+    // Multi-tenant WhatsApp automation (Embedded Signup + Cloud API)
+    whatsapp: {
+      overview: (businessId: string) =>
+        request<any>(`/v2/whatsapp/overview/${businessId}`),
+      connect: (data: {
+        businessId: string
+        code: string
+        wabaId: string
+        phoneNumberId: string
+        businessPortfolioId?: string | null
+      }) =>
+        request<any>("/v2/whatsapp/connect", {
+          method: "POST",
+          body: JSON.stringify(data),
+        }),
+      register: (data: { businessId: string; pin: string }) =>
+        request<{ success: boolean; numberRegistered: boolean }>("/v2/whatsapp/register", {
+          method: "POST",
+          body: JSON.stringify(data),
+        }),
+      sync: (businessId: string) =>
+        request<any>("/v2/whatsapp/sync", {
+          method: "POST",
+          body: JSON.stringify({ businessId }),
+        }),
+      confirmPaymentMethod: (businessId: string) =>
+        request<{ success: boolean }>("/v2/whatsapp/payment-method-confirmed", {
+          method: "POST",
+          body: JSON.stringify({ businessId }),
+        }),
+      createTemplate: (data: {
+        businessId: string
+        name: string
+        language: string
+        category: "MARKETING" | "UTILITY" | "AUTHENTICATION"
+        useCase: "REVIEW_REQUEST" | "PAYMENT_REMINDER" | "OFFER" | "FEEDBACK" | "OWNER_REPORT" | "CUSTOM"
+        headerText?: string
+        bodyText: string
+        footerText?: string
+        bodyExamples?: string[]
+        headerExample?: string
+      }) =>
+        request<{ success: boolean; template: any }>("/v2/whatsapp/templates", {
+          method: "POST",
+          body: JSON.stringify(data),
+        }),
+      updateTemplate: (
+        templateId: string,
+        data: {
+          businessId: string
+          category?: "MARKETING" | "UTILITY" | "AUTHENTICATION"
+          useCase?: "REVIEW_REQUEST" | "PAYMENT_REMINDER" | "OFFER" | "FEEDBACK" | "OWNER_REPORT" | "CUSTOM"
+          headerText?: string
+          bodyText: string
+          footerText?: string
+          bodyExamples?: string[]
+          headerExample?: string
+        },
+      ) =>
+        request<{ success: boolean; template: any }>(`/v2/whatsapp/templates/${templateId}`, {
+          method: "PATCH",
+          body: JSON.stringify(data),
+        }),
+      syncTemplates: (businessId: string) =>
+        request<{ success: boolean; synced: number }>("/v2/whatsapp/templates/sync", {
+          method: "POST",
+          body: JSON.stringify({ businessId }),
+        }),
+      addContact: (data: {
+        businessId: string
+        phone: string
+        name?: string
+        consentConfirmed: true
+        marketingConsent?: boolean
+        consentSource?: string
+        consentNote?: string
+      }) =>
+        request<{ success: boolean; contact: any }>("/v2/whatsapp/contacts", {
+          method: "POST",
+          body: JSON.stringify(data),
+        }),
+      optOutContact: (businessId: string, contactId: string) =>
+        request<{ success: boolean; contact: any }>(`/v2/whatsapp/contacts/${contactId}/opt-out`, {
+          method: "POST",
+          body: JSON.stringify({ businessId }),
+        }),
+      send: (data: {
+        businessId: string
+        contactId?: string
+        phone?: string
+        name?: string
+        consentConfirmed?: boolean
+        marketingConsent?: boolean
+        consentSource?: string
+        consentNote?: string
+        templateId: string
+        variables?: string[]
+        headerVariables?: string[]
+      }) =>
+        request<{ success: boolean; message: any }>("/v2/whatsapp/send", {
+          method: "POST",
+          body: JSON.stringify(data),
+        }),
+      reply: (data: { businessId: string; contactId: string; text: string }) =>
+        request<{ success: boolean; message: any }>("/v2/whatsapp/reply", {
+          method: "POST",
+          body: JSON.stringify(data),
+        }),
+      schedule: (data: {
+        businessId: string
+        contactId: string
+        templateId: string
+        variables?: string[]
+        headerVariables?: string[]
+        purpose?: string
+        scheduledAt: string
+      }) =>
+        request<{ success: boolean; automation: any }>("/v2/whatsapp/automations", {
+          method: "POST",
+          body: JSON.stringify(data),
+        }),
+      cancelAutomation: (businessId: string, automationId: string) =>
+        request<{ success: boolean; automation: any }>(`/v2/whatsapp/automations/${automationId}`, {
+          method: "DELETE",
+          body: JSON.stringify({ businessId }),
+        }),
+      processDue: () =>
+        request<{ success: boolean; processed: number; sent: number; failed: number; skipped: number }>("/v2/whatsapp/process-due", {
+          method: "POST",
+          body: JSON.stringify({}),
+        }),
+      conversations: (businessId: string) =>
+        request<{ conversations: any[] }>(`/v2/whatsapp/conversations/${businessId}`),
+      conversation: (businessId: string, contactId: string) =>
+        request<{ contact: any; messages: any[]; serviceWindowOpen: boolean }>(
+          `/v2/whatsapp/conversations/${businessId}/${contactId}`,
+        ),
+      listAutomationRules: (businessId: string) =>
+        request<{ rules: any[] }>(`/v2/whatsapp/automation-rules/${businessId}`),
+      createAutomationRule: (data: {
+        businessId: string
+        name: string
+        trigger: "FEEDBACK_RECEIVED" | "OPT_IN_RECEIVED"
+        templateId: string
+        delayMinutes: number
+        variableMap: Array<{ type: "TOKEN" | "TEXT"; value: string }>
+        headerVariableMap: Array<{ type: "TOKEN" | "TEXT"; value: string }>
+      }) =>
+        request<{ success: boolean; rule: any }>("/v2/whatsapp/automation-rules", {
+          method: "POST",
+          body: JSON.stringify(data),
+        }),
+      toggleAutomationRule: (ruleId: string, businessId: string, active: boolean) =>
+        request<{ success: boolean; rule: any }>(`/v2/whatsapp/automation-rules/${ruleId}`, {
+          method: "PATCH",
+          body: JSON.stringify({ businessId, active }),
+        }),
+      deleteAutomationRule: (ruleId: string, businessId: string) =>
+        request<{ success: boolean; deleted: boolean }>(`/v2/whatsapp/automation-rules/${ruleId}`, {
+          method: "DELETE",
+          body: JSON.stringify({ businessId }),
+        }),
+      createCampaign: (data: {
+        businessId: string
+        templateId: string
+        audience: "ALL_OPTED_IN" | "MARKETING_OPT_IN"
+        scheduledAt: string
+        variableMap: Array<{ type: "TOKEN" | "TEXT"; value: string }>
+        headerVariableMap: Array<{ type: "TOKEN" | "TEXT"; value: string }>
+      }) =>
+        request<{
+          success: boolean
+          campaign: { batchId: string; queued: number; firstSendAt: string; lastSendAt: string }
+        }>("/v2/whatsapp/campaigns", {
+          method: "POST",
+          body: JSON.stringify(data),
+        }),
+      publicBusiness: (slug: string) =>
+        request<{ business: any }>(`/v2/whatsapp/public/business/${encodeURIComponent(slug)}`),
+      publicOptIn: (data: {
+        businessSlug: string
+        phone: string
+        name?: string
+        consent: true
+        marketingConsent?: boolean
+        feedbackId?: string
+        source?: string
+        referrer?: string
+      }) =>
+        request<{ success: boolean; automationsQueued: number }>("/v2/whatsapp/public/opt-in", {
+          method: "POST",
+          body: JSON.stringify(data),
+        }),
     },
     // Multi-Platform Review Automation
     multiPlatform: {

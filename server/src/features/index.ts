@@ -1,4 +1,5 @@
 import { Router } from "express";
+import whatsappRoutes from "./whatsapp/whatsapp.routes";
 import whatsappFlowsRoutes from "./whatsapp-flows/whatsapp-flows.routes";
 import unifiedInboxRoutes from "./unified-inbox/unified-inbox.routes";
 import reviewTasksRoutes from "./review-tasks/review-tasks.routes";
@@ -8,7 +9,10 @@ import gbpRoutes from "./gbp/gbp.routes";
 
 const router = Router();
 
-// WhatsApp Flows Review Collection
+// Multi-tenant WhatsApp automation (Embedded Signup + Cloud API)
+router.use("/whatsapp", whatsappRoutes);
+
+// Legacy WhatsApp Flows Review Collection (kept for existing flows history)
 router.use("/whatsapp-flows", whatsappFlowsRoutes);
 
 // Multi-Platform Review Automation

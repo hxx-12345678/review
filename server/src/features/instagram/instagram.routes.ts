@@ -92,11 +92,11 @@ router.get("/sync/:businessId", authRequired, async (req: AuthRequest, res: Resp
     if (!env.INSTAGRAM_BUSINESS_ACCOUNT_ID) {
       return res.status(400).json({ error: "Instagram not configured" });
     }
-    if (!env.WHATSAPP_API_TOKEN) {
+    if (!env.INSTAGRAM_ACCESS_TOKEN) {
       return res.status(400).json({ error: "Instagram access token not configured" });
     }
 
-    const accessToken = env.WHATSAPP_API_TOKEN;
+    const accessToken = env.INSTAGRAM_ACCESS_TOKEN;
     const igAccountId = env.INSTAGRAM_BUSINESS_ACCOUNT_ID;
 
     const media = await fetchInstagramMedia(igAccountId, accessToken);
@@ -184,11 +184,16 @@ router.post("/reply", authRequired, async (req: AuthRequest, res: Response) => {
     if (!business) return res.status(404).json({ error: "Business not found" });
 
     const env = getEnv();
-    if (!env.WHATSAPP_API_TOKEN) {
+    if (!env.INSTAGRAM_ACCESS_TOKEN) {
       return res.status(400).json({ error: "Instagram API not configured" });
     }
 
-    const success = await postInstagramReply(mention.igCommentId!, mention.igMediaId, data.replyText, env.WHATSAPP_API_TOKEN);
+    const success = await postInstagramReply(
+      mention.igCommentId!,
+      mention.igMediaId,
+      data.replyText,
+      env.INSTAGRAM_ACCESS_TOKEN,
+    );
     if (!success) {
       return res.status(502).json({ error: "Failed to post reply to Instagram" });
     }

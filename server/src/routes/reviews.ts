@@ -203,19 +203,12 @@ router.get("/stats/:businessId", authRequired, async (req: AuthRequest, res: Res
       totalFeedback,
       totalDrafts,
       totalClicks,
-      recentFeedback,
       ratingDistribution,
       recentGoogleReviews,
     ] = await Promise.all([
       prisma.feedback.count({ where: { businessId: business.id } }),
       prisma.reviewDraft.count({ where: { businessId: business.id } }),
       prisma.reviewClick.count({ where: { businessId: business.id } }),
-      prisma.feedback.findMany({
-        where: { businessId: business.id },
-        orderBy: { createdAt: "desc" },
-        take: 10,
-        include: { reviewDraft: true },
-      }),
       prisma.feedback.groupBy({
         by: ["rating"],
         where: { businessId: business.id },
@@ -227,6 +220,37 @@ router.get("/stats/:businessId", authRequired, async (req: AuthRequest, res: Res
         take: 10,
       }),
     ]);
+
+    let recentFeedback: any[] = [];
+    try {
+      recentFeedback = await prisma.feedback.findMany({
+        where: { businessId: business.id },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+        include: { reviewDraft: true },
+      });
+    } catch (fbErr: any) {
+      if (fbErr?.code === "P2022") {
+        recentFeedback = await prisma.feedback.findMany({
+          where: { businessId: business.id },
+          orderBy: { createdAt: "desc" },
+          take: 10,
+          select: {
+            id: true,
+            businessId: true,
+            rating: true,
+            liked: true,
+            improvement: true,
+            purchaseInfo: true,
+            touchpoint: true,
+            createdAt: true,
+            reviewDraft: true,
+          },
+        });
+      } else {
+        throw fbErr;
+      }
+    }
 
     const conversionRate = totalFeedback > 0
       ? Math.round((totalClicks / totalFeedback) * 100)

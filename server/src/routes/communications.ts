@@ -6,13 +6,39 @@ import { authRequired, AuthRequest } from "../middleware/auth";
 import { sendReviewRequestEmail } from "../services/email";
 import { sendSms } from "../services/sms";
 import { normalizePhoneNumber } from "../utils/phone";
+import {
+  getBusinessConnection,
+  sendTemplateToContact,
+  upsertContactWithConsent,
+} from "../features/whatsapp/whatsapp.service";
 
 const whatsappReportSchema = z.object({
   businessId: z.string().min(1),
   frequency: z.enum(["weekly", "monthly", "none"]),
   test: z.boolean().optional(),
   ownerPhone: z.string().min(10).max(20).optional(),
+  ownerConsent: z.boolean().optional(),
 });
+
+async function getOwnerReportSetup(businessId: string) {
+  const [connection, template] = await Promise.all([
+    getBusinessConnection(businessId),
+    prisma.whatsAppTemplate.findFirst({
+      where: {
+        businessId,
+        status: "APPROVED",
+        category: "UTILITY",
+        OR: [
+          { useCase: "OWNER_REPORT" },
+          { name: { contains: "owner", mode: "insensitive" } },
+          { name: { contains: "digest", mode: "insensitive" } },
+        ],
+      },
+      orderBy: { updatedAt: "desc" },
+    }),
+  ]);
+  return { connection, template, configured: Boolean(connection && template) };
+}
 
 
 
@@ -34,26 +60,6 @@ function topKeywords(texts: string[], limit = 5): { phrase: string; count: numbe
     .sort((a, b) => b[1] - a[1])
     .slice(0, limit)
     .map(([phrase, count]) => ({ phrase, count }));
-}
-
-async function sendWhatsAppText(to: string, text: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
-  const env = getEnv();
-  if (!env.WHATSAPP_API_TOKEN || !env.WHATSAPP_PHONE_NUMBER_ID) {
-    return { success: false, error: "WhatsApp API not configured" };
-  }
-  try {
-    const res = await fetch(`https://graph.facebook.com/${env.WHATSAPP_API_VERSION}/${env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${env.WHATSAPP_API_TOKEN}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ messaging_product: "whatsapp", recipient_type: "individual", to, type: "text", text: { preview_url: false, body: text.slice(0, 4000) } }),
-      signal: AbortSignal.timeout(15000),
-    });
-    const data: any = await res.json();
-    if (data.messages?.[0]?.id) return { success: true, messageId: data.messages[0].id };
-    return { success: false, error: data.error?.message || "WhatsApp send failed" };
-  } catch (err: any) {
-    return { success: false, error: err.message || "WhatsApp send failed" };
-  }
 }
 
 const router = Router();
@@ -186,13 +192,18 @@ router.get("/whatsapp-report/:businessId", authRequired, async (req: AuthRequest
       where: { businessId, action: { in: ["whatsapp_report_saved", "whatsapp_report_sent", "whatsapp_report_test", "whatsapp_report_preview"] } },
       orderBy: { createdAt: "desc" },
     });
-    const env = getEnv();
+    const setup = await getOwnerReportSetup(businessId);
     res.json({
       preference: (last?.details as any)?.frequency ?? "none",
       ownerPhone: (last?.details as any)?.ownerPhone ?? null,
       deliveredVia: (last?.details as any)?.deliveredVia ?? null,
       updatedAt: last?.createdAt ?? null,
-      whatsappConfigured: Boolean(env.WHATSAPP_API_TOKEN && env.WHATSAPP_PHONE_NUMBER_ID),
+      whatsappConfigured: setup.configured,
+      whatsappReason: !setup.connection
+        ? "Connect the business's own WhatsApp number in WhatsApp automation."
+        : !setup.template
+          ? "Create an Owner report Utility template and wait for Meta approval."
+          : null,
     });
   } catch (err) {
     console.error("WhatsApp report status error:", err);
@@ -271,25 +282,59 @@ router.post("/whatsapp-report", authRequired, async (req: AuthRequest, res: Resp
     if (data.test) lines.push(`(Preview — not an auto-delivery)`);
     const report = lines.join("\n");
 
-    const env = getEnv();
-    const whatsappConfigured = Boolean(env.WHATSAPP_API_TOKEN && env.WHATSAPP_PHONE_NUMBER_ID);
+    const setup = await getOwnerReportSetup(business.id);
+    const whatsappConfigured = setup.configured;
 
     let deliveredVia: "whatsapp" | "preview" = "preview";
-    let delivery: { success: boolean; messageId?: string; error?: string } = { success: false, error: "WhatsApp API not configured" };
-    // Only attempt a live WhatsApp send when: API configured + owner opted in with a number + explicit test.
-    // Scheduled auto-delivery is intentionally NOT claimed until a scheduler + template approval exist.
-    if (data.test && ownerPhoneE164 && whatsappConfigured) {
-      delivery = await sendWhatsAppText(ownerPhoneE164, report);
-      if (delivery.success) deliveredVia = "whatsapp";
-    }
+    let delivery: { success: boolean; messageId?: string; error?: string } = {
+      success: false,
+      error: setup.configured
+        ? "Preview only"
+        : "Connect a WhatsApp number and get an Owner report template approved to deliver this report.",
+    };
 
-    if (!data.test) {
-      console.log("--- WhatsApp Report Preference ---");
-      console.log({ business: business.name, frequency: data.frequency, ownerPhone: ownerPhoneE164 ? "***" : null });
-    } else {
-      console.log("--- WhatsApp Report Preview ---");
-      console.log(report);
-      console.log("-------------------------------");
+    // Only a Meta-approved Utility template can deliver a business-initiated
+    // report. Free-form text is never sent outside a 24-hour service window.
+    if (data.test && ownerPhoneE164 && setup.connection && setup.template) {
+      if (data.ownerConsent !== true) {
+        delivery = {
+          success: false,
+          error: "Confirm owner opt-in before sending this report on WhatsApp.",
+        };
+      } else if (setup.template.parameterCount < 1) {
+        delivery = {
+          success: false,
+          error:
+            "The Owner report template must have one body variable ({{1}}) for the report text.",
+        };
+      } else {
+        try {
+          const contact = await upsertContactWithConsent({
+            businessId: business.id,
+            phone: ownerPhoneE164,
+            name: "Owner",
+            source: "owner_settings",
+            note: "Owner opted in to receive reputation reports on WhatsApp",
+            consentConfirmed: true,
+          });
+          const variables = Array.from({ length: setup.template.parameterCount }, (_, index) =>
+            index === 0 ? report.slice(0, 900) : "—",
+          );
+          const headerVariables =
+            setup.template.headerParameterCount > 0 ? [business.name] : [];
+          const message = await sendTemplateToContact({
+            businessId: business.id,
+            contactId: contact.id,
+            templateId: setup.template.id,
+            variables,
+            headerVariables,
+          });
+          deliveredVia = "whatsapp";
+          delivery = { success: true, messageId: message.metaMessageId || undefined };
+        } catch (err: any) {
+          delivery = { success: false, error: err?.message || "WhatsApp send failed" };
+        }
+      }
     }
 
     await prisma.activityLog.create({
@@ -311,10 +356,8 @@ router.post("/whatsapp-report", authRequired, async (req: AuthRequest, res: Resp
         deliveredVia === "whatsapp"
           ? "Test report delivered to WhatsApp."
           : data.test
-            ? whatsappConfigured
-              ? "Preview generated. Add your WhatsApp number and retry test to deliver."
-              : "Preview generated. WhatsApp Business API is not connected yet, so this was not sent to WhatsApp — connect it in server env (WHATSAPP_API_TOKEN + WHATSAPP_PHONE_NUMBER_ID) with an approved utility template to enable auto-delivery."
-            : `Report preference saved (${data.frequency}). Auto-delivery activates once WhatsApp Business API is connected; until then use Send preview.`,
+            ? `Preview generated. ${delivery.error || "WhatsApp delivery did not run."}`
+            : `Report preference saved (${data.frequency}). Automatic WhatsApp delivery is not enabled in this release; use Send preview.`,
     });
   } catch (err) {
     if (err instanceof z.ZodError) {

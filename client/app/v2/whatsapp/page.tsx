@@ -13,9 +13,11 @@ export default function V2WhatsAppPage() {
   return (
     <div className="p-4 sm:p-8 max-w-3xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-xl font-semibold">WhatsApp Review Flows</h1>
+        <h1 className="text-xl font-semibold">WhatsApp automation</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Send interactive review collection flows via WhatsApp. Requires WhatsApp Business API + customer opt-in.
+          Connect your own WhatsApp Business number and send Meta-approved templates for review requests,
+          payment reminders, offers, and customer follow-ups. Your business pays Meta directly for
+          delivered messages.
         </p>
       </div>
       <WhatsAppFlows businessId={currentBusiness.id} businessName={currentBusiness.name} />

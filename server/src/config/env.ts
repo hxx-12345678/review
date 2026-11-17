@@ -53,23 +53,32 @@ const envSchema = z.object({
   TOKEN_ENCRYPTION_KEY: z.string().optional().default(""),
   GOOGLE_PLACES_API_KEY: z.string().optional().default(""),
 
-  // WhatsApp Business Cloud API
-  WHATSAPP_API_TOKEN: z.string().optional().default(""),
-  WHATSAPP_PHONE_NUMBER_ID: z.string().optional().default(""),
-  WHATSAPP_BUSINESS_ACCOUNT_ID: z.string().optional().default(""),
+  // WhatsApp Business Platform — multi-tenant Tech Provider setup.
+  //
+  // Each business connects its OWN WhatsApp Business Account (Messaging
+  // account) and phone number through Meta Embedded Signup v4. We never use a
+  // single shared BEYONDVYU number for client-to-customer messaging, and we do
+  // not bill Meta message fees: the business adds its own payment method in
+  // WhatsApp Manager and Meta charges it directly.
+  WHATSAPP_APP_ID: z.string().optional().default(""),
+  WHATSAPP_APP_SECRET: z.string().optional().default(""),
+  WHATSAPP_ES_CONFIG_ID: z.string().optional().default(""),
+  WHATSAPP_ES_VERSION: z.string().default("v4"),
   WHATSAPP_API_VERSION: z.string().default("v25.0"),
   WHATSAPP_WEBHOOK_VERIFY_TOKEN: z.string().optional().default(""),
-  // Approved utility template for owner safety/low-rating alerts. Free-form
-  // text is only valid inside a 24-hour customer service window; we do not
-  // track that window for owner alerts, so alerts must use a template.
-  WHATSAPP_ALERT_TEMPLATE_NAME: z.string().optional().default(""),
-  WHATSAPP_ALERT_TEMPLATE_LANG: z.string().default("en"),
+  // Secret for POST /api/v2/whatsapp/process-due if you prefer an external
+  // scheduler. The in-process scheduler also runs when the Meta app is
+  // configured, so this is optional.
+  WHATSAPP_CRON_SECRET: z.string().optional().default(""),
 
   // Instagram Graph API
   INSTAGRAM_APP_ID: z.string().optional().default(""),
   INSTAGRAM_APP_SECRET: z.string().optional().default(""),
   INSTAGRAM_WEBHOOK_TOKEN: z.string().optional().default(""),
   INSTAGRAM_BUSINESS_ACCOUNT_ID: z.string().optional().default(""),
+  // Instagram Graph API token is separate from WhatsApp. Older builds reused
+  // WHATSAPP_API_TOKEN here by mistake; set INSTAGRAM_ACCESS_TOKEN explicitly.
+  INSTAGRAM_ACCESS_TOKEN: z.string().optional().default(""),
 
   // Razorpay
   RAZORPAY_KEY_ID: z.string().optional().default("").transform((s) => s.trim()),

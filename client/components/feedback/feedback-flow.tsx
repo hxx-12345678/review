@@ -358,6 +358,7 @@ export function FeedbackFlow({ business, slug, demo: isDemo = false, table, staf
           <DoneStep
             business={business}
             demo={isDemo}
+            feedbackId={isDemo ? null : feedbackId}
             googleUrl={getGoogleReviewUrl() || (business.name ? `https://www.google.com/maps/search/${encodeURIComponent(business.name)}` : null)}
             reviewContent={redirectContent || customerReview}
           />
@@ -1369,15 +1370,53 @@ function RedirectPopup({
 function DoneStep({
   business,
   demo,
+  feedbackId,
   googleUrl,
   reviewContent,
 }: {
   business: any
   demo?: boolean
+  feedbackId?: string | null
   googleUrl?: string | null
   reviewContent?: string
 }) {
   const [copiedAgain, setCopiedAgain] = useState(false)
+  const [showWhatsApp, setShowWhatsApp] = useState(false)
+  const [waPhone, setWaPhone] = useState("")
+  const [waConsent, setWaConsent] = useState(false)
+  const [waMarketing, setWaMarketing] = useState(false)
+  const [waSaving, setWaSaving] = useState(false)
+  const [waDone, setWaDone] = useState(false)
+
+  async function submitWhatsAppOptIn() {
+    if (!business?.slug) return
+    if (!waPhone.trim()) {
+      toast.error("Enter your WhatsApp number")
+      return
+    }
+    if (!waConsent) {
+      toast.error("Please confirm you want WhatsApp messages from this business")
+      return
+    }
+    setWaSaving(true)
+    try {
+      await api.v2.whatsapp.publicOptIn({
+        businessSlug: business.slug,
+        phone: waPhone.trim(),
+        consent: true,
+        marketingConsent: waMarketing,
+        ...(feedbackId ? { feedbackId } : {}),
+        source: "feedback_page",
+        referrer: "feedback_done_step",
+      })
+      setWaDone(true)
+      toast.success("WhatsApp updates enabled")
+    } catch (err: any) {
+      toast.error(err?.message || "Could not save WhatsApp consent")
+    } finally {
+      setWaSaving(false)
+    }
+  }
 
   const handleCopyAgain = () => {
     if (reviewContent?.trim()) {
@@ -1453,6 +1492,88 @@ function DoneStep({
               )}
             </div>
           )}
+
+          <div className="w-full max-w-xs text-left animate-fade-in-up" style={{ animationDelay: "650ms" }}>
+            {waDone ? (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-900">
+                <Check className="mr-1 inline size-3.5" />
+                WhatsApp updates enabled for {business.name}.
+              </div>
+            ) : showWhatsApp ? (
+              <div className="space-y-3 rounded-xl border border-border bg-card p-4">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Get updates on WhatsApp</p>
+                  <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                    Optional. {business.name} can reply about this feedback and send the updates you
+                    agree to. Message frequency varies. Reply STOP to opt out.
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="wa-phone" className="text-xs">WhatsApp number</Label>
+                  <Input
+                    id="wa-phone"
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel"
+                    placeholder="+91 98765 43210"
+                    value={waPhone}
+                    onChange={(e) => setWaPhone(e.target.value)}
+                    className="h-9 text-sm"
+                  />
+                </div>
+                <label className="flex items-start gap-2 text-[11px] leading-relaxed text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 size-4 accent-[var(--primary)]"
+                    checked={waConsent}
+                    onChange={(e) => setWaConsent(e.target.checked)}
+                  />
+                  <span>
+                    I agree to receive WhatsApp messages from {business.name} about my feedback,
+                    service updates, and review requests.
+                  </span>
+                </label>
+                <label className="flex items-start gap-2 text-[11px] leading-relaxed text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 size-4 accent-[var(--primary)]"
+                    checked={waMarketing}
+                    onChange={(e) => setWaMarketing(e.target.checked)}
+                  />
+                  <span>I also agree to receive offers and promotions from {business.name}.</span>
+                </label>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    className="flex-1"
+                    disabled={waSaving}
+                    onClick={submitWhatsAppOptIn}
+                  >
+                    {waSaving ? <Loader2 className="mr-1 size-3.5 animate-spin" /> : <Check className="mr-1 size-3.5" />}
+                    Save consent
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={waSaving}
+                    onClick={() => setShowWhatsApp(false)}
+                  >
+                    Not now
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full gap-2 text-xs"
+                onClick={() => setShowWhatsApp(true)}
+              >
+                <MessageSquareHeart className="size-3.5" />
+                Get updates on WhatsApp
+              </Button>
+            )}
+          </div>
         </>
       )}
       {demo && (

@@ -34,7 +34,7 @@ const NAV = [
 
 const V2_NAV = [
   { href: "/v2", label: "v2 Overview", icon: LayoutDashboard },
-  { href: "/v2/whatsapp", label: "WhatsApp Flows", icon: MessageSquare },
+  { href: "/v2/whatsapp", label: "WhatsApp", icon: MessageSquare },
   { href: "/v2/multi-platform", label: "Multi-Platform", icon: Inbox },
   { href: "/v2/inbox", label: "Unified Inbox", icon: Inbox },
   { href: "/v2/tasks", label: "Tasks", icon: ListChecks },

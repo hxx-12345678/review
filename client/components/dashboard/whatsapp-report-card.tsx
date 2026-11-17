@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { MessageSquare, Loader2, Send, CheckCircle2, AlertTriangle } from "lucide-react"
+import Link from "next/link"
+import { MessageSquare, Loader2, Send, CheckCircle2, AlertTriangle, ExternalLink } from "lucide-react"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -22,6 +23,8 @@ export function WhatsAppReportCard({ businessId }: Props) {
   const [testing, setTesting] = useState(false)
   const [preview, setPreview] = useState<string | null>(null)
   const [deliveredVia, setDeliveredVia] = useState<string | null>(null)
+  const [ownerConsent, setOwnerConsent] = useState(false)
+  const [configuredReason, setConfiguredReason] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -30,6 +33,7 @@ export function WhatsAppReportCard({ businessId }: Props) {
         const s = await api.communications.whatsappReportStatus(businessId)
         if (cancelled) return
         setConfigured(s.whatsappConfigured)
+        setConfiguredReason(s.whatsappReason ?? null)
         setDeliveredVia(s.deliveredVia)
         if (s.preference === "weekly" || s.preference === "monthly") {
           setEnabled(true)
@@ -47,12 +51,16 @@ export function WhatsAppReportCard({ businessId }: Props) {
 
   function validPhone(v: string) {
     const d = v.replace(/\D/g, "")
-    return d.length === 10 || (d.length === 12 && d.startsWith("91")) || (d.length === 11 && d.startsWith("0"))
+    return (
+      d.length === 10 ||
+      (d.length === 11 && (d.startsWith("0") || d.startsWith("1"))) ||
+      (d.length === 12 && d.startsWith("91"))
+    )
   }
 
   async function handleSave() {
     if (enabled && ownerPhone && !validPhone(ownerPhone)) {
-      toast.error("Enter a valid 10-digit Indian mobile number")
+      toast.error("Enter a valid mobile number with country code.")
       return
     }
     setSaving(true)
@@ -73,7 +81,7 @@ export function WhatsAppReportCard({ businessId }: Props) {
 
   async function handleTest() {
     if (ownerPhone && !validPhone(ownerPhone)) {
-      toast.error("Enter a valid 10-digit Indian mobile number")
+      toast.error("Enter a valid mobile number with country code.")
       return
     }
     setTesting(true)
@@ -84,12 +92,13 @@ export function WhatsAppReportCard({ businessId }: Props) {
         frequency,
         test: true,
         ownerPhone: ownerPhone.trim() || undefined,
+        ownerConsent,
       })
       setConfigured(res.whatsappConfigured ?? null)
       setDeliveredVia(res.deliveredVia ?? null)
       setPreview(res.report ?? null)
       if (res.deliveredVia === "whatsapp") toast.success("Test report delivered to WhatsApp.")
-      else toast.success("Preview generated (WhatsApp API not connected — nothing was sent).")
+      else toast.success(res.message || "Preview generated. Nothing was sent to WhatsApp.")
     } catch (err: any) {
       toast.error(err.message || "Failed to generate preview")
     } finally {
@@ -123,14 +132,20 @@ export function WhatsAppReportCard({ businessId }: Props) {
           <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
             <AlertTriangle className="mt-0.5 size-4 shrink-0" />
             <p>
-              WhatsApp delivery is currently in preview mode. You can set your digest schedule and preview your reputation report below.
+              Preview mode. To deliver by WhatsApp, connect your business number in WhatsApp
+              automation and get an Owner report Utility template approved by Meta.
+              {configuredReason ? ` ${configuredReason}` : ""}
             </p>
           </div>
         )}
         {configured === true && (
           <div className="flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">
             <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
-            <p>WhatsApp notifications are active. Add your WhatsApp number below to receive your scheduled reputation report.</p>
+            <p>
+              Your connected WhatsApp number and an approved Owner report template are ready. Add your
+              number and confirm opt-in to send a test. Your business pays Meta directly for delivered
+              messages.
+            </p>
           </div>
         )}
 
@@ -166,9 +181,19 @@ export function WhatsAppReportCard({ businessId }: Props) {
                 inputMode="tel"
               />
               <p className="text-[11px] text-muted-foreground">
-                Your reputation digest includes rating velocity, review highlights, and actionable customer feedback delivered directly to your WhatsApp.
+                Your reputation digest includes rating velocity, review highlights, and actionable customer feedback.
               </p>
             </div>
+            <label className="flex items-start gap-2 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={ownerConsent}
+                onChange={(e) => setOwnerConsent(e.target.checked)}
+                className="mt-0.5 size-4 rounded border-gray-300 text-primary focus:ring-primary"
+              />
+              I confirm this WhatsApp number belongs to me and I agree to receive reputation reports
+              from this business.
+            </label>
           </>
         )}
 
@@ -180,7 +205,7 @@ export function WhatsAppReportCard({ businessId }: Props) {
           {enabled && (
             <Button onClick={handleTest} disabled={testing} variant="outline" size="sm">
               {testing ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-              {testing ? "Generating..." : "Send preview"}
+              {testing ? "Generating..." : "Send test / preview"}
             </Button>
           )}
         </div>
@@ -193,6 +218,13 @@ export function WhatsAppReportCard({ businessId }: Props) {
             <pre className="mt-2 whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">{preview}</pre>
           </div>
         )}
+
+        <Link
+          href="/v2/whatsapp"
+          className="inline-flex items-center gap-1 text-xs font-medium text-primary underline"
+        >
+          Manage WhatsApp connection and templates <ExternalLink className="size-3" />
+        </Link>
       </CardContent>
     </Card>
   )

@@ -96,6 +96,17 @@ export const publicPlacesLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// ── Public WhatsApp opt-in limiter (no auth) ──
+// The opt-in form is shared at the counter/QR code. Limit abusive sign-ups
+// without making a normal customer retry.
+export const publicWhatsAppLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 10,
+  message: { error: "Too many opt-in attempts. Please wait a few minutes and try again." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // ── Per-(IP + Business) Cooldown ──
 // Prevents the same IP from repeatedly hitting an expensive endpoint for the same
 // business within a short time window. Uses the database for persistence so it

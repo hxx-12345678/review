@@ -45,7 +45,7 @@ const SOLUTIONS = [
   {
     icon: BarChart3,
     title: "Weekly WhatsApp intelligence, not another dashboard",
-    body: "Every interaction feeds sentiment, praise/complaint themes and review-velocity trends — delivered as a weekly WhatsApp digest. See what customers love, what needs fixing, and which location needs attention.",
+    body: "Every interaction feeds sentiment, praise/complaint themes and review-velocity trends - ready as a weekly WhatsApp digest once you connect your own number. See what customers love, what needs fixing, and which location needs attention.",
     gradient: "from-violet-500/10 via-violet-500/[0.02] to-transparent",
   },
   {

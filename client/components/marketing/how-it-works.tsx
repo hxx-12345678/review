@@ -44,7 +44,7 @@ const STEPS = [
   {
     icon: BarChart3,
     title: "Get AI-powered business insights",
-    body: "Every review feeds into your dashboard. AI analyzes sentiment, tracks trends, finds top praises and complaints — delivered as weekly reports to your WhatsApp.",
+    body: "Every review feeds into your dashboard. AI analyzes sentiment, tracks trends, finds top praises and complaints - ready as a weekly report for your WhatsApp once your own WhatsApp Business number is connected.",
     color: "border-l-sky-500",
     iconBg: "bg-sky-500/10",
     iconColor: "text-sky-600",
@@ -82,7 +82,7 @@ export function HowItWorks() {
           </h2>
           <p className="mt-4 text-pretty text-lg leading-relaxed text-muted-foreground">
             BEYONDVYU turns every review into actionable business intelligence. Collect authentic Google reviews,
-            analyze customer sentiment, track trends, and receive AI-powered weekly reports on your WhatsApp.
+            analyze customer sentiment, track trends, and get AI-powered weekly reports in your dashboard or on your own connected WhatsApp number.
           </p>
         </div>
 
