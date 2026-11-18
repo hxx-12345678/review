@@ -59,8 +59,7 @@ export function ComplianceSection() {
                   <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                     Google&apos;s 2025 Trust & Safety enforcement blocked ~292M policy-violating reviews, and April 2026
                     updates explicitly ban staff quotas and staff-name/content steering. Incentives, gating and on-premises
-                    pressure are also prohibited. US FTC Rule (16 C.F.R. Part 465, Oct 2024) adds penalties for fake reviews
-                    for US activity — in India, DPDP Act consent + TRAI messaging rules apply.
+                    pressure are also prohibited. US FTC Rule (16 C.F.R. Part 465, Oct 2024) adds penalties for fake reviews for US activity. In India, DPDP Act consent + TRAI messaging rules apply.
                   </p>
                 </div>
               </div>
@@ -109,7 +108,7 @@ export function ComplianceSection() {
                 ))}
               </div>
               <p className="mt-4 text-center text-[11px] leading-relaxed text-muted-foreground">
-                Google + DPDP/TRAI-first for India. US FTC endorsement rules are reflected where relevant to US activity.
+                Google + India DPDP / US FTC endorsement rules are reflected where relevant to US activity.
                 See <a href="/privacy" className="underline underline-offset-2">Privacy</a> and{" "}
                 <a href="/terms" className="underline underline-offset-2">Terms</a> for data, AI-subprocessor and messaging details.
               </p>

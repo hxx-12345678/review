@@ -27,7 +27,7 @@ export function CtaSection() {
         </h2>
 
         <p className="speakable mx-auto mt-5 max-w-xl text-pretty text-lg leading-relaxed text-white/70">
-          Set up your QR code in 2 minutes. Customers describe their visit in their own words — in 10 Indian
+          Set up your QR code in 2 minutes. Customers describe their visit in their own words — in 10
           languages — then choose what to post to Google. Track review velocity and get a weekly digest, all
           without gating or fake reviews.
         </p>

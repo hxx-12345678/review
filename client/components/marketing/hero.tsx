@@ -77,7 +77,7 @@ export function Hero() {
             <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-white/50">
               <span className="flex items-center gap-1.5">
                 <Sparkles className="size-3.5 text-primary" />
-                Restaurant-first, built for Indian local businesses
+                Built for local businesses worldwide
               </span>
               <span className="hidden h-3 w-px bg-white/15 sm:block" aria-hidden="true" />
               <span className="flex items-center gap-1.5">

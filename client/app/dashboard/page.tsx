@@ -208,7 +208,7 @@ if (!biz) {
                 </span>
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Send festival wishes (Diwali, New Year, Eid), exclusive offers, review requests, and payment reminders directly to your customers.
+                Send seasonal wishes and exclusive offers, review requests, and payment reminders directly to your customers.
               </p>
             </div>
           </div>

@@ -51,7 +51,7 @@ const SOLUTIONS = [
   {
     icon: ShieldCheck,
     title: "Compliance-first by design",
-    body: "No gating, no incentives, no staff-name prompts, no posting on a customer's behalf. Open-ended prompts keep you aligned with Google's review policies. India privacy (DPDP Act) and consent-first messaging built in.",
+    body: "No gating, no incentives, no staff-name prompts, no posting on a customer's behalf. Open-ended prompts keep you aligned with Google's review policies. Privacy-first messaging built in (India DPDP / US FTC rules).",
     gradient: "from-sky-500/10 via-sky-500/[0.02] to-transparent",
   },
 ]
