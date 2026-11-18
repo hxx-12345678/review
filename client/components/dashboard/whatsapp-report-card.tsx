@@ -133,7 +133,8 @@ export function WhatsAppReportCard({ businessId }: Props) {
             <AlertTriangle className="mt-0.5 size-4 shrink-0" />
             <p>
               Preview mode. To deliver by WhatsApp, connect your business number in WhatsApp
-              automation and get an Owner report Utility template approved by Meta.
+              automation, add your own payment method in Meta Billing (UPI prepaid or card invoiced), and
+              get an Owner report Utility template approved by Meta.
               {configuredReason ? ` ${configuredReason}` : ""}
             </p>
           </div>
@@ -220,7 +221,7 @@ export function WhatsAppReportCard({ businessId }: Props) {
         )}
 
         <Link
-          href="/v2/whatsapp"
+          href="/dashboard/whatsapp"
           className="inline-flex items-center gap-1 text-xs font-medium text-primary underline"
         >
           Manage WhatsApp connection and templates <ExternalLink className="size-3" />

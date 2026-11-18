@@ -391,8 +391,9 @@ export const api = {
         businessId: string
         code: string
         wabaId: string
-        phoneNumberId: string
+        phoneNumberId?: string | null
         businessPortfolioId?: string | null
+        coexistence?: boolean
       }) =>
         request<any>("/v2/whatsapp/connect", {
           method: "POST",
@@ -464,6 +465,23 @@ export const api = {
           method: "POST",
           body: JSON.stringify(data),
         }),
+      bulkAddContacts: (data: {
+        businessId: string
+        consentConfirmed: true
+        contacts: Array<{
+          phone: string
+          name?: string
+          marketingConsent?: boolean
+          note?: string
+        }>
+      }) =>
+        request<{ success: boolean; added: number; skipped: number; total: number; errors: string[] }>(
+          "/v2/whatsapp/contacts/bulk",
+          {
+            method: "POST",
+            body: JSON.stringify(data),
+          },
+        ),
       optOutContact: (businessId: string, contactId: string) =>
         request<{ success: boolean; contact: any }>(`/v2/whatsapp/contacts/${contactId}/opt-out`, {
           method: "POST",

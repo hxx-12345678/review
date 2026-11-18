@@ -215,11 +215,14 @@ Policy-safe value beyond "send the owner a report":
    visit, from the customer's own device, with no incentive and no positive-only
    routing.
 
-WhatsApp implementation rule: owner alerts now require an approved utility
-template (`WHATSAPP_ALERT_TEMPLATE_NAME`, one body variable). Free-form text is
-only valid inside a 24-hour customer-service window, which this product does not
-track for owner alerts, so the service fails closed instead of sending a policy
-violation. The email path remains independent and works without WhatsApp.
+WhatsApp implementation rule: owner alerts require the business's own connected
+WhatsApp account, an approved Utility template, and an owner opt-in record.
+There is no global owner-alert template variable; each business selects an
+approved template after connecting its own number. Free-form text is only valid
+inside a 24-hour customer-service window, so owner alerts fail closed instead of
+sending a policy violation. The email path remains independent and works without
+WhatsApp. See `docs/WHATSAPP-AUTOMATION.md` for the multi-tenant model and the
+separate Meta-versus-BEYONDVYU billing rules.
 
 ## 7. Honesty rules applied
 

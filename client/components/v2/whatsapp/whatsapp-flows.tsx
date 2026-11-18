@@ -8,6 +8,7 @@ import {
   Clock,
   Copy,
   ExternalLink,
+  FileSpreadsheet,
   Info,
   Link2,
   Loader2,
@@ -19,6 +20,7 @@ import {
   Send,
   ShieldCheck,
   Sparkles,
+  Upload,
   Users,
   Wallet,
   XCircle,
@@ -128,7 +130,10 @@ interface Overview {
     appId: string
     configId: string
     esVersion: string
+    esFeatureType?: string
     graphVersion: string
+    billingUrl?: string
+    managerUrl?: string
   }
   connection: Connection | null
   templates: Template[]
@@ -143,6 +148,24 @@ interface Overview {
     inbound: number
   }
   pricing: any
+  billing?: {
+    meta: {
+      currency: string | null
+      monthStart: string
+      estimatedSpend: number
+      deliveredBillable: number
+      deliveredFree: number
+      byCategory: Record<string, { deliveredBillable: number; deliveredFree: number; estimated: number }>
+      sourceOfTruthUrl: string
+      disclaimer: string
+    }
+    platform: {
+      note: string
+      manageUrl: string
+      metaBillingUrl: string
+      metaManagerUrl: string
+    }
+  }
 }
 
 type Tab = "send" | "inbox" | "templates" | "contacts" | "automations" | "scheduled" | "activity"
@@ -245,6 +268,13 @@ export function WhatsAppFlows({ businessId, businessName }: Props) {
   const [copiedOptIn, setCopiedOptIn] = useState(false)
   const [optInUrl, setOptInUrl] = useState("")
 
+  const [bulkInput, setBulkInput] = useState("")
+  const [bulkMarketing, setBulkMarketing] = useState(false)
+  const [bulkConsent, setBulkConsent] = useState(false)
+  const [bulkImporting, setBulkImporting] = useState(false)
+  const [showBulkImport, setShowBulkImport] = useState(false)
+  const [copiedWaChat, setCopiedWaChat] = useState(false)
+
   const [sendContactId, setSendContactId] = useState("")
   const [sendPhone, setSendPhone] = useState("")
   const [sendName, setSendName] = useState("")
@@ -256,7 +286,12 @@ export function WhatsAppFlows({ businessId, businessName }: Props) {
   const [scheduleAt, setScheduleAt] = useState("")
 
   const pendingCodeRef = useRef<string | null>(null)
-  const pendingDataRef = useRef<{ wabaId?: string; phoneNumberId?: string; businessId?: string } | null>(null)
+  const pendingDataRef = useRef<{
+    wabaId?: string
+    phoneNumberId?: string
+    businessId?: string
+    coexistence?: boolean
+  } | null>(null)
   const connectingRef = useRef(false)
 
   const loadOverview = useCallback(async () => {
@@ -293,6 +328,76 @@ export function WhatsAppFlows({ businessId, businessName }: Props) {
     }
   }
 
+  const waChatUrl = useMemo(() => {
+    const phone = String(overview?.connection?.displayPhoneNumber || "").replace(/\D/g, "")
+    if (!phone) return ""
+    const text = `Hi ${businessName}, I'd like to hear about updates.`
+    return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`
+  }, [overview?.connection?.displayPhoneNumber, businessName])
+
+  async function copyWaChatLink() {
+    if (!waChatUrl) return
+    try {
+      await navigator.clipboard.writeText(waChatUrl)
+      setCopiedWaChat(true)
+      toast.success("Click-to-chat link copied")
+      setTimeout(() => setCopiedWaChat(false), 2000)
+    } catch {
+      toast.error("Could not copy. Select and copy the link manually.")
+    }
+  }
+
+  async function handleBulkImport() {
+    if (!bulkConsent) {
+      toast.error("Confirm that every customer gave permission before importing.")
+      return
+    }
+    const lines = bulkInput
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+    if (!lines.length) {
+      toast.error("Paste at least one customer number.")
+      return
+    }
+    const contacts = lines.slice(0, 1000).map((line) => {
+      const parts = line.split(/[,\t;]/).map((part) => part.trim())
+      const phone = parts[0] || ""
+      const name = parts.slice(1).join(" ").trim() || undefined
+      return {
+        phone,
+        name,
+        marketingConsent: bulkMarketing,
+        note: "Imported in bulk; owner confirmed consent",
+      }
+    })
+    if (!contacts.some((contact) => contact.phone)) {
+      toast.error("No valid numbers found. Put one number per line.")
+      return
+    }
+    setBulkImporting(true)
+    try {
+      const result = await api.v2.whatsapp.bulkAddContacts({
+        businessId,
+        consentConfirmed: true,
+        contacts,
+      })
+      toast.success(
+        `${result.added} customer(s) added${result.skipped ? `, ${result.skipped} skipped` : ""}.`,
+      )
+      if (result.errors?.length) toast.warning(result.errors.join(" · "))
+      setBulkInput("")
+      setBulkConsent(false)
+      setBulkMarketing(false)
+      setShowBulkImport(false)
+      await loadOverview()
+    } catch (err: any) {
+      toast.error(err?.message || "Could not import customers")
+    } finally {
+      setBulkImporting(false)
+    }
+  }
+
   const approvedTemplates = useMemo(
     () => (overview?.templates || []).filter((template) => template.status === "APPROVED"),
     [overview?.templates],
@@ -318,7 +423,8 @@ export function WhatsAppFlows({ businessId, businessName }: Props) {
   const finishConnect = useCallback(async () => {
     const code = pendingCodeRef.current
     const data = pendingDataRef.current
-    if (!code || !data?.wabaId || !data?.phoneNumberId || connectingRef.current) return
+    if (!code || !data?.wabaId || connectingRef.current) return
+    if (!data.phoneNumberId && !data.coexistence) return
 
     connectingRef.current = true
     setConnecting(true)
@@ -329,6 +435,7 @@ export function WhatsAppFlows({ businessId, businessName }: Props) {
         wabaId: data.wabaId,
         phoneNumberId: data.phoneNumberId,
         businessPortfolioId: data.businessId || null,
+        coexistence: data.coexistence,
       })
       toast.success("WhatsApp connected to this business.")
       if (Array.isArray(result?.warnings) && result.warnings.length) {
@@ -374,8 +481,10 @@ export function WhatsAppFlows({ businessId, businessName }: Props) {
       }
 
       const payload = data?.data || {}
+      const coexistenceEvent =
+        data?.event === "FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING" || payload?.coexistence === true
       if (!payload?.waba_id && !payload?.phone_number_id) return
-      if (!payload?.phone_number_id) {
+      if (!payload?.phone_number_id && !coexistenceEvent) {
         toast.error(
           "Meta completed the flow without a phone number. Reconnect and add a WhatsApp business number.",
         )
@@ -387,6 +496,7 @@ export function WhatsAppFlows({ businessId, businessName }: Props) {
         wabaId: payload.waba_id ? String(payload.waba_id) : undefined,
         phoneNumberId: payload.phone_number_id ? String(payload.phone_number_id) : undefined,
         businessId: payload.business_id ? String(payload.business_id) : undefined,
+        coexistence: coexistenceEvent,
       }
       finishConnect()
     }
@@ -402,6 +512,13 @@ export function WhatsAppFlows({ businessId, businessName }: Props) {
       const FB = await loadFacebookSdk(overview.platform.appId, overview.platform.graphVersion)
       pendingCodeRef.current = null
       pendingDataRef.current = null
+      const extras: Record<string, unknown> = {
+        setup: {},
+        sessionInfoVersion: "3",
+      }
+      if (overview.platform.esFeatureType) {
+        extras.featureType = overview.platform.esFeatureType
+      }
       FB.login(
         (response: any) => {
           const code = response?.authResponse?.code
@@ -418,7 +535,7 @@ export function WhatsAppFlows({ businessId, businessName }: Props) {
           config_id: overview.platform.configId,
           response_type: "code",
           override_default_response_type: true,
-          extras: { setup: {} },
+          extras,
         },
       )
     } catch (err: any) {
@@ -772,6 +889,8 @@ export function WhatsAppFlows({ businessId, businessName }: Props) {
   const connection = overview.connection
   const pricing = overview.pricing
 
+  const isMetaPaymentError = /131042/.test(connection?.lastError ?? "")
+
   return (
     <div className="space-y-6">
       {!overview.platform.configured && (
@@ -831,9 +950,43 @@ export function WhatsAppFlows({ businessId, businessName }: Props) {
           </CardHeader>
           <CardContent className="space-y-4">
             {connection.lastError && (
-              <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-                <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-                <p>{connection.lastError}</p>
+              <div className="space-y-2">
+                <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                  <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+                  <p>{connection.lastError}</p>
+                </div>
+                {isMetaPaymentError && (
+                  <div className="flex flex-wrap items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs text-primary">
+                    <Wallet className="size-4 shrink-0" />
+                    <p className="flex-1">
+                      Meta bills your business directly for WhatsApp messages. Add funds (UPI prepaid) or
+                      update your card (invoiced) in Meta Billing to resume delivery. This account's payment
+                      mode is fixed by Meta the first time you set it.
+                    </p>
+                    <a
+                      href={overview.platform.billingUrl || "https://business.facebook.com/billing_hub/accounts/"}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 font-medium underline"
+                    >
+                      Open Meta Billing <ExternalLink className="size-3" />
+                    </a>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={action === "payment-confirmed"}
+                      onClick={() =>
+                        runAction(
+                          "payment-confirmed",
+                          () => api.v2.whatsapp.confirmPaymentMethod(businessId),
+                          "Payment-method step marked complete.",
+                        )
+                      }
+                    >
+                      I updated Meta Billing
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -868,7 +1021,7 @@ export function WhatsAppFlows({ businessId, businessName }: Props) {
                   ) : (
                     <Wallet className="size-4 text-amber-600" />
                   )}
-                  {connection.paymentMethodConfirmedAt ? "Confirmed by owner" : "Add in WhatsApp Manager"}
+                  {connection.paymentMethodConfirmedAt ? "Confirmed by owner" : "Add in Meta Billing"}
                 </p>
               </div>
             </div>
@@ -905,16 +1058,17 @@ export function WhatsAppFlows({ businessId, businessName }: Props) {
               <div className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
                 <Wallet className="size-4 shrink-0" />
                 <p className="flex-1">
-                  Add a payment method in WhatsApp Manager. Meta bills your business directly for delivered
-                  messages; BEYONDVYU does not add a per-message markup.
+                  Add a payment method to your own Meta Messaging account. In India you can choose UPI
+                  prepaid balance or an invoiced card; Meta fixes that choice on the first payment setup.
+                  Meta bills you directly and BEYONDVYU does not add a per-message markup.
                 </p>
                 <a
-                  href="https://business.facebook.com/wa/manage/"
+                  href={overview.platform.billingUrl || "https://business.facebook.com/billing_hub/accounts/"}
                   target="_blank"
                   rel="noreferrer"
                   className="inline-flex items-center gap-1 font-medium underline"
                 >
-                  Open WhatsApp Manager <ExternalLink className="size-3" />
+                  Open Meta Billing <ExternalLink className="size-3" />
                 </a>
                 <Button
                   size="sm"
@@ -966,8 +1120,8 @@ export function WhatsAppFlows({ businessId, businessName }: Props) {
                 </li>
                 <li className="flex gap-2">
                   <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" />
-                  Add a payment method in WhatsApp Manager. Meta charges your business directly for
-                  delivered messages.
+                  Add your own payment method in Meta Billing (UPI prepaid or card invoiced). Meta charges
+                  you directly for delivered messages; BEYONDVYU never pays or marks up that bill.
                 </li>
                 <li className="flex gap-2">
                   <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" />
@@ -1039,6 +1193,69 @@ export function WhatsAppFlows({ businessId, businessName }: Props) {
               >
                 Official Meta WhatsApp pricing <ExternalLink className="size-3" />
               </a>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Wallet className="size-5 text-primary" />
+                <CardTitle>Who pays what</CardTitle>
+              </div>
+              <CardDescription>
+                Two separate bills. BEYONDVYU never collects, bundles, or marks up your Meta message
+                charges.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-lg border p-4">
+                <p className="text-sm font-semibold">Meta WhatsApp charges</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Paid by {businessName} directly to Meta from its own Messaging account. Meta charges per
+                  delivered business-initiated message; user-initiated messages are free.
+                </p>
+                <p className="mt-3 text-2xl font-semibold">
+                  {overview.billing?.meta?.currency === "INR"
+                    ? `₹${Number(overview.billing?.meta?.estimatedSpend || 0).toFixed(2)}`
+                    : "See Meta Billing"}
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  estimated this month · {overview.billing?.meta?.deliveredBillable || 0} billable delivered
+                  {overview.billing?.meta?.deliveredFree
+                    ? ` · ${overview.billing?.meta?.deliveredFree} free service`
+                    : ""}
+                </p>
+                <a
+                  href={
+                    overview.billing?.meta?.sourceOfTruthUrl ||
+                    overview.platform.billingUrl ||
+                    "https://business.facebook.com/billing_hub/accounts/"
+                  }
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary underline"
+                >
+                  Open your Meta Billing <ExternalLink className="size-3" />
+                </a>
+              </div>
+              <div className="rounded-lg border p-4">
+                <p className="text-sm font-semibold">BEYONDVYU subscription</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Paid to BEYONDVYU through the billing portal for the dashboard, automation, templates,
+                  inbox, and reports. This is separate from Meta and does not include message fees.
+                </p>
+                <a
+                  href={overview.billing?.platform?.manageUrl || "/dashboard/billing"}
+                  className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary underline"
+                >
+                  Manage BEYONDVYU plan <ExternalLink className="size-3" />
+                </a>
+              </div>
+              {overview.billing?.meta?.disclaimer && (
+                <p className="text-[11px] leading-relaxed text-muted-foreground sm:col-span-2">
+                  {overview.billing.meta.disclaimer}
+                </p>
+              )}
             </CardContent>
           </Card>
 
@@ -1311,6 +1528,7 @@ export function WhatsAppFlows({ businessId, businessName }: Props) {
               templates={approvedTemplates}
               optedInCount={overview.contacts.optedIn}
               marketingOptedInCount={overview.contacts.marketingOptedIn}
+              pricing={overview.pricing}
               onChanged={loadOverview}
             />
           )}
@@ -1670,6 +1888,128 @@ export function WhatsAppFlows({ businessId, businessName }: Props) {
                     Also available from the feedback thank-you page, where customers can opt in right after
                     submitting feedback. Do not add people from purchased or scraped lists.
                   </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <MessageSquare className="size-5 text-primary" />
+                    <CardTitle>Click-to-chat link</CardTitle>
+                  </div>
+                  <CardDescription>
+                    Share this on your website, Google profile, Instagram bio, or printed QR. The customer
+                    sends the first message, so their number appears in your Inbox automatically — you
+                    never type it yourself.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Input
+                      value={waChatUrl}
+                      readOnly
+                      placeholder="Connect a WhatsApp number to create this link"
+                      className="min-w-0 flex-1 font-mono text-xs"
+                    />
+                    <Button variant="outline" size="sm" onClick={copyWaChatLink} disabled={!waChatUrl}>
+                      {copiedWaChat ? <CheckCircle2 className="size-4" /> : <Copy className="size-4" />}
+                      {copiedWaChat ? "Copied" : "Copy link"}
+                    </Button>
+                    {waChatUrl && (
+                      <a
+                        href={waChatUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-xs font-medium text-primary underline"
+                      >
+                        Open <ExternalLink className="size-3" />
+                      </a>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    A customer-initiated chat opens the 24-hour service window, so you can reply with
+                    free-form text. Their number is captured for replies, but marketing still needs
+                    separate opt-in. Reply STOP always works.
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <FileSpreadsheet className="size-5 text-primary" />
+                    <CardTitle>Add many customers</CardTitle>
+                  </div>
+                  <CardDescription>
+                    Paste numbers you already have permission to message — one per line, optionally
+                    followed by a name. This is for your own consented customers, not purchased or scraped
+                    lists.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {!showBulkImport ? (
+                    <div className="flex flex-wrap items-center gap-3">
+                      <Button variant="outline" onClick={() => setShowBulkImport(true)}>
+                        <Upload className="size-4" />
+                        Paste multiple numbers
+                      </Button>
+                      <p className="text-[11px] text-muted-foreground">
+                        Up to 1,000 per import. WhatsApp Business app contacts sync automatically when you
+                        connect with coexistence.
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <Textarea
+                        value={bulkInput}
+                        onChange={(event) => setBulkInput(event.target.value)}
+                        rows={6}
+                        placeholder={"98200 12345, Riya\n+91 98765 43210, Amit\n90000 11111"}
+                        className="font-mono text-xs"
+                      />
+                      <p className="text-[11px] text-muted-foreground">
+                        {bulkInput.split(/\r?\n/).filter((line) => line.trim()).length} line(s). Separators:
+                        comma, tab, or semicolon.
+                      </p>
+                      <label className="flex items-start gap-2 text-xs text-muted-foreground">
+                        <input
+                          type="checkbox"
+                          checked={bulkConsent}
+                          onChange={(event) => setBulkConsent(event.target.checked)}
+                          className="mt-0.5 size-4 rounded border-border"
+                        />
+                        I confirm every person in this list gave this business permission to receive
+                        WhatsApp messages. I am not using a purchased, scraped, or shared list.
+                      </label>
+                      <label className="flex items-start gap-2 text-xs text-muted-foreground">
+                        <input
+                          type="checkbox"
+                          checked={bulkMarketing}
+                          onChange={(event) => setBulkMarketing(event.target.checked)}
+                          className="mt-0.5 size-4 rounded border-border"
+                        />
+                        These customers separately agreed to offers and promotions. Leave unchecked for
+                        service/review messages only.
+                      </label>
+                      <div className="flex flex-wrap gap-2">
+                        <Button onClick={handleBulkImport} disabled={bulkImporting}>
+                          {bulkImporting ? (
+                            <Loader2 className="size-4 animate-spin" />
+                          ) : (
+                            <Upload className="size-4" />
+                          )}
+                          Import customers
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          onClick={() => setShowBulkImport(false)}
+                          disabled={bulkImporting}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </>
+                  )}
                 </CardContent>
               </Card>
 

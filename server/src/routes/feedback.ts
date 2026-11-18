@@ -112,6 +112,9 @@ router.post("/submit", authOptional, async (req: AuthRequest, res: Response) => 
           note: `Customer opted in on the feedback form (feedback ${feedback.id})`,
           consentConfirmed: true,
           marketingConsent: data.whatsappMarketingConsent === true,
+          // The customer is submitting the feedback form and ticking the
+          // consent box themselves, so this overrides an earlier STOP.
+          allowOptOutOverride: true,
         });
         await triggerWhatsAppAutomations({
           businessId: business.id,
@@ -523,6 +526,7 @@ router.get("/public/:slug", async (req: AuthRequest, res: Response) => {
         backgroundColor: true,
         splashTagline: true,
         showPoweredBy: true,
+        whatsAppConnection: { select: { status: true, displayPhoneNumber: true } },
       },
     });
 
@@ -532,6 +536,10 @@ router.get("/public/:slug", async (req: AuthRequest, res: Response) => {
 
     // Never expose the owner's internal user id to an unauthenticated caller.
     const { userId, ...publicBusiness } = business;
+    const whatsappNumber =
+      publicBusiness.whatsAppConnection?.status === "CONNECTED"
+        ? publicBusiness.whatsAppConnection.displayPhoneNumber || null
+        : null;
 
     // When googlePlaceId is set, always derive the review URL from it
     // so that updating placeId in settings immediately takes effect
@@ -553,7 +561,7 @@ router.get("/public/:slug", async (req: AuthRequest, res: Response) => {
         }
       : null;
 
-    res.json({ business: { ...publicBusiness, googleReviewUrl, subscription } });
+    res.json({ business: { ...publicBusiness, googleReviewUrl, subscription, whatsappNumber } });
   } catch (err) {
     console.error("Get public business error:", err);
     res.status(500).json({ error: "Internal server error" });

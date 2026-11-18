@@ -227,9 +227,31 @@ async function handleStatuses(connection: any, value: any) {
         error?.message ||
         error?.error_data?.details ||
         "WhatsApp delivery failed";
+
+      // India prepaid accounts can accept a send and then reject it for
+      // payment eligibility on the status webhook. Surface it immediately so
+      // the owner sees the billing action instead of a silently missing message.
+      if (String(data.errorCode) === "131042") {
+        await prisma.whatsAppConnection.update({
+          where: { id: connection.id },
+          data: {
+            lastError:
+              "Meta payment issue: add or top up your payment method in Meta Billing to resume WhatsApp messages (error 131042).",
+          },
+        });
+      }
     } else if (data.status) {
       data.errorCode = null;
       data.errorMessage = null;
+      if (
+        ["SENT", "DELIVERED", "READ"].includes(mapped) &&
+        /131042|payment eligibility|payment method/i.test(String(connection.lastError || ""))
+      ) {
+        await prisma.whatsAppConnection.update({
+          where: { id: connection.id },
+          data: { lastError: null },
+        });
+      }
     }
 
     if (status.pricing) data.pricing = status.pricing;
@@ -238,6 +260,157 @@ async function handleStatuses(connection: any, value: any) {
     }
 
     await prisma.whatsAppMessage.update({ where: { id: message.id }, data });
+  }
+}
+
+/**
+ * Coexistence: Meta streams the business's existing WhatsApp Business app
+ * contacts here. They are imported with UNKNOWN consent, not opted in, so the
+ * owner gets a ready contact book without manual typing while policy still
+ * requires an explicit opt-in before any business-initiated message.
+ */
+async function handleSmbAppStateSync(connection: any, value: any) {
+  const records = Array.isArray(value.state_sync) ? value.state_sync : [];
+  for (const record of records) {
+    if (String(record?.type || "") !== "contact") continue;
+    if (String(record?.action || "add") !== "add") continue;
+    const contact = record?.contact || {};
+    const phone = digitsOnly(contact.phone_number);
+    if (phone.length < 8) continue;
+    const name = String(contact.full_name || contact.first_name || "").trim() || null;
+
+    await prisma.whatsAppContact.upsert({
+      where: { businessId_phone: { businessId: connection.businessId, phone } },
+      create: {
+        businessId: connection.businessId,
+        phone,
+        name,
+        consentStatus: "UNKNOWN",
+        consentSource: "whatsapp_business_app_sync",
+      },
+      update: {
+        ...(name ? { name } : {}),
+      },
+    });
+  }
+}
+
+/** Mirror messages the owner sends from the WhatsApp Business app into the inbox. */
+async function handleSmbMessageEchoes(connection: any, value: any) {
+  const echoes = Array.isArray(value.message_echoes) ? value.message_echoes : [];
+  const contacts = Array.isArray(value.contacts) ? value.contacts : [];
+
+  for (const echo of echoes) {
+    if (!echo?.id || !echo?.to) continue;
+    const echoType = String(echo.type || "");
+
+    // Mirror edits and deletions of messages the owner sent from the business
+    // app, so the BEYONDVYU inbox does not keep stale text.
+    if (echoType === "revoke") {
+      const originalId = echo.revoke?.original_message_id;
+      if (originalId) {
+        await prisma.whatsAppMessage.updateMany({
+          where: { metaMessageId: String(originalId), businessId: connection.businessId },
+          data: {
+            bodyPreview: "[message deleted by business]",
+            metadata: { source: "whatsapp_business_app", revoked: true },
+          },
+        });
+      }
+      continue;
+    }
+    if (echoType === "edit") {
+      const originalId = echo.edit?.original_message_id;
+      const edited = echo.edit?.message;
+      if (originalId && edited) {
+        await prisma.whatsAppMessage.updateMany({
+          where: { metaMessageId: String(originalId), businessId: connection.businessId },
+          data: {
+            bodyPreview: extractInboundText(edited).slice(0, 1000),
+            metadata: { source: "whatsapp_business_app", edited: true },
+          },
+        });
+      }
+      continue;
+    }
+
+    const phone = digitsOnly(echo.to);
+    if (phone.length < 8) continue;
+
+    const existing = await prisma.whatsAppMessage.findUnique({
+      where: { metaMessageId: String(echo.id) },
+      select: { id: true },
+    });
+    if (existing) continue;
+
+    const profileName =
+      contacts.find((c: any) => digitsOnly(c?.wa_id) === phone)?.profile?.name || null;
+    const sentAt = unixToDate(echo.timestamp) || new Date();
+    const text = extractInboundText(echo).slice(0, 1000);
+
+    const contact = await prisma.whatsAppContact.upsert({
+      where: { businessId_phone: { businessId: connection.businessId, phone } },
+      create: {
+        businessId: connection.businessId,
+        phone,
+        name: profileName,
+        lastOutboundAt: sentAt,
+      },
+      update: {
+        lastOutboundAt: sentAt,
+        ...(profileName ? { name: profileName } : {}),
+      },
+    });
+
+    await prisma.whatsAppMessage.create({
+      data: {
+        businessId: connection.businessId,
+        contactId: contact.id,
+        metaMessageId: String(echo.id),
+        direction: "OUTBOUND",
+        messageType: String(echo.type || "text").toUpperCase(),
+        status: "SENT",
+        bodyPreview: text,
+        sentAt,
+        metadata: { source: "whatsapp_business_app" },
+      },
+    });
+  }
+}
+
+const DISCONNECTION_REASONS: Record<string, string> = {
+  ACCOUNT_DISCONNECTED: "the business disconnected the account or Meta enforced a policy",
+  BUSINESS_DOWNGRADE: "the number was registered on the consumer WhatsApp app",
+  CHANGE_NUMBER: "the business changed its phone number",
+  COMPANION_INACTIVITY: "the linked device was inactive for about 30 days",
+  PRIMARY_INACTIVITY: "the WhatsApp Business app was inactive for about 14 days",
+  USER_RE_REGISTERED: "the number was registered on a new device",
+};
+
+async function handleAccountUpdate(connection: any, value: any) {
+  const event = String(value?.event || "").toUpperCase();
+  if (!event) return;
+
+  if (event === "PARTNER_REMOVED" || event === "ACCOUNT_OFFBOARDED") {
+    const reasonCode = String(value?.disconnection_info?.reason || "").toUpperCase();
+    const reason = DISCONNECTION_REASONS[reasonCode];
+    await prisma.whatsAppConnection.update({
+      where: { id: connection.id },
+      data: {
+        status: "NEEDS_ATTENTION",
+        lastError:
+          event === "ACCOUNT_OFFBOARDED"
+            ? "This number was disconnected from Cloud API in the WhatsApp Business app. Reconnect from Settings > Account > Business Platform, then reconnect here."
+            : `Meta removed BEYONDVYU's access to this WhatsApp account${reason ? `: ${reason}` : ""}. Reconnect the business number to resume.`,
+      },
+    });
+    return;
+  }
+  if (event === "ACCOUNT_RECONNECTED") {
+    await prisma.whatsAppConnection.update({
+      where: { id: connection.id },
+      data: { status: "CONNECTED", lastError: null },
+    });
   }
 }
 
@@ -374,7 +547,16 @@ export async function handleWhatsAppWebhook(req: Request, res: Response) {
         : null;
 
       try {
-        const connection = await resolveConnection(phoneNumberId, entryWabaId);
+        // account_update can put the partner business ID in entry.id; the
+        // client's Messaging account is then only in value.waba_info.waba_id.
+        const wabaCandidates = [value?.waba_info?.waba_id, entryWabaId]
+          .filter(Boolean)
+          .map((candidate) => String(candidate));
+        let connection: Awaited<ReturnType<typeof resolveConnection>> = null;
+        for (const candidate of wabaCandidates) {
+          connection = await resolveConnection(phoneNumberId, candidate);
+          if (connection) break;
+        }
         if (!connection) continue;
 
         if (Array.isArray(value.messages) && value.messages.length) {
@@ -385,6 +567,15 @@ export async function handleWhatsAppWebhook(req: Request, res: Response) {
         }
         if (Array.isArray(value.user_preferences) && value.user_preferences.length) {
           await handleUserPreferences(connection, value);
+        }
+        if (field === "smb_app_state_sync" || Array.isArray(value.state_sync)) {
+          await handleSmbAppStateSync(connection, value);
+        }
+        if (field === "smb_message_echoes" || Array.isArray(value.message_echoes)) {
+          await handleSmbMessageEchoes(connection, value);
+        }
+        if (field === "account_update" || value?.event) {
+          await handleAccountUpdate(connection, value);
         }
         if (
           field === "message_template_status_update" ||

@@ -122,12 +122,14 @@ export function WhatsAppAutomations({
   templates,
   optedInCount,
   marketingOptedInCount,
+  pricing,
   onChanged,
 }: {
   businessId: string
   templates: TemplateOption[]
   optedInCount: number
   marketingOptedInCount: number
+  pricing?: any
   onChanged: () => Promise<void> | void
 }) {
   const [rules, setRules] = useState<Rule[]>([])
@@ -319,6 +321,14 @@ export function WhatsAppAutomations({
   }
 
   const marketingTemplates = templates.filter((template) => template.category === "MARKETING")
+
+  const campaignAudienceCount =
+    campaignTemplate?.category === "MARKETING" ? marketingOptedInCount : optedInCount
+  const campaignSendCount = Math.min(campaignAudienceCount, 200)
+  const campaignRate =
+    pricing?.perDeliveredMessage?.[campaignTemplate?.category || "UTILITY"] ?? null
+  const campaignEstimate =
+    typeof campaignRate === "number" ? Number((campaignRate * campaignSendCount).toFixed(4)) : null
 
   return (
     <div className="space-y-4">
@@ -544,6 +554,25 @@ export function WhatsAppAutomations({
               </div>
             </div>
           </div>
+
+          {campaignTemplate && campaignEstimate !== null && (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-3 text-xs text-emerald-900">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-medium">
+                  Estimated Meta charge for {campaignSendCount} customer
+                  {campaignSendCount === 1 ? "" : "s"}
+                </span>
+                <span className="text-base font-semibold">₹{campaignEstimate.toFixed(2)}</span>
+              </div>
+              <p className="mt-1 leading-relaxed">
+                {campaignAudienceCount > 200
+                  ? `Only the first 200 opted-in customers are queued per campaign. `
+                  : ""}
+                Charged by Meta directly to your own Messaging account, before tax and any volume-tier or
+                free-window adjustments. BEYONDVYU does not add a markup.
+              </p>
+            </div>
+          )}
 
           {campaignTemplate && (
             <>

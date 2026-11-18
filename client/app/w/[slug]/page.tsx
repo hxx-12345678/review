@@ -22,6 +22,11 @@ export default function WhatsAppOptInPage() {
   const [saving, setSaving] = useState(false)
   const [done, setDone] = useState(false)
 
+  const waPhone = String(business?.whatsappNumber || business?.displayPhoneNumber || "").replace(/\D/g, "")
+  const waChatUrl = waPhone
+    ? `https://wa.me/${waPhone}?text=${encodeURIComponent("Hi, I'd like to hear about your updates.")}`
+    : ""
+
   useEffect(() => {
     if (!slug) return
     let cancelled = false
@@ -209,6 +214,16 @@ export default function WhatsAppOptInPage() {
                 {saving ? <Loader2 className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />}
                 {saving ? "Saving..." : "Join WhatsApp updates"}
               </Button>
+              {waChatUrl && (
+                <a
+                  href={waChatUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block text-center text-xs font-medium text-primary underline"
+                >
+                  Or message {business.name} on WhatsApp first
+                </a>
+              )}
               <p className="text-center text-[10px] leading-relaxed text-muted-foreground">
                 Your number is used only for messages from {business.name}. It is not sold or shared
                 with other businesses.

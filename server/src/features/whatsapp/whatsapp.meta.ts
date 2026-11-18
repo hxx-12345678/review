@@ -34,6 +34,8 @@ export interface MetaPhoneNumber {
   status?: string;
   code_verification_status?: string;
   platform_type?: string;
+  /** True when the number is used by both the WhatsApp Business app and Cloud API. */
+  is_on_biz_app?: boolean;
 }
 
 export interface MetaWaba {
@@ -61,7 +63,10 @@ export function getWhatsAppPlatformConfig(): {
   appId: string;
   configId: string;
   esVersion: string;
+  esFeatureType: string;
   graphVersion: string;
+  billingUrl: string;
+  managerUrl: string;
 } {
   const env = getEnv();
   return {
@@ -69,7 +74,10 @@ export function getWhatsAppPlatformConfig(): {
     appId: env.WHATSAPP_APP_ID,
     configId: env.WHATSAPP_ES_CONFIG_ID,
     esVersion: env.WHATSAPP_ES_VERSION,
+    esFeatureType: env.WHATSAPP_ES_FEATURE_TYPE,
     graphVersion: env.WHATSAPP_API_VERSION,
+    billingUrl: env.WHATSAPP_BILLING_URL,
+    managerUrl: env.WHATSAPP_MANAGER_URL,
   };
 }
 
@@ -186,11 +194,53 @@ export async function getBusinessPhoneNumber(
     "status",
     "code_verification_status",
     "platform_type",
+    "is_on_biz_app",
   ].join(",");
   return graphFetch(
     `${encodeURIComponent(phoneNumberId)}?fields=${encodeURIComponent(fields)}`,
     token,
   );
+}
+
+/**
+ * Coexistence Embedded Signup can return only the Messaging account ID. Resolve
+ * the business phone number from the WABA's own phone_numbers edge.
+ */
+export async function listWabaPhoneNumbers(
+  wabaId: string,
+  token: string,
+): Promise<MetaPhoneNumber[]> {
+  const fields = [
+    "id",
+    "display_phone_number",
+    "verified_name",
+    "quality_rating",
+    "status",
+    "code_verification_status",
+    "platform_type",
+    "is_on_biz_app",
+  ].join(",");
+  const data = await graphFetch(
+    `${encodeURIComponent(wabaId)}/phone_numbers?fields=${encodeURIComponent(fields)}&limit=25`,
+    token,
+  );
+  return Array.isArray(data?.data) ? (data.data as MetaPhoneNumber[]) : [];
+}
+
+/**
+ * Coexistence onboarding: ask Meta to stream the business's existing WhatsApp
+ * Business app contacts to our webhook. These contacts are imported as
+ * UNKNOWN consent, never as opted in. Must be called within 24 hours of
+ * onboarding and only once per onboarding.
+ */
+export async function syncSmbAppContacts(phoneNumberId: string, token: string): Promise<void> {
+  await graphFetch(`${encodeURIComponent(phoneNumberId)}/smb_app_data`, token, {
+    method: "POST",
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      sync_type: "smb_app_state_sync",
+    }),
+  });
 }
 
 export async function getWaba(wabaId: string, token: string): Promise<MetaWaba> {

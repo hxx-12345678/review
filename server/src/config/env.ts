@@ -64,8 +64,23 @@ const envSchema = z.object({
   WHATSAPP_APP_SECRET: z.string().optional().default(""),
   WHATSAPP_ES_CONFIG_ID: z.string().optional().default(""),
   WHATSAPP_ES_VERSION: z.string().default("v4"),
+  // Enables Meta's WhatsApp Business app coexistence option inside Embedded
+  // Signup. Set to an empty string to force a Cloud API-only number.
+  WHATSAPP_ES_FEATURE_TYPE: z.string().optional().default("whatsapp_business_app_onboarding"),
   WHATSAPP_API_VERSION: z.string().default("v25.0"),
   WHATSAPP_WEBHOOK_VERIFY_TOKEN: z.string().optional().default(""),
+  // Official Meta destinations shown to business owners. Billing is always the
+  // business's own Meta Billing Hub account; BEYONDVYU never pays Meta for it.
+  WHATSAPP_BILLING_URL: z
+    .string()
+    .url()
+    .optional()
+    .default("https://business.facebook.com/billing_hub/accounts/"),
+  WHATSAPP_MANAGER_URL: z
+    .string()
+    .url()
+    .optional()
+    .default("https://business.facebook.com/wa/manage/home/"),
   // Secret for POST /api/v2/whatsapp/process-due if you prefer an external
   // scheduler. The in-process scheduler also runs when the Meta app is
   // configured, so this is optional.
@@ -181,6 +196,23 @@ export function loadEnv(): Env {
     }
     if (processed["GOOGLE_REDIRECT_URI"] && !processed["GOOGLE_OAUTH_REDIRECT_URI"]) {
       processed["GOOGLE_OAUTH_REDIRECT_URI"] = processed["GOOGLE_REDIRECT_URI"];
+    }
+    // Accept the META_* names commonly shown in Meta tutorials. The
+    // WHATSAPP_* names win when both are present. These are platform-level app
+    // credentials only; each client's WABA token is stored encrypted in the DB.
+    const metaAliases: Array<[string, string]> = [
+      ["META_APP_ID", "WHATSAPP_APP_ID"],
+      ["META_APP_SECRET", "WHATSAPP_APP_SECRET"],
+      ["META_GRAPH_API_VERSION", "WHATSAPP_API_VERSION"],
+      ["META_EMBEDDED_SIGNUP_CONFIG_ID", "WHATSAPP_ES_CONFIG_ID"],
+      ["META_CONFIG_ID", "WHATSAPP_ES_CONFIG_ID"],
+      ["META_WEBHOOK_VERIFY_TOKEN", "WHATSAPP_WEBHOOK_VERIFY_TOKEN"],
+      ["WHATSAPP_CONFIG_ID", "WHATSAPP_ES_CONFIG_ID"],
+    ];
+    for (const [from, to] of metaAliases) {
+      if (processed[from] && !processed[to]) {
+        processed[to] = processed[from];
+      }
     }
     const result = envSchema.safeParse(processed);
     if (!result.success) {

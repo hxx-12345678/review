@@ -1388,6 +1388,13 @@ function DoneStep({
   const [waSaving, setWaSaving] = useState(false)
   const [waDone, setWaDone] = useState(false)
 
+  const waNumber = String(business?.whatsappNumber || business?.displayPhoneNumber || "").replace(/\D/g, "")
+  const waChatUrl = waNumber
+    ? `https://wa.me/${waNumber}?text=${encodeURIComponent(
+        `Hi ${business?.name || "there"}, I just shared feedback and would like to stay in touch.`,
+      )}`
+    : ""
+
   async function submitWhatsAppOptIn() {
     if (!business?.slug) return
     if (!waPhone.trim()) {
@@ -1507,6 +1514,16 @@ function DoneStep({
                     Optional. {business.name} can reply about this feedback and send the updates you
                     agree to. Message frequency varies. Reply STOP to opt out.
                   </p>
+                  {waChatUrl && (
+                    <a
+                      href={waChatUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-2 inline-block text-[11px] font-medium text-primary underline"
+                    >
+                      Prefer to message {business.name} first? Open WhatsApp
+                    </a>
+                  )}
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="wa-phone" className="text-xs">WhatsApp number</Label>

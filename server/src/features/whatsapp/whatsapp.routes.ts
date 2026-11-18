@@ -7,6 +7,7 @@ import { publicWhatsAppLimiter } from "../../middleware/rate-limit";
 import { MetaApiError, getWhatsAppPlatformConfig } from "./whatsapp.meta";
 import {
   WhatsAppServiceError,
+  bulkUpsertContactsWithConsent,
   cancelAutomation,
   confirmPaymentMethod,
   connectBusinessWhatsApp,
@@ -42,8 +43,9 @@ const connectSchema = z.object({
   businessId: idSchema,
   code: z.string().min(10).max(4096),
   wabaId: z.string().min(5).max(100),
-  phoneNumberId: z.string().min(5).max(100),
+  phoneNumberId: z.string().min(5).max(100).optional().nullable(),
   businessPortfolioId: z.string().min(5).max(100).optional().nullable(),
+  coexistence: z.boolean().optional(),
 });
 
 const registerSchema = z.object({
@@ -77,6 +79,22 @@ const updateTemplateSchema = z.object({
   footerText: z.string().max(60).optional(),
   bodyExamples: z.array(z.string().max(200)).max(10).optional(),
   headerExample: z.string().max(200).optional(),
+});
+
+const bulkContactSchema = z.object({
+  businessId: idSchema,
+  consentConfirmed: z.literal(true),
+  contacts: z
+    .array(
+      z.object({
+        phone: z.string().min(5).max(30),
+        name: z.string().max(100).optional().nullable(),
+        marketingConsent: z.boolean().optional(),
+        note: z.string().max(200).optional().nullable(),
+      }),
+    )
+    .min(1)
+    .max(1000),
 });
 
 const contactSchema = z.object({
@@ -260,6 +278,7 @@ router.post("/connect", authRequired, async (req: AuthRequest, res: Response) =>
       wabaId: data.wabaId,
       phoneNumberId: data.phoneNumberId,
       businessPortfolioId: data.businessPortfolioId,
+      coexistence: data.coexistence,
     });
     res.json({ success: true, ...result });
   } catch (err) {
@@ -351,6 +370,22 @@ router.post("/contacts", authRequired, async (req: AuthRequest, res: Response) =
       marketingConsent: data.marketingConsent,
     });
     res.status(201).json({ success: true, contact });
+  } catch (err) {
+    handleError(res, err);
+  }
+});
+
+router.post("/contacts/bulk", authRequired, async (req: AuthRequest, res: Response) => {
+  try {
+    const data = bulkContactSchema.parse(req.body);
+    await assertBusiness(data.businessId, req.userId);
+    const result = await bulkUpsertContactsWithConsent({
+      businessId: data.businessId,
+      contacts: data.contacts,
+      consentConfirmed: true,
+      source: "bulk_import",
+    });
+    res.status(201).json({ success: true, ...result });
   } catch (err) {
     handleError(res, err);
   }

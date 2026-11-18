@@ -9,10 +9,12 @@ import {
   getBusinessPhoneNumber,
   getWaba,
   listMessageTemplates,
+  listWabaPhoneNumbers,
   registerBusinessPhoneNumber,
   sendTemplateMessage,
   sendTextMessage,
   subscribeAppToWaba,
+  syncSmbAppContacts,
   updateMessageTemplate,
 } from "./whatsapp.meta";
 
@@ -29,6 +31,21 @@ export class WhatsAppServiceError extends Error {
 }
 
 const SERVICE_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+const META_PAYMENT_ERROR_MESSAGE =
+  "Meta payment issue: add or top up your payment method in Meta Billing to resume WhatsApp messages (error 131042).";
+
+function isPaymentEligibilityError(err: any): boolean {
+  return (
+    String(err?.code ?? "") === "131042" ||
+    String(err?.subcode ?? "") === "131042" ||
+    /\b131042\b/.test(String(err?.message ?? ""))
+  );
+}
+
+function isPaymentErrorText(value?: string | null): boolean {
+  return /\b131042\b|payment eligibility|payment method/i.test(String(value ?? ""));
+}
 
 const USE_CASES = [
   "REVIEW_REQUEST",
@@ -148,11 +165,11 @@ export async function connectBusinessWhatsApp(input: {
   businessId: string;
   code: string;
   wabaId: string;
-  phoneNumberId: string;
+  phoneNumberId?: string | null;
   businessPortfolioId?: string | null;
+  coexistence?: boolean;
 }): Promise<{ connection: ReturnType<typeof serializeConnection>; warnings: string[] }> {
   const wabaId = assertMetaId(input.wabaId, "WhatsApp Business Account ID");
-  const phoneNumberId = assertMetaId(input.phoneNumberId, "phone number ID");
   const businessPortfolioId = input.businessPortfolioId
     ? assertMetaId(input.businessPortfolioId, "business portfolio ID")
     : null;
@@ -160,10 +177,34 @@ export async function connectBusinessWhatsApp(input: {
   const exchanged = await exchangeEmbeddedSignupCode(input.code);
   const token = exchanged.accessToken;
 
+  // Coexistence can return only the Messaging account ID. In that case resolve
+  // the number from the WABA instead of forcing the owner to type it.
+  let phoneNumberId = input.phoneNumberId
+    ? assertMetaId(input.phoneNumberId, "phone number ID")
+    : null;
+  if (!phoneNumberId) {
+    const numbers = await listWabaPhoneNumbers(wabaId, token);
+    const first =
+      numbers.find((number) => number.id && number.is_on_biz_app) ||
+      numbers.find((number) => number.id);
+    if (!first?.id) {
+      throw new WhatsAppServiceError(
+        "Meta did not return a WhatsApp business phone number for this account. Reconnect and choose a number.",
+        409,
+        "PHONE_NUMBER_MISSING",
+      );
+    }
+    phoneNumberId = String(first.id);
+  }
+
   const [phone, waba] = await Promise.all([
     getBusinessPhoneNumber(phoneNumberId, token),
     getWaba(wabaId, token).catch(() => null),
   ]);
+
+  // A coexistence number is already registered for Cloud API by Meta. We must
+  // not ask for a PIN or call the register endpoint for it.
+  const isCoexistence = Boolean(phone.is_on_biz_app) || Boolean(input.coexistence);
 
   const warnings: string[] = [];
   let webhookSubscribed = false;
@@ -174,6 +215,19 @@ export async function connectBusinessWhatsApp(input: {
     warnings.push(
       `Connected, but webhook subscription failed: ${err?.message || "unknown error"}. Retry Sync after checking the Meta app webhook.`,
     );
+  }
+
+  if (isCoexistence && webhookSubscribed) {
+    try {
+      // Imports the owner's existing WhatsApp Business app contacts as UNKNOWN
+      // consent so they do not have to type numbers one by one. Messaging still
+      // requires each contact to opt in.
+      await syncSmbAppContacts(phoneNumberId, token);
+    } catch (err: any) {
+      warnings.push(
+        `Number connected, but existing WhatsApp Business contacts could not be synced yet: ${err?.message || "unknown error"}. You can still collect opt-ins with the sign-up link.`,
+      );
+    }
   }
 
   const secret = encrypt(token);
@@ -210,6 +264,7 @@ export async function connectBusinessWhatsApp(input: {
       accessTokenTag: secret.tag,
       tokenExpiresAt,
       webhookSubscribed,
+      numberRegistered: isCoexistence,
       qualityRating: phone.quality_rating || null,
       lastSyncedAt: new Date(),
       lastError: warnings.length ? warnings.join(" ") : null,
@@ -226,6 +281,7 @@ export async function connectBusinessWhatsApp(input: {
       accessTokenTag: secret.tag,
       tokenExpiresAt,
       webhookSubscribed,
+      numberRegistered: isCoexistence,
       qualityRating: phone.quality_rating || null,
       lastSyncedAt: new Date(),
       lastError: warnings.length ? warnings.join(" ") : null,
@@ -331,7 +387,10 @@ export async function registerConnectedPhoneNumber(
 export async function confirmPaymentMethod(businessId: string): Promise<void> {
   await prisma.whatsAppConnection.update({
     where: { businessId },
-    data: { paymentMethodConfirmedAt: new Date() },
+    data: {
+      paymentMethodConfirmedAt: new Date(),
+      lastError: null,
+    },
   });
 }
 
@@ -761,6 +820,8 @@ export async function upsertContactWithConsent(input: {
   note?: string | null;
   consentConfirmed: boolean;
   marketingConsent?: boolean;
+  /** Only a customer-initiated opt-in (public form, START) may override STOP. */
+  allowOptOutOverride?: boolean;
 }) {
   if (!input.consentConfirmed) {
     throw new WhatsAppServiceError(
@@ -774,6 +835,23 @@ export async function upsertContactWithConsent(input: {
   const phone = normalizeWhatsAppPhone(input.phone, country);
   const now = new Date();
   const marketingConsent = input.marketingConsent === true;
+
+  // An owner attestation or bulk import must never override a customer's STOP.
+  // Let the customer opt back in themselves through the sign-up page or by
+  // sending START, which is recorded as a customer-initiated consent event.
+  if (!input.allowOptOutOverride) {
+    const existing = await prisma.whatsAppContact.findUnique({
+      where: { businessId_phone: { businessId: input.businessId, phone } },
+      select: { consentStatus: true },
+    });
+    if (existing?.consentStatus === "OPTED_OUT") {
+      throw new WhatsAppServiceError(
+        "This customer previously opted out. Only the customer can opt back in via the sign-up link or by sending START.",
+        409,
+        "CONSENT_REQUIRED",
+      );
+    }
+  }
 
   const contact = await prisma.whatsAppContact.upsert({
     where: { businessId_phone: { businessId: input.businessId, phone } },
@@ -824,6 +902,55 @@ export async function upsertContactWithConsent(input: {
   }
 
   return contact;
+}
+
+export async function bulkUpsertContactsWithConsent(input: {
+  businessId: string;
+  contacts: Array<{
+    phone: string;
+    name?: string | null;
+    marketingConsent?: boolean;
+    note?: string | null;
+  }>;
+  consentConfirmed: boolean;
+  source?: string;
+}) {
+  if (!input.consentConfirmed) {
+    throw new WhatsAppServiceError(
+      "You must confirm that these customers gave permission to receive WhatsApp messages from this business.",
+      400,
+      "CONSENT_REQUIRED",
+    );
+  }
+  let added = 0;
+  let skipped = 0;
+  const errors: string[] = [];
+
+  for (const item of input.contacts) {
+    try {
+      if (!item.phone || item.phone.trim().length < 5) {
+        skipped++;
+        continue;
+      }
+      await upsertContactWithConsent({
+        businessId: input.businessId,
+        phone: item.phone,
+        name: item.name || null,
+        source: input.source || "bulk_import",
+        note: item.note || "Imported in bulk by business owner",
+        consentConfirmed: true,
+        marketingConsent: item.marketingConsent ?? false,
+      });
+      added++;
+    } catch (err: any) {
+      skipped++;
+      if (errors.length < 5) {
+        errors.push(`${item.phone}: ${err?.message || "Invalid"}`);
+      }
+    }
+  }
+
+  return { added, skipped, total: input.contacts.length, errors };
 }
 
 export async function setContactOptOut(businessId: string, contactId: string, note?: string) {
@@ -1017,15 +1144,45 @@ export async function sendTemplateToContact(input: {
       where: { id: contact.id },
       data: { lastOutboundAt: new Date() },
     });
+    if (isPaymentErrorText(connection.lastError)) {
+      await prisma.whatsAppConnection.update({
+        where: { id: connection.id },
+        data: { lastError: null },
+      });
+    }
 
     return updated;
   } catch (err: any) {
     const errorMessage = err?.message || "WhatsApp send failed";
+    const metaCode = err?.code ? String(err.code) : null;
+
+    if (isPaymentEligibilityError(err)) {
+      await Promise.all([
+        prisma.whatsAppMessage.update({
+          where: { id: message.id },
+          data: {
+            status: "FAILED",
+            errorCode: "131042",
+            errorMessage,
+          },
+        }),
+        prisma.whatsAppConnection.update({
+          where: { id: connection.id },
+          data: { lastError: META_PAYMENT_ERROR_MESSAGE },
+        }),
+      ]);
+      throw new WhatsAppServiceError(
+        "Your Meta payment method needs attention. Add funds or update your card/UPI payment in Meta Billing, then try again.",
+        502,
+        "META_PAYMENT_REQUIRED",
+      );
+    }
+
     await prisma.whatsAppMessage.update({
       where: { id: message.id },
       data: {
         status: "FAILED",
-        errorCode: err?.code ? String(err.code) : null,
+        errorCode: metaCode,
         errorMessage,
       },
     });
@@ -1089,13 +1246,43 @@ export async function sendTextReply(input: {
       where: { id: contact.id },
       data: { lastOutboundAt: new Date() },
     });
+    if (isPaymentErrorText(connection.lastError)) {
+      await prisma.whatsAppConnection.update({
+        where: { id: connection.id },
+        data: { lastError: null },
+      });
+    }
     return updated;
   } catch (err: any) {
+    const metaCode = err?.code ? String(err.code) : null;
+
+    if (isPaymentEligibilityError(err)) {
+      await Promise.all([
+        prisma.whatsAppMessage.update({
+          where: { id: message.id },
+          data: {
+            status: "FAILED",
+            errorCode: "131042",
+            errorMessage: err?.message || "Meta payment eligibility failed",
+          },
+        }),
+        prisma.whatsAppConnection.update({
+          where: { id: connection.id },
+          data: { lastError: META_PAYMENT_ERROR_MESSAGE },
+        }),
+      ]);
+      throw new WhatsAppServiceError(
+        "Your Meta payment method needs attention. Add funds or update your card/UPI payment in Meta Billing, then try again.",
+        502,
+        "META_PAYMENT_REQUIRED",
+      );
+    }
+
     await prisma.whatsAppMessage.update({
       where: { id: message.id },
       data: {
         status: "FAILED",
-        errorCode: err?.code ? String(err.code) : null,
+        errorCode: metaCode,
         errorMessage: err?.message || "WhatsApp send failed",
       },
     });
@@ -1629,7 +1816,7 @@ export async function getPublicWhatsAppBusiness(slug: string) {
       logoUrl: true,
       primaryColor: true,
       country: true,
-      whatsAppConnection: { select: { status: true } },
+      whatsAppConnection: { select: { status: true, displayPhoneNumber: true } },
     },
   });
   if (!business) throw new WhatsAppServiceError("Business not found.", 404, "BUSINESS_NOT_FOUND");
@@ -1640,6 +1827,8 @@ export async function getPublicWhatsAppBusiness(slug: string) {
     primaryColor: business.primaryColor,
     country: business.country,
     whatsappConnected: business.whatsAppConnection?.status === "CONNECTED",
+    displayPhoneNumber: business.whatsAppConnection?.displayPhoneNumber || null,
+    whatsappNumber: business.whatsAppConnection?.displayPhoneNumber || null,
   };
 }
 
@@ -1686,6 +1875,9 @@ export async function registerPublicWhatsAppOptIn(input: {
       : "Customer submitted the public opt-in form",
     consentConfirmed: true,
     marketingConsent: input.marketingConsent === true,
+    // The customer is submitting this form themselves, so this is a valid
+    // customer-initiated opt-in even if they previously sent STOP.
+    allowOptOutOverride: true,
   });
 
   if (input.feedbackId) {
@@ -1770,6 +1962,78 @@ export async function processDueWhatsAppAutomations(limit = 50): Promise<{
 /* Owner-facing overview                                                      */
 /* -------------------------------------------------------------------------- */
 
+function startOfMonthUtc(): Date {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0));
+}
+
+function messageCategory(message: { pricing: unknown; templateCategory: string | null; messageType: string }) {
+  const pricing = (message.pricing || {}) as any;
+  const raw = pricing.category || message.templateCategory || (message.messageType === "TEXT" ? "SERVICE" : "");
+  const value = String(raw || "").toUpperCase();
+  return ["MARKETING", "UTILITY", "AUTHENTICATION", "SERVICE"].includes(value) ? value : null;
+}
+
+/**
+ * Estimate this month's Meta charge from delivery webhooks. This is not a
+ * substitute for Meta's invoice: taxes, volume tiers, free entry point windows,
+ * and settlement timing live only in Meta Billing Hub. It exists so the owner
+ * can see roughly what their own Meta account is spending without BEYONDVYU
+ * ever paying or marking up the bill.
+ */
+async function estimateMetaSpend(businessId: string, currency: string | null) {
+  const monthStart = startOfMonthUtc();
+  const messages = await prisma.whatsAppMessage.findMany({
+    where: {
+      businessId,
+      direction: "OUTBOUND",
+      status: { in: ["DELIVERED", "READ"] },
+      createdAt: { gte: monthStart },
+    },
+    select: { pricing: true, templateCategory: true, messageType: true },
+    take: 20000,
+  });
+
+  const rates = (WHATSAPP_PRICING.india.perDeliveredMessage as Record<string, number>) || {};
+  const byCategory: Record<string, { deliveredBillable: number; deliveredFree: number; estimated: number }> = {};
+  let estimatedSpend = 0;
+  let deliveredBillable = 0;
+  let deliveredFree = 0;
+
+  for (const message of messages) {
+    const category = messageCategory(message);
+    if (!category) continue;
+    const pricing = (message.pricing || {}) as any;
+    const bucket = (byCategory[category] ||= { deliveredBillable: 0, deliveredFree: 0, estimated: 0 });
+
+    // Meta marks messages in the free service tier or a free entry point window
+    // with billable: false. Treat unknown as billable only when a rate exists.
+    if (pricing.billable === false || pricing.type === "free_customer_service") {
+      deliveredFree++;
+      bucket.deliveredFree++;
+      continue;
+    }
+    const rate = rates[category];
+    if (currency !== "INR" || typeof rate !== "number") continue;
+    deliveredBillable++;
+    bucket.deliveredBillable++;
+    bucket.estimated += rate;
+    estimatedSpend += rate;
+  }
+
+  return {
+    currency,
+    monthStart: monthStart.toISOString(),
+    estimatedSpend: Number(estimatedSpend.toFixed(4)),
+    deliveredBillable,
+    deliveredFree,
+    byCategory,
+    sourceOfTruthUrl: "https://business.facebook.com/billing_hub/accounts/",
+    disclaimer:
+      "Estimated from delivered-message webhooks using Meta's published India rates. Taxes, volume tiers, free entry point windows, and settlement are calculated by Meta. Your actual invoice is in Meta Billing Hub.",
+  };
+}
+
 export async function getWhatsAppOverview(businessId: string) {
   const [
     business,
@@ -1847,6 +2111,12 @@ export async function getWhatsAppOverview(businessId: string) {
     prisma.whatsAppMessage.count({ where: { businessId, direction: "INBOUND" } }),
   ]);
 
+  const pricing =
+    business.country === "IN"
+      ? WHATSAPP_PRICING.india
+      : { ...WHATSAPP_PRICING.other, effectiveFrom: null, verifiedOn: null };
+  const metaBilling = await estimateMetaSpend(businessId, pricing.currency);
+
   return {
     business,
     connection: serializeConnection(connection),
@@ -1861,10 +2131,17 @@ export async function getWhatsAppOverview(businessId: string) {
     automations,
     automationRules,
     stats: { outboundSent, delivered, read, failed, inbound },
-    pricing:
-      business.country === "IN"
-        ? WHATSAPP_PRICING.india
-        : { ...WHATSAPP_PRICING.other, effectiveFrom: null, verifiedOn: null },
+    pricing,
+    billing: {
+      meta: metaBilling,
+      platform: {
+        note:
+          "Your BEYONDVYU subscription is billed separately by BEYONDVYU through the billing portal. Meta message charges are never included in, marked up by, or paid by BEYONDVYU.",
+        manageUrl: "/dashboard/billing",
+        metaBillingUrl: "https://business.facebook.com/billing_hub/accounts/",
+        metaManagerUrl: "https://business.facebook.com/wa/manage/home/",
+      },
+    },
   };
 }
 
