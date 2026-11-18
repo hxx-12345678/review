@@ -519,6 +519,11 @@ export function WhatsAppFlows({ businessId, businessName }: Props) {
       if (overview.platform.esFeatureType) {
         extras.featureType = overview.platform.esFeatureType
       }
+      // In-app browsers suppress the popup and fall back to a redirect. Meta
+      // only completes that redirect when the exact page URI is saved in
+      // Facebook Login for Business > Valid OAuth Redirect URIs. Sending it
+      // explicitly avoids the SDK guessing a different URL.
+      const fallbackRedirectUri = `${window.location.origin}/dashboard/whatsapp`
       FB.login(
         (response: any) => {
           const code = response?.authResponse?.code
@@ -535,6 +540,7 @@ export function WhatsAppFlows({ businessId, businessName }: Props) {
           config_id: overview.platform.configId,
           response_type: "code",
           override_default_response_type: true,
+          fallback_redirect_uri: fallbackRedirectUri,
           extras,
         },
       )

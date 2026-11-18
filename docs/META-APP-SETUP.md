@@ -83,6 +83,52 @@ https://beyondvyu.com/dashboard/whatsapp
 It must report that the URI matches the saved list. If it does not, add the
 exact URI above and validate again.
 
+### If the validator says “This is an invalid redirect URI for this application”
+
+This error means the exact string is not in the **saved** list above it. It is
+not a request to type the URL into the validator box.
+
+Do this in order:
+
+1. **App settings → Basic → App Domains** must contain `beyondvyu.com` and
+   `www.beyondvyu.com`. Save. A redirect URI can be rejected when its domain is
+   missing from App Domains, even if the URL is listed.
+2. Go back to **Facebook Login for Business → Settings**.
+3. In **Valid OAuth Redirect URIs**, type:
+
+   ```text
+   https://beyondvyu.com/dashboard/whatsapp
+   ```
+
+   Press **Enter** after typing so it becomes a separate entry. Do not just
+   paste it and click away.
+4. Add the other entries from the list above, including the root and `www`
+   variants.
+5. Scroll to the bottom of the page and click **Save changes**. Wait for the
+   confirmation, then reload the page and confirm the entries are still there.
+6. Now enter the same URL in **Redirect URI Validator** and check again.
+
+If it still fails:
+
+- Make sure you are editing the correct app (check the app selector at the top).
+- If the page has both **Facebook Login** and **Facebook Login for Business**,
+  add the URI to both settings pages. The validator only checks the section it
+  belongs to.
+- `Use Strict Mode for redirect URIs` requires an exact match. No wildcard, no
+  extra query string, no uppercase host, no extra space.
+- Add both `https://beyondvyu.com/dashboard/whatsapp` and
+  `https://beyondvyu.com/dashboard/whatsapp/` if the validator still fails. One
+  of them will match how the browser presents the page.
+- Do not put the full URL in **Allowed Domains for the JavaScript SDK**. That
+  field takes only `beyondvyu.com`.
+- Do not put the API host (`review-ewye.onrender.com`) in this list. Embedded
+  Signup runs on the frontend.
+- If the app type is **None**, Facebook Login for Business may not save this
+  list. Check **App settings → Basic → App Type** and use a Business app.
+- If you use a tunnel, add the tunnel host to **App Domains**, the tunnel
+  hostname to **Allowed Domains**, and the full
+  `https://<tunnel-host>/dashboard/whatsapp` to **Valid OAuth Redirect URIs**.
+
 ---
 
 ## 2. Deauthorize Callback URL
