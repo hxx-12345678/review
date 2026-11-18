@@ -257,8 +257,16 @@ This is the exact external setup. It cannot be done from this repository.
 7. Add every HTTPS host that launches the popup to **Allowed domains** and
    **Valid OAuth redirect URIs**. `http://localhost` cannot complete the full
    flow; use an HTTPS tunnel or staging domain.
-8. Complete any App Review / Advanced Access Meta requires before real clients
-   use the app.
+8. Set **Login with the JavaScript SDK** to **Yes**, and add the frontend
+   domains to **Allowed Domains for the JavaScript SDK**.
+9. Set **Deauthorize Callback URL** to
+   `https://<api-host>/api/meta/deauthorize` and **Data Deletion Request URL**
+   to `https://<api-host>/api/meta/data-deletion`.
+10. Complete any App Review / Advanced Access Meta requires before real clients
+    use the app.
+
+Exact field-by-field values are in
+[`docs/META-APP-SETUP.md`](./META-APP-SETUP.md).
 
 ### D. Configure the webhook
 

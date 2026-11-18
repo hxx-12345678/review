@@ -27,6 +27,7 @@ import adminAnalyticsRoutes from "./routes/admin-analytics";
 import consentRoutes from "./routes/consent";
 import aiVisibilityRoutes from "./routes/ai-visibility";
 import v2Features from "./features/index";
+import metaComplianceRoutes from "./features/meta/meta-compliance";
 import { handleWhatsAppWebhook, verifyWhatsAppWebhook } from "./features/whatsapp/whatsapp.webhook";
 import { processDueWhatsAppAutomations } from "./features/whatsapp/whatsapp.service";
 
@@ -465,6 +466,11 @@ app.use("/api/auth", consentRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/admin", adminAnalyticsRoutes);
 app.use("/api/ai", aiVisibilityRoutes);
+
+// Meta Platform Terms callbacks: Deauthorize + Data Deletion. Signed with the
+// Meta app secret, not our bearer auth, so they are mounted before v2 auth
+// middleware and use express.urlencoded from above.
+app.use("/api/meta", metaComplianceRoutes);
 
 // v2 Feature routes (isolated from above — these are the new 6 features)
 app.use("/api/v2", v2Features);

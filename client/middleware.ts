@@ -12,7 +12,21 @@ export function middleware(request: NextRequest) {
   const apiOrigin = new URL(apiUrl).origin
   response.headers.set(
     "Content-Security-Policy",
-    `default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://static.cloudflareinsights.com https://*.razorpay.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data: https://*.razorpay.com; connect-src 'self' ${apiOrigin} https://api.openai.com https://static.cloudflareinsights.com https://*.razorpay.com; frame-src https://*.razorpay.com; frame-ancestors 'none'`,
+    [
+      "default-src 'self'",
+      // connect.facebook.net is required by Meta Embedded Signup (FB.init/FB.login).
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://connect.facebook.net https://static.cloudflareinsights.com https://*.razorpay.com",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: blob: https:",
+      "font-src 'self' data: https://*.razorpay.com",
+      // The SDK reaches Graph API and facebook.com during signup/session checks.
+      `connect-src 'self' ${apiOrigin} https://api.openai.com https://connect.facebook.net https://graph.facebook.com https://www.facebook.com https://web.facebook.com https://static.cloudflareinsights.com https://*.razorpay.com`,
+      // Embedded Signup renders in a Facebook-hosted window/iframe.
+      "frame-src https://*.razorpay.com https://www.facebook.com https://web.facebook.com https://*.facebook.com",
+      "form-action 'self' https://*.razorpay.com https://www.facebook.com",
+      "frame-ancestors 'none'",
+      "base-uri 'self'",
+    ].join("; "),
   )
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin")
   response.headers.set("Permissions-Policy", "geolocation=(), microphone=(), camera=(), payment=(self)")

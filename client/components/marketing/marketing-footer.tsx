@@ -39,6 +39,7 @@ export function MarketingFooter() {
               { label: "Cookie preferences", href: "#", onClick: () => window.dispatchEvent(new CustomEvent("beyondvyu:open-cookie-preferences")) },
               { label: "Terms of service", href: "/terms" },
               { label: "Refund policy", href: "/refund" },
+              { label: "Data deletion", href: "/data-deletion" },
               { label: "Compliance", href: "/#compliance" },
             ]}
           />

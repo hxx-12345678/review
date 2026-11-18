@@ -199,6 +199,15 @@ export default function PrivacyPage() {
             by law (e.g., invoice records for tax purposes are retained for 7 years as required by
             Indian tax law).
           </p>
+          <p>
+            To request deletion of data associated with your Facebook or Meta account, use the
+            instructions at{" "}
+            <a href="/data-deletion" className="font-medium text-primary underline underline-offset-2">
+              beyondvyu.com/data-deletion
+            </a>{" "}
+            or email support@beyondvyu.com. Meta data-deletion callbacks are recorded and expose a
+            human-readable status page with a confirmation code.
+          </p>
         </section>
 
         <section className="mb-8 space-y-4">

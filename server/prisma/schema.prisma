@@ -502,6 +502,29 @@ model WhatsAppConnection {
 }
 
 /**
+ * Meta Platform Terms require every app that receives Facebook user data to
+ * expose a data-deletion callback and a human-readable status page. We do not
+ * use Facebook Login for end users, so there is normally no Facebook-derived
+ * profile row to delete; the request is still recorded for audit and the status
+ * page proves that Meta's callback was received and handled.
+ */
+model MetaDataDeletionRequest {
+  id               String    @id @default(cuid())
+  confirmationCode String    @unique
+  facebookUserId   String?
+  status           String    @default("pending") // pending | completed | no_data
+  source           String    @default("meta_data_deletion_callback")
+  note             String?
+  requestedAt      DateTime  @default(now())
+  completedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([facebookUserId])
+  @@index([status])
+}
+
+/**
  * A customer known to one business. Consent is scoped per business: a customer
  * opting in to Business A must never be messaged by Business B.
  */
