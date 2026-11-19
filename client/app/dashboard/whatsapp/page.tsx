@@ -28,7 +28,7 @@ export default function DashboardWhatsAppPage() {
     <>
       <PageHeader
         title="WhatsApp Automation & Marketing"
-        description={`Send Meta-approved festival wishes, offers, review requests, and reminders to ${currentBusiness.name}'s customers.`}
+        description={`Connect your WhatsApp Business number, create Meta-approved templates, and send festival wishes, offers, review requests, and reminders to ${currentBusiness.name}'s customers.`}
       />
       <div className="p-4 sm:p-6 lg:p-8 max-w-5xl">
         <WhatsAppFlows businessId={currentBusiness.id} businessName={currentBusiness.name} />

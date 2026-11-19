@@ -196,6 +196,22 @@ const TEMPLATE_LIBRARY: LibraryTemplate[] = [
     examples: "Riya, Sunrise Cafe, 15 Nov, https://beyondvyu.com/r/sunrise-cafe",
   },
 
+  // ── Owner Reports ─────────────────────────────────────────────────────────
+  {
+    id: "owner_weekly_digest",
+    group: "Owner Reports",
+    groupEmoji: "📊",
+    title: "Weekly Reputation Digest",
+    description: "Send the owner a weekly feedback and rating summary on WhatsApp",
+    category: "UTILITY",
+    useCase: "OWNER_REPORT",
+    name: "owner_weekly_digest",
+    header: "Weekly Reputation Pulse",
+    body: "Your weekly WhatsApp reputation digest is ready.\n\n{{1}}\n\nReply here if you want help with any follow-up.",
+    footer: "Sent to the business owner who opted in.",
+    examples: "Feedback 12 · Rating 4.6 · Open issues 2",
+  },
+
   // ── Appointment & Booking ────────────────────────────────────────────────
   {
     id: "appt_confirmation",

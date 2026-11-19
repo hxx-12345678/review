@@ -196,7 +196,7 @@ export default function Page() {
               name: "Does the weekly WhatsApp digest work automatically?",
               acceptedAnswer: {
                 "@type": "Answer",
-                text: "The digest content (feedback volume, review velocity, rating change, top praise/issues, follow-ups) is generated in the dashboard today and shows an honest preview. Automatic WhatsApp delivery needs your WhatsApp Business API number connected plus owner opt-in, with an approved Meta utility template. Until then nothing is auto-sent.",
+                text: "The digest content (feedback volume, review velocity, rating change, top praise/issues, follow-ups) is generated in the dashboard today and shows an honest preview. After you connect your own WhatsApp Business number, confirm owner opt-in, and get an approved Meta Utility template, you can send a test digest on WhatsApp. Automatic scheduled WhatsApp delivery is not enabled yet, so nothing is sent automatically.",
               },
             },
             {

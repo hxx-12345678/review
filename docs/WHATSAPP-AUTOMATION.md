@@ -6,6 +6,11 @@ This document records the official Meta rules used to design the multi-tenant
 WhatsApp feature, what the code now does, and the exact setup still required
 outside this repository.
 
+For the Meta dashboard **Step 2 — Production setup** checklist, including
+webhook values, phone registration, payment, system-user tokens, the first
+template send, and publishing, see
+[`META-WHATSAPP-PRODUCTION-SETUP.md`](./META-WHATSAPP-PRODUCTION-SETUP.md).
+
 ## 1. Ownership and billing model
 
 The old implementation used one global `WHATSAPP_PHONE_NUMBER_ID` and
@@ -267,6 +272,27 @@ This is the exact external setup. It cannot be done from this repository.
 
 Exact field-by-field values are in
 [`docs/META-APP-SETUP.md`](./META-APP-SETUP.md).
+
+### Local development and HTTPS
+
+Meta's JavaScript SDK refuses to run `FB.login` on an `http://` page. The
+dashboard now detects this before calling the SDK, shows an HTTPS notice, and
+keeps the rest of the WhatsApp features usable. To test Embedded Signup locally:
+
+1. Put the frontend and API behind trusted HTTPS tunnels (for example
+   Cloudflare Tunnel or ngrok). Do not use a self-signed certificate; Meta
+   rejects it.
+2. Set the frontend tunnel origin in `client/.env.local`:
+   `NEXT_PUBLIC_APP_URL="https://<frontend-host>"`.
+3. Set the API tunnel origin in `client/.env.local`:
+   `NEXT_PUBLIC_API_URL="https://<api-host>/api"`.
+4. Add `https://<frontend-host>/dashboard/whatsapp` to Meta's **Allowed
+   domains** and **Valid OAuth Redirect URIs**.
+5. Restart Next.js and open the HTTPS frontend URL.
+
+For final verification, use the deployed HTTPS domain. Localhost is fine for
+templates, contacts, sending, automations, scheduling, and the inbox; only the
+Meta signup popup requires HTTPS.
 
 ### D. Configure the webhook
 

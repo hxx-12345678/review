@@ -17,6 +17,10 @@ Embedded Signup. It matches the code in this repository:
 > that host everywhere this document says `review-ewye.onrender.com`. The value
 > must be the same origin that `NEXT_PUBLIC_API_URL` points to on the frontend.
 
+For App Review **Allowed usage**, copy-paste permission descriptions, API test
+calls, screencast scripts, and reviewer instructions, see
+[`META-APP-REVIEW-ALLOWED-USAGE.md`](./META-APP-REVIEW-ALLOWED-USAGE.md).
+
 ---
 
 ## 1. Facebook Login for Business → Settings

@@ -297,7 +297,7 @@ export async function createMessageTemplate(
     name: string;
     language: string;
     category: string;
-    parameter_format: "positional" | "named";
+    parameter_format: "POSITIONAL" | "NAMED";
     components: unknown[];
   },
 ): Promise<{ id: string; status: string; category?: string }> {
@@ -317,7 +317,7 @@ export async function updateMessageTemplate(
   token: string,
   payload: {
     category?: string;
-    parameter_format?: "positional" | "named";
+    parameter_format?: "POSITIONAL" | "NAMED";
     components: unknown[];
   },
 ): Promise<{ success: boolean }> {

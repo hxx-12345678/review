@@ -157,8 +157,13 @@ export function WhatsAppReportCard({ businessId }: Props) {
             onChange={(e) => setEnabled(e.target.checked)}
             className="size-4 rounded border-gray-300 text-primary focus:ring-primary"
           />
-          <span className="text-sm font-medium text-foreground">Enable weekly/monthly digest</span>
+          <span className="text-sm font-medium text-foreground">Save weekly/monthly digest preference</span>
         </label>
+        <p className="text-[11px] text-muted-foreground">
+          This release saves the preference and lets you send a test digest through an approved Meta
+          Utility template. Automatic WhatsApp delivery is not enabled yet, so nothing is sent on a
+          schedule.
+        </p>
 
         {enabled && (
           <>
@@ -206,7 +211,7 @@ export function WhatsAppReportCard({ businessId }: Props) {
           {enabled && (
             <Button onClick={handleTest} disabled={testing} variant="outline" size="sm">
               {testing ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-              {testing ? "Generating..." : "Send test / preview"}
+              {testing ? "Generating..." : "Send test digest / preview"}
             </Button>
           )}
         </div>

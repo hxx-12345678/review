@@ -525,7 +525,7 @@ export function buildTemplateComponents(input: {
   const components: unknown[] = [];
   if (headerText) {
     components.push({
-      type: "header",
+      type: "HEADER",
       format: "TEXT",
       text: headerText,
       ...(header.count > 0
@@ -535,13 +535,13 @@ export function buildTemplateComponents(input: {
   }
 
   components.push({
-    type: "body",
+    type: "BODY",
     text: bodyText,
     ...(body.count > 0 ? { example: { body_text: [bodyExamples.slice(0, body.count)] } } : {}),
   });
 
   if (footerText) {
-    components.push({ type: "footer", text: footerText });
+    components.push({ type: "FOOTER", text: footerText });
   }
 
   return {
@@ -673,8 +673,8 @@ export async function createBusinessTemplate(
     created = await createMessageTemplate(connection.wabaId, token, {
       name,
       language,
-      category: category.toLowerCase(),
-      parameter_format: "positional",
+      category,
+      parameter_format: "POSITIONAL",
       components: built.components,
     });
   } catch (err: any) {
@@ -759,8 +759,8 @@ export async function updateBusinessTemplate(
 
   try {
     await updateMessageTemplate(template.metaTemplateId, token, {
-      ...(template.status === "APPROVED" ? {} : { category: category.toLowerCase() }),
-      parameter_format: "positional",
+      ...(template.status === "APPROVED" ? {} : { category }),
+      parameter_format: "POSITIONAL",
       components: built.components,
     });
   } catch (err: any) {
@@ -1392,6 +1392,17 @@ function normalizeVariableMap(value: unknown): WhatsAppVariableMapping[] {
   });
 }
 
+export function buildReviewUrl(
+  frontendUrl: string,
+  slug: string,
+  googleReviewUrl?: string | null,
+): string {
+  const directGoogleUrl = googleReviewUrl?.trim();
+  if (directGoogleUrl) return directGoogleUrl;
+  const origin = frontendUrl.split(",")[0].trim().replace(/\/$/, "");
+  return `${origin}/r/${slug}`;
+}
+
 function resolveAutomationValue(
   entry: WhatsAppVariableMapping,
   context: {
@@ -1407,9 +1418,10 @@ function resolveAutomationValue(
     case "BUSINESS_NAME":
       return context.business.name;
     case "REVIEW_URL":
-      return (
-        context.business.googleReviewUrl?.trim() ||
-        `${getEnv().FRONTEND_URL.replace(/\/$/, "")}/r/${context.business.slug}`
+      return buildReviewUrl(
+        getEnv().FRONTEND_URL,
+        context.business.slug,
+        context.business.googleReviewUrl,
       );
     case "RATING":
       return context.automation?.rating ? `${context.automation.rating}/5` : "";

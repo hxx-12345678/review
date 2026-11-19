@@ -1,6 +1,7 @@
 import assert from "assert";
 import crypto from "crypto";
 import {
+  buildReviewUrl,
   buildTemplateComponents,
   countPlaceholders,
   validateTemplatePolicy,
@@ -39,18 +40,18 @@ const built = buildTemplateComponents({
 assert.strictEqual(built.parameterCount, 2);
 assert.strictEqual(built.headerParameterCount, 1);
 assert.deepStrictEqual((built.components as any[])[0], {
-  type: "header",
+  type: "HEADER",
   format: "TEXT",
   text: "Hi {{1}}",
   example: { header_text: ["Riya"] },
 });
 assert.deepStrictEqual((built.components as any[])[1], {
-  type: "body",
+  type: "BODY",
   text: "Thank you {{1}} for visiting {{2}}.",
   example: { body_text: [["Riya", "Sunrise Cafe"]] },
 });
 assert.deepStrictEqual((built.components as any[])[2], {
-  type: "footer",
+  type: "FOOTER",
   text: "Reply STOP to opt out.",
 });
 
@@ -139,6 +140,23 @@ assert.strictEqual(
   verifyMetaSignature(body, validSignature.replace("sha256=", "")),
   false,
   "Signature must include the sha256= prefix",
+);
+
+// Review links ----------------------------------------------------------------
+assert.strictEqual(
+  buildReviewUrl("http://localhost:3000,https://beyondvyu.com", "sunrise-cafe"),
+  "http://localhost:3000/r/sunrise-cafe",
+  "Comma-separated FRONTEND_URL must use the first origin, not the whole string",
+);
+assert.strictEqual(
+  buildReviewUrl("https://beyondvyu.com/", "sunrise-cafe"),
+  "https://beyondvyu.com/r/sunrise-cafe",
+  "Trailing slash must not create a double slash",
+);
+assert.strictEqual(
+  buildReviewUrl("https://beyondvyu.com", "sunrise-cafe", "https://g.page/r/example"),
+  "https://g.page/r/example",
+  "A direct Google review URL wins over the internal review page",
 );
 
 console.log("WhatsApp unit tests passed");

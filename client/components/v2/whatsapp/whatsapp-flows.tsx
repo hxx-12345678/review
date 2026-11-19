@@ -33,6 +33,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { api } from "@/lib/api"
+import { META_SIGNUP_HTTPS_MESSAGE, canUseMetaSignup } from "@/lib/meta-signup"
 import { toast } from "sonner"
 import { WhatsAppInbox } from "./whatsapp-inbox"
 import { WhatsAppAutomations } from "./whatsapp-automations"
@@ -206,6 +207,9 @@ function statusVariant(status: string): "default" | "secondary" | "destructive" 
 
 function loadFacebookSdk(appId: string, version: string): Promise<any> {
   if (typeof window === "undefined") return Promise.reject(new Error("Meta SDK is browser-only"))
+  if (!canUseMetaSignup(window.location.protocol)) {
+    return Promise.reject(new Error(META_SIGNUP_HTTPS_MESSAGE))
+  }
   if (window.FB) {
     window.FB.init({ appId, version, xfbml: false, cookie: false })
     return Promise.resolve(window.FB)
@@ -247,6 +251,7 @@ export function WhatsAppFlows({ businessId, businessName }: Props) {
   const [tab, setTab] = useState<Tab>("send")
   const [action, setAction] = useState<string | null>(null)
   const [connecting, setConnecting] = useState(false)
+  const [isHttps, setIsHttps] = useState(true)
   const [pin, setPin] = useState("")
 
   const [tplName, setTplName] = useState("")
@@ -293,6 +298,15 @@ export function WhatsAppFlows({ businessId, businessName }: Props) {
     coexistence?: boolean
   } | null>(null)
   const connectingRef = useRef(false)
+  const connectAttemptRef = useRef(false)
+  const connectTimeoutRef = useRef<number | null>(null)
+
+  const clearConnectTimeout = useCallback(() => {
+    if (connectTimeoutRef.current !== null) {
+      window.clearTimeout(connectTimeoutRef.current)
+      connectTimeoutRef.current = null
+    }
+  }, [])
 
   const loadOverview = useCallback(async () => {
     try {
@@ -309,6 +323,16 @@ export function WhatsAppFlows({ businessId, businessName }: Props) {
   useEffect(() => {
     loadOverview()
   }, [loadOverview])
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setIsHttps(canUseMetaSignup(window.location.protocol))
+    }
+  }, [])
+
+  useEffect(() => {
+    return () => clearConnectTimeout()
+  }, [clearConnectTimeout])
 
   useEffect(() => {
     if (overview?.business?.slug && typeof window !== "undefined") {
@@ -428,6 +452,7 @@ export function WhatsAppFlows({ businessId, businessName }: Props) {
 
     connectingRef.current = true
     setConnecting(true)
+    clearConnectTimeout()
     try {
       const result = await api.v2.whatsapp.connect({
         businessId,
@@ -445,12 +470,14 @@ export function WhatsAppFlows({ businessId, businessName }: Props) {
     } catch (err: any) {
       toast.error(err?.message || "Could not finish WhatsApp connection.")
     } finally {
+      clearConnectTimeout()
       pendingCodeRef.current = null
       pendingDataRef.current = null
       connectingRef.current = false
+      connectAttemptRef.current = false
       setConnecting(false)
     }
-  }, [businessId, loadOverview])
+  }, [businessId, clearConnectTimeout, loadOverview])
 
   useEffect(() => {
     function onMessage(event: MessageEvent) {
@@ -464,17 +491,21 @@ export function WhatsAppFlows({ businessId, businessName }: Props) {
       if (data?.type !== "WA_EMBEDDED_SIGNUP") return
 
       if (data.event === "CANCEL") {
+        clearConnectTimeout()
         pendingCodeRef.current = null
         pendingDataRef.current = null
         connectingRef.current = false
+        connectAttemptRef.current = false
         setConnecting(false)
         toast.error("WhatsApp connection was cancelled before it finished.")
         return
       }
       if (data.event === "ERROR") {
+        clearConnectTimeout()
         pendingCodeRef.current = null
         pendingDataRef.current = null
         connectingRef.current = false
+        connectAttemptRef.current = false
         setConnecting(false)
         toast.error(data?.data?.error_message || "Meta reported an error during WhatsApp setup.")
         return
@@ -485,10 +516,12 @@ export function WhatsAppFlows({ businessId, businessName }: Props) {
         data?.event === "FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING" || payload?.coexistence === true
       if (!payload?.waba_id && !payload?.phone_number_id) return
       if (!payload?.phone_number_id && !coexistenceEvent) {
+        clearConnectTimeout()
         toast.error(
           "Meta completed the flow without a phone number. Reconnect and add a WhatsApp business number.",
         )
         connectingRef.current = false
+        connectAttemptRef.current = false
         setConnecting(false)
         return
       }
@@ -503,11 +536,28 @@ export function WhatsAppFlows({ businessId, businessName }: Props) {
 
     window.addEventListener("message", onMessage)
     return () => window.removeEventListener("message", onMessage)
-  }, [finishConnect])
+  }, [clearConnectTimeout, finishConnect])
 
   async function handleConnect() {
     if (!overview?.platform.configured) return
+    if (typeof window !== "undefined" && !canUseMetaSignup(window.location.protocol)) {
+      toast.error(META_SIGNUP_HTTPS_MESSAGE)
+      return
+    }
+    clearConnectTimeout()
+    connectAttemptRef.current = true
     setConnecting(true)
+    connectTimeoutRef.current = window.setTimeout(() => {
+      if (!connectAttemptRef.current) return
+      pendingCodeRef.current = null
+      pendingDataRef.current = null
+      connectingRef.current = false
+      connectAttemptRef.current = false
+      setConnecting(false)
+      toast.error(
+        "Meta signup timed out. Close any Meta popup, then click Connect WhatsApp again.",
+      )
+    }, 4 * 60 * 1000)
     try {
       const FB = await loadFacebookSdk(overview.platform.appId, overview.platform.graphVersion)
       pendingCodeRef.current = null
@@ -528,7 +578,9 @@ export function WhatsAppFlows({ businessId, businessName }: Props) {
         (response: any) => {
           const code = response?.authResponse?.code
           if (!code) {
+            clearConnectTimeout()
             connectingRef.current = false
+            connectAttemptRef.current = false
             setConnecting(false)
             toast.error("Meta did not return an authorization code. Please try again.")
             return
@@ -545,6 +597,9 @@ export function WhatsAppFlows({ businessId, businessName }: Props) {
         },
       )
     } catch (err: any) {
+      clearConnectTimeout()
+      connectingRef.current = false
+      connectAttemptRef.current = false
       setConnecting(false)
       toast.error(err?.message || "Could not open Meta's WhatsApp signup.")
     }
@@ -896,6 +951,10 @@ export function WhatsAppFlows({ businessId, businessName }: Props) {
   const pricing = overview.pricing
 
   const isMetaPaymentError = /131042/.test(connection?.lastError ?? "")
+  const configuredAppUrl = process.env.NEXT_PUBLIC_APP_URL?.trim()
+  const httpsDashboardUrl = configuredAppUrl?.startsWith("https://")
+    ? `${configuredAppUrl.replace(/\/$/, "")}/dashboard/whatsapp`
+    : "https://beyondvyu.com/dashboard/whatsapp"
 
   return (
     <div className="space-y-6">
@@ -918,6 +977,29 @@ export function WhatsAppFlows({ businessId, businessName }: Props) {
             </p>
           </CardContent>
         </Card>
+      )}
+
+      {!isHttps && overview.platform.configured && (
+        <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+          <div className="space-y-1">
+            <p className="font-medium">Connecting WhatsApp requires HTTPS</p>
+            <p className="text-xs text-amber-800">
+              This page is open over HTTP, so Meta will not open the Embedded Signup popup. Open the
+              deployed HTTPS URL or a secure HTTPS tunnel to connect or change a number. Sending,
+              templates, contacts, automations, and the inbox still work locally.{" "}
+              <a
+                className="font-medium underline underline-offset-2"
+                href={httpsDashboardUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open the HTTPS dashboard
+              </a>
+              .
+            </p>
+          </div>
+        </div>
       )}
 
       {connection ? (
@@ -1115,6 +1197,17 @@ export function WhatsAppFlows({ businessId, businessName }: Props) {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="flex flex-wrap items-center gap-3">
+                <Button onClick={handleConnect} disabled={connecting || !overview.platform.configured}>
+                  {connecting ? <Loader2 className="size-4 animate-spin" /> : <MessageSquare className="size-4" />}
+                  {connecting ? "Opening Meta…" : "Connect WhatsApp"}
+                </Button>
+                <p className="max-w-xl text-xs text-muted-foreground">
+                  You can finish Meta signup without a payment method. Add billing in Meta before sending;
+                  otherwise Meta blocks messages with error 131042. If you already created a business in
+                  Meta, choose the existing business in the popup instead of creating another one.
+                </p>
+              </div>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li className="flex gap-2">
                   <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" />
@@ -1135,10 +1228,10 @@ export function WhatsAppFlows({ businessId, businessName }: Props) {
                   only inside the 24-hour service window.
                 </li>
               </ul>
-              <Button onClick={handleConnect} disabled={connecting || !overview.platform.configured}>
-                {connecting ? <Loader2 className="size-4 animate-spin" /> : <MessageSquare className="size-4" />}
-                {connecting ? "Opening Meta…" : "Connect WhatsApp"}
-              </Button>
+              <p className="text-xs text-muted-foreground">
+                After connecting, the Send, Templates, Contacts, Automations, Scheduled, Inbox, and
+                Activity tabs appear here.
+              </p>
             </CardContent>
           </Card>
         )
@@ -1311,6 +1404,10 @@ export function WhatsAppFlows({ businessId, businessName }: Props) {
                 </p>
               </div>
             </div>
+            <p className="text-[11px] text-muted-foreground">
+              Owner digest: open Settings → WhatsApp Reputation Pulse to save a weekly/monthly preference
+              and send a test digest through an approved Owner report Utility template.
+            </p>
           </div>
 
           <div className="flex flex-wrap gap-2 border-b pb-2">

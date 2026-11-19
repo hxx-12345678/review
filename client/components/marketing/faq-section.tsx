@@ -25,7 +25,7 @@ const FAQS = [
   },
   {
     q: "Does the weekly WhatsApp digest send automatically?",
-    a: "The digest (feedback volume, review velocity, rating change, top praise/issues, follow-ups) is generated in your dashboard with an honest preview today. Automatic WhatsApp delivery needs your WhatsApp Business API number connected plus owner opt-in and an approved Meta utility template — until then, nothing is auto-sent.",
+    a: "The digest (feedback volume, review velocity, rating change, top praise/issues, follow-ups) is generated in your dashboard with an honest preview today. After you connect your own WhatsApp Business number, confirm owner opt-in, and get an approved Meta Utility template, you can send a test digest on WhatsApp. Automatic scheduled WhatsApp delivery is not enabled yet, so nothing is sent automatically.",
   },
   {
     q: "What should I track besides my star rating?",
