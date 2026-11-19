@@ -306,16 +306,24 @@ export function WhatsAppTemplateManager({
         </div>
       )}
 
-      {/* Library Dialog Modal */}
+      {/* Library Dialog Modal — Full screen takeover, sticky header, scrollable body */}
       <Dialog open={isLibraryOpen} onOpenChange={setIsLibraryOpen}>
-        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>25+ WhatsApp Starter Templates</DialogTitle>
-            <DialogDescription>
-              Pre-crafted for Diwali, New Year, review requests, discounts, and payment reminders.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-2">
+        <DialogContent className="max-w-5xl w-[95vw] h-[92vh] p-0 flex flex-col overflow-hidden">
+          {/* Sticky header */}
+          <div className="sticky top-0 z-10 bg-background border-b px-6 py-4 shrink-0">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-bold flex items-center gap-2">
+                <Sparkles className="size-5 text-[#25D366]" />
+                25+ Ready-to-Use WhatsApp Templates
+              </DialogTitle>
+              <DialogDescription className="text-xs">
+                Pick any template below — it auto-fills the Create form so you only need to click Submit.
+                Templates go to Meta for review (typically 15–30 min).
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+          {/* Scrollable content */}
+          <div className="flex-1 overflow-y-auto px-6 py-4">
             <WhatsAppTemplateLibrary
               businessName={businessName}
               onUse={handleUseLibraryTemplate}
@@ -326,108 +334,137 @@ export function WhatsAppTemplateManager({
 
       {/* Create / Customize Template Dialog with Live Phone Preview */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Create WhatsApp Template</DialogTitle>
-            <DialogDescription>
-              Templates are submitted to Meta for approval. Once approved, they can be sent anytime.
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="max-w-4xl w-[95vw] h-[92vh] p-0 flex flex-col overflow-hidden">
+          {/* Sticky header */}
+          <div className="sticky top-0 z-10 bg-background border-b px-6 py-4 shrink-0">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-bold flex items-center gap-2">
+                <Plus className="size-5 text-[#25D366]" />
+                Create WhatsApp Template
+              </DialogTitle>
+              <DialogDescription className="text-xs">
+                Fill the form → Submit to Meta → Wait 15–30 min for approval → Send to customers.
+                Templates must be approved before any message is sent.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
 
-          <div className="grid gap-6 md:grid-cols-[1fr_300px] py-2">
-            {/* Form Fields */}
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold">Template Name (Unique identifier)</label>
-                <Input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. diwali_offer_2026 or review_request"
-                  className="h-9 text-xs font-mono"
-                />
-              </div>
+          {/* Scrollable body — split layout */}
+          <div className="flex-1 overflow-y-auto px-6 py-4">
+            <div className="grid gap-6 md:grid-cols-[1fr_280px]">
+              {/* Form Fields */}
+              <div className="space-y-4">
+                {/* Name + Category row */}
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold">Template Name</label>
+                    <Input
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="e.g. diwali_offer_2026"
+                      className="h-9 text-xs font-mono"
+                    />
+                    <p className="text-[10px] text-muted-foreground">Lowercase, underscores only. Must be unique.</p>
+                  </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold">Category</label>
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value as any)}
-                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-xs"
-                  >
-                    <option value="MARKETING">Marketing (Offers, Wishes, Reviews)</option>
-                    <option value="UTILITY">Utility (Receipts, Account Updates)</option>
-                  </select>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold">Category</label>
+                    <select
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value as any)}
+                      className="h-9 w-full rounded-md border border-input bg-background px-3 text-xs"
+                    >
+                      <option value="MARKETING">🏷️ Marketing — Offers, Reviews, Wishes</option>
+                      <option value="UTILITY">⚙️ Utility — Receipts, Reminders, Updates</option>
+                    </select>
+                    <p className="text-[10px] text-muted-foreground">
+                      {category === "MARKETING" ? "Marketing msgs charge per conversation (₹0.50–₹1)" : "Utility msgs are cheaper and always deliverable"}
+                    </p>
+                  </div>
                 </div>
 
+                {/* Header */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold">Header (Optional)</label>
+                  <label className="text-xs font-semibold">Header Text <span className="text-muted-foreground font-normal">(Optional — appears bold at top)</span></label>
                   <Input
                     value={header}
                     onChange={(e) => setHeader(e.target.value)}
-                    placeholder="e.g. Special Diwali Offer! 🪔"
+                    placeholder="e.g. ✨ Special Diwali Offer!"
                     className="h-9 text-xs"
                   />
                 </div>
-              </div>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold">
-                  Body Text (Use {"{{1}}"}, {"{{2}}"} for placeholders)
-                </label>
-                <Textarea
-                  value={body}
-                  onChange={(e) => setBody(e.target.value)}
-                  rows={5}
-                  placeholder="Hi {{1}}, thank you for visiting {{2}}! Tap here: {{3}} to leave a review."
-                  className="text-xs"
-                />
-                <p className="text-[10px] text-muted-foreground">
-                  Important: Meta requires text after any link placeholder (do not end the template on a variable).
+                {/* Body */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold">
+                    Message Body <span className="text-muted-foreground font-normal">(Use {`{{1}}`}, {`{{2}}`} as dynamic placeholders)</span>
+                  </label>
+                  <Textarea
+                    value={body}
+                    onChange={(e) => setBody(e.target.value)}
+                    rows={6}
+                    placeholder={`Hi {{1}}, thanks for visiting {{2}}!\n\nWe'd love your honest review here: {{3}}\n\nIt only takes 30 seconds. 🙏`}
+                    className="text-xs leading-relaxed resize-none"
+                  />
+                  <p className="text-[10px] text-muted-foreground">
+                    ⚠️ Meta rejects templates where text starts or ends with a variable like {`{{1}}`}. Always start with "Hi" or "Dear" and end with a word.
+                  </p>
+                </div>
+
+                {/* Footer */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold">Footer <span className="text-muted-foreground font-normal">(Optional — small italic text at bottom)</span></label>
+                  <Input
+                    value={footer}
+                    onChange={(e) => setFooter(e.target.value)}
+                    placeholder="Reply STOP to opt out."
+                    className="h-9 text-xs"
+                  />
+                </div>
+
+                {/* Sample values */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold">Sample Values for Review <span className="text-muted-foreground font-normal">(comma separated, one per placeholder)</span></label>
+                  <Input
+                    value={examples}
+                    onChange={(e) => setExamples(e.target.value)}
+                    placeholder="Het, Caesars Palace, https://beyondvyu.com/r/caesars-palace"
+                    className="h-9 text-xs"
+                  />
+                  <p className="text-[10px] text-muted-foreground">
+                    Meta uses these example values to review your template. Use realistic-looking values.
+                  </p>
+                </div>
+
+                {/* Submit */}
+                <Button
+                  className="w-full h-11 bg-[#25D366] hover:bg-[#20ba59] text-white font-bold text-sm shadow-sm rounded-xl"
+                  disabled={submitting}
+                  onClick={handleCreateSubmit}
+                >
+                  {submitting ? "Submitting to Meta for Review…" : "✅ Submit Template to Meta"}
+                </Button>
+
+                <p className="text-[10px] text-center text-muted-foreground">
+                  After submission, the template appears in your Templates tab as "In Review". Meta usually reviews within 15–60 minutes.
                 </p>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold">Footer Text</label>
-                <Input
-                  value={footer}
-                  onChange={(e) => setFooter(e.target.value)}
-                  placeholder="e.g. Reply STOP to opt out."
-                  className="h-9 text-xs"
-                />
+              {/* Right: Live Phone Preview */}
+              <div className="hidden md:flex flex-col gap-2">
+                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  📱 Live Preview
+                </p>
+                <div className="sticky top-0">
+                  <WhatsAppPhonePreview
+                    businessName={businessName}
+                    headerText={header}
+                    bodyText={body || "Your message will appear here…"}
+                    footerText={footer}
+                    variables={examples.split(",").map((s) => s.trim())}
+                  />
+                </div>
               </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold">Sample Variable Values (comma separated)</label>
-                <Input
-                  value={examples}
-                  onChange={(e) => setExamples(e.target.value)}
-                  placeholder="e.g. Het, Caesars Palace, https://beyondvyu.com/r/caesars-palace"
-                  className="h-9 text-xs"
-                />
-              </div>
-
-              <Button
-                className="w-full h-10 bg-[#25D366] hover:bg-[#20ba59] text-white font-bold text-xs shadow-xs"
-                disabled={submitting}
-                onClick={handleCreateSubmit}
-              >
-                {submitting ? "Submitting to Meta…" : "Submit to Meta for Approval"}
-              </Button>
-            </div>
-
-            {/* Live Phone Preview on Right */}
-            <div className="hidden md:block">
-              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">
-                Live WhatsApp Preview
-              </p>
-              <WhatsAppPhonePreview
-                businessName={businessName}
-                headerText={header}
-                bodyText={body}
-                footerText={footer}
-                variables={examples.split(",").map((s) => s.trim())}
-              />
             </div>
           </div>
         </DialogContent>

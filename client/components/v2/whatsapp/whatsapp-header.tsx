@@ -1,10 +1,10 @@
 "use client"
 
 import { useState } from "react"
-import { CheckCircle2, ExternalLink, RefreshCw, Settings, ShieldCheck, Sparkles, Users, MessageSquare, Send } from "lucide-react"
+import { AlertTriangle, CheckCircle2, Clock, ExternalLink, RefreshCw, Settings, Users, Send } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 interface Props {
   businessName: string
@@ -92,12 +92,15 @@ export function WhatsAppHeader({
           </Button>
 
           {/* Settings Modal (Tucks away developer WABA details) */}
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-9 px-2.5 text-muted-foreground hover:text-foreground"
+            onClick={() => setSettingsOpen(true)}
+          >
+            <Settings className="size-4" />
+          </Button>
           <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" variant="ghost" className="h-9 px-2.5 text-muted-foreground hover:text-foreground">
-                <Settings className="size-4" />
-              </Button>
-            </DialogTrigger>
             <DialogContent className="max-w-md">
               <DialogHeader>
                 <DialogTitle>WhatsApp Business Connection</DialogTitle>
@@ -173,17 +176,41 @@ export function WhatsAppHeader({
         </div>
 
         <div className="flex items-center gap-2.5">
-          <div className="size-8 rounded-lg bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
-            <CheckCircle2 className="size-4" />
+          <div className={`size-8 rounded-lg flex items-center justify-center shrink-0 ${stats.approvedTemplates > 0 ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300" : "bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400"}`}>
+            {stats.approvedTemplates > 0 ? <CheckCircle2 className="size-4" /> : <Clock className="size-4" />}
           </div>
           <div>
             <p className="text-[11px] text-muted-foreground font-medium">Templates</p>
             <p className="text-sm sm:text-base font-bold text-foreground">
-              {stats.approvedTemplates} <span className="text-[11px] font-normal text-muted-foreground">Ready</span>
+              {stats.approvedTemplates > 0 ? (
+                <>{stats.approvedTemplates} <span className="text-[11px] font-normal text-muted-foreground">Approved</span></>
+              ) : (
+                <span className="text-xs text-amber-600 dark:text-amber-400 font-semibold">In Review…</span>
+              )}
             </p>
           </div>
         </div>
       </div>
+
+      {/* Pending templates global notice */}
+      {stats.approvedTemplates === 0 && isConnected && (
+        <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50/80 dark:bg-amber-950/20 px-4 py-2.5 flex items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200">
+            <Clock className="size-3.5 shrink-0 text-amber-600" />
+            <span><strong>All templates are under Meta review.</strong> You cannot send messages until at least one is approved (typically 15–60 min).</span>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-[11px] shrink-0 border-amber-300 text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300"
+            disabled={syncing}
+            onClick={handleSync}
+          >
+            <RefreshCw className={`size-3 mr-1 ${syncing ? "animate-spin" : ""}`} />
+            Check Now
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

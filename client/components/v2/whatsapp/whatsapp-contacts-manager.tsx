@@ -16,7 +16,7 @@ export interface Contact {
   consentStatus: string
   consentSource?: string | null
   marketingOptIn: boolean
-  createdAt: string
+  createdAt?: string
 }
 
 interface Props {
@@ -244,11 +244,11 @@ export function WhatsAppContactsManager({
                     </td>
 
                     <td className="py-3 px-4 text-muted-foreground">
-                      {new Date(contact.createdAt).toLocaleDateString(undefined, {
+                      {contact.createdAt ? new Date(contact.createdAt).toLocaleDateString(undefined, {
                         month: "short",
                         day: "numeric",
                         year: "numeric",
-                      })}
+                      }) : "—"}
                     </td>
 
                     <td className="py-3 px-4 text-right">

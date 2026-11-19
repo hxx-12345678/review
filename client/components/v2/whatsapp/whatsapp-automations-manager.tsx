@@ -136,7 +136,7 @@ export function WhatsAppAutomationsManager({
       await api.v2.whatsapp.createAutomationRule({
         businessId,
         name: recipe.title,
-        trigger: recipe.trigger,
+        trigger: recipe.trigger as "FEEDBACK_RECEIVED" | "OPT_IN_RECEIVED",
         templateId: matchingTemplate.id,
         delayMinutes: recipe.defaultDelayMinutes,
         variableMap: mapping.slice(0, matchingTemplate.parameterCount),

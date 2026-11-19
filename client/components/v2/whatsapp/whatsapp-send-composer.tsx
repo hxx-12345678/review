@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState, useEffect } from "react"
-import { AlertCircle, CheckCircle2, Clock, FastForward, HelpCircle, Info, Radio, Send, Sparkles, User, Users, Zap } from "lucide-react"
+import { AlertCircle, CheckCircle2, ChevronDown, ChevronUp, Clock, Info, Phone, Radio, RefreshCw, Send, Sparkles, User, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -30,6 +30,7 @@ export interface Contact {
   name: string | null
   consentStatus: string
   marketingOptIn: boolean
+  createdAt?: string
 }
 
 interface Props {
@@ -237,37 +238,85 @@ export function WhatsAppSendComposer({
           </CardHeader>
           <CardContent className="space-y-3">
             {mode === "SINGLE" ? (
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">Select from Contacts</label>
-                  <select
-                    value={selectedContactId}
-                    onChange={(e) => {
-                      setSelectedContactId(e.target.value)
-                      if (e.target.value) setManualPhone("")
-                    }}
-                    className="h-10 w-full rounded-xl border border-input bg-background px-3 text-sm focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+              <div className="space-y-3">
+                {/* Two-way toggle: pick from list OR enter manually */}
+                <div className="flex p-0.5 bg-muted/50 rounded-lg border w-full max-w-sm">
+                  <button
+                    type="button"
+                    onClick={() => { setSelectedContactId(optedInContacts[0]?.id || ""); setManualPhone("") }}
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold rounded-md transition ${
+                      selectedContactId !== "" || optedInContacts.length === 0
+                        ? "bg-background text-foreground shadow-xs border"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
                   >
-                    <option value="">-- Enter new phone number instead --</option>
-                    {optedInContacts.map((contact) => (
-                      <option key={contact.id} value={contact.id}>
-                        {contact.name ? `${contact.name} · ` : ""}+{contact.phone}
-                      </option>
-                    ))}
-                  </select>
+                    <Users className="size-3.5" />
+                    From Contacts
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedContactId("")}
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold rounded-md transition ${
+                      selectedContactId === ""
+                        ? "bg-background text-foreground shadow-xs border"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <Phone className="size-3.5" />
+                    New Number
+                  </button>
                 </div>
 
-                {!selectedContactId && (
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-muted-foreground">
-                      Or type new WhatsApp number
-                    </label>
-                    <Input
-                      value={manualPhone}
-                      onChange={(e) => setManualPhone(e.target.value)}
-                      placeholder="e.g. 919737779007"
-                      className="h-10 rounded-xl"
-                    />
+                {selectedContactId !== "" ? (
+                  /* Pick from existing opted-in contacts */
+                  optedInContacts.length === 0 ? (
+                    <div className="rounded-xl border border-dashed p-4 text-center text-xs text-muted-foreground">
+                      <p className="font-medium text-foreground">No opted-in contacts yet.</p>
+                      <p className="mt-1">Switch to "New Number" to type a phone number directly.</p>
+                    </div>
+                  ) : (
+                    <select
+                      value={selectedContactId}
+                      onChange={(e) => setSelectedContactId(e.target.value)}
+                      className="h-10 w-full rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    >
+                      {optedInContacts.map((contact) => (
+                        <option key={contact.id} value={contact.id}>
+                          {contact.name ? `${contact.name} · ` : ""}+{contact.phone}
+                        </option>
+                      ))}
+                    </select>
+                  )
+                ) : (
+                  /* Manual entry for new/unlisted customer */
+                  <div className="space-y-2.5">
+                    <div className="rounded-xl bg-blue-50 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-800/40 p-3 text-xs text-blue-900 dark:text-blue-200">
+                      <p className="font-semibold">📋 Sending to a customer not in your contact list?</p>
+                      <p className="mt-0.5 text-blue-700 dark:text-blue-300">
+                        Enter their WhatsApp number below. By sending, you confirm they have consented to receive WhatsApp messages from {businessName}.
+                      </p>
+                    </div>
+                    <div className="grid sm:grid-cols-2 gap-2.5">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-muted-foreground">WhatsApp Number (with country code)</label>
+                        <Input
+                          value={manualPhone}
+                          onChange={(e) => setManualPhone(e.target.value)}
+                          placeholder="e.g. 919737779007"
+                          className="h-10 rounded-xl"
+                        />
+                        <p className="text-[10px] text-muted-foreground">No + or spaces. India: 91XXXXXXXXXX</p>
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-muted-foreground">Customer Name (optional)</label>
+                        <Input
+                          value={manualName}
+                          onChange={(e) => setManualName(e.target.value)}
+                          placeholder="e.g. Het Patel"
+                          className="h-10 rounded-xl"
+                        />
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -431,35 +480,67 @@ export function WhatsAppSendComposer({
           </Card>
         )}
 
-        {/* Action Button & Meta Notice */}
+        {/* Action Button & Status */}
         <div className="pt-2 space-y-3">
+          {/* Template pending state — clear, helpful banner */}
           {currentTemplate && !isApproved && (
-            <div className="rounded-xl border border-amber-200 bg-amber-50/80 dark:bg-amber-950/20 p-3.5 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2.5">
-              <Clock className="size-4 shrink-0 mt-0.5 text-amber-600" />
-              <div>
-                <p className="font-semibold">Meta is currently reviewing this template</p>
-                <p className="mt-0.5 text-amber-800 dark:text-amber-300">
-                  Automated review typically takes 15–60 minutes. As soon as Meta approves it, you can send it immediately. Click <strong>"Sync Status"</strong> at the top to check if it's ready.
-                </p>
+            <div className="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-4 text-xs text-amber-900 dark:text-amber-200 space-y-2.5">
+              <div className="flex items-start gap-2.5">
+                <Clock className="size-4 shrink-0 mt-0.5 text-amber-600" />
+                <div>
+                  <p className="font-bold text-amber-950 dark:text-amber-100">Template under Meta review</p>
+                  <p className="mt-0.5 text-amber-800 dark:text-amber-300 leading-relaxed">
+                    WhatsApp requires all outbound templates to be approved by Meta before sending. This usually takes <strong>15–60 minutes</strong> for clean templates — but can take up to 24 hours.
+                  </p>
+                </div>
+              </div>
+              <div className="rounded-lg bg-amber-100 dark:bg-amber-900/30 p-2.5 space-y-1">
+                <p className="font-semibold text-amber-900 dark:text-amber-200">What to do while waiting:</p>
+                <ul className="list-disc list-inside space-y-0.5 text-amber-800 dark:text-amber-300">
+                  <li>Add customers to your contact list (Audience tab)</li>
+                  <li>Click <strong>"Sync Status"</strong> (top-right) every 15–20 min to check if approved</li>
+                  <li>Once approved, the green Send button activates immediately</li>
+                </ul>
               </div>
             </div>
           )}
 
+          {/* No templates at all */}
+          {!currentTemplate && (
+            <div className="rounded-xl border border-dashed p-5 text-center space-y-2 text-muted-foreground text-xs">
+              <p className="font-semibold text-foreground">No templates yet</p>
+              <p>Go to the <strong>Templates tab</strong> and pick from our 25+ starter library. Meta reviews them in 15–60 min.</p>
+            </div>
+          )}
+
+          {/* Main Send Button */}
           <Button
             size="lg"
-            className="w-full h-12 bg-[#25D366] hover:bg-[#20ba59] text-white font-bold text-sm shadow-md rounded-xl transition gap-2"
+            className={`w-full h-12 font-bold text-sm shadow-md rounded-xl transition gap-2 ${
+              isApproved
+                ? "bg-[#25D366] hover:bg-[#20ba59] text-white"
+                : "bg-muted text-muted-foreground cursor-not-allowed"
+            }`}
             disabled={sending || !isApproved}
             onClick={handleSend}
           >
             <Send className="size-4" />
             {sending
               ? "Sending via WhatsApp Cloud API…"
+              : !currentTemplate
+              ? "Select a Template First"
               : !isApproved
-              ? "Waiting for Meta Approval"
+              ? `⏳ Waiting for Meta to Approve "${currentTemplate.name.replaceAll("_", " ")}"`
               : mode === "SINGLE"
-              ? "Send WhatsApp Message Now"
-              : `Send Broadcast to ${optedInContacts.length} Customers`}
+              ? "✅ Send WhatsApp Message Now"
+              : `📢 Send Broadcast to ${optedInContacts.length} Customers`}
           </Button>
+
+          {isApproved && (
+            <p className="text-[10px] text-center text-muted-foreground">
+              Message is sent via Meta WhatsApp Cloud API. Recipients must have WhatsApp installed.
+            </p>
+          )}
         </div>
       </div>
 

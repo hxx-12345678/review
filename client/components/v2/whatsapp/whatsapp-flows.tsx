@@ -319,7 +319,7 @@ export function WhatsAppFlows({ businessId, businessName }: Props) {
   async function handleSyncTemplates() {
     try {
       const res = await api.v2.whatsapp.syncTemplates(businessId)
-      toast.success(`Synced with Meta! ${res.templates?.length || 0} templates found.`)
+      toast.success(`Synced with Meta! ${(res as any)?.templates?.length || 0} templates found.`)
       await loadOverview()
     } catch (err: any) {
       toast.error(err?.message || "Could not sync templates from Meta")
