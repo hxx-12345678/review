@@ -476,6 +476,17 @@ export function validateTemplatePolicy(input: {
   }
 }
 
+function assertNoEdgePlaceholders(text: string, label: string): void {
+  const trimmed = text.trim();
+  if (/^\{\{\s*\d+\s*\}\}/.test(trimmed) || /\{\{\s*\d+\s*\}\}$/.test(trimmed)) {
+    throw new WhatsAppServiceError(
+      `${label} cannot start or end with a variable. Add fixed text before the first variable and after the last one. Meta rejects this with error 2388299.`,
+      400,
+      "INVALID_TEMPLATE",
+    );
+  }
+}
+
 export function buildTemplateComponents(input: {
   headerText?: string | null;
   bodyText: string;
@@ -491,6 +502,7 @@ export function buildTemplateComponents(input: {
   if (!bodyText) {
     throw new WhatsAppServiceError("Template body text is required.", 400, "INVALID_TEMPLATE");
   }
+  assertNoEdgePlaceholders(bodyText, "Template body");
   if (bodyText.length > 1024) {
     throw new WhatsAppServiceError("Template body text must be 1024 characters or fewer.", 400, "INVALID_TEMPLATE");
   }

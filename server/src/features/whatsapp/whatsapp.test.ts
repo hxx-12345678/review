@@ -72,6 +72,20 @@ expectThrow(
     }),
   "only one variable",
 );
+expectThrow(
+  () =>
+    buildTemplateComponents({
+      bodyText: "Hi {{1}}, review here: {{2}}",
+    }),
+  "cannot start or end with a variable",
+);
+expectThrow(
+  () =>
+    buildTemplateComponents({
+      bodyText: "{{1}}, thanks for visiting us.",
+    }),
+  "cannot start or end with a variable",
+);
 
 // Policy guards ---------------------------------------------------------------
 validateTemplatePolicy({
