@@ -1440,6 +1440,70 @@ export function WhatsAppFlows({ businessId, businessName }: Props) {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                <div
+                  className={`rounded-lg border p-3 text-xs ${
+                    connection.numberRegistered &&
+                    connection.paymentMethodConfirmedAt &&
+                    approvedTemplates.length > 0 &&
+                    overview.contacts.optedIn > 0
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                      : "border-amber-200 bg-amber-50 text-amber-900"
+                  }`}
+                >
+                  <p className="font-semibold">Before you send: readiness check</p>
+                  <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
+                    <span className="flex items-start gap-1.5">
+                      {connection.numberRegistered ? (
+                        <CheckCircle2 className="mt-0.5 size-3.5 shrink-0" />
+                      ) : (
+                        <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+                      )}
+                      Number registered with Meta
+                    </span>
+                    <span className="flex items-start gap-1.5">
+                      {connection.paymentMethodConfirmedAt ? (
+                        <CheckCircle2 className="mt-0.5 size-3.5 shrink-0" />
+                      ) : (
+                        <Wallet className="mt-0.5 size-3.5 shrink-0" />
+                      )}
+                      Meta payment method added
+                    </span>
+                    <span className="flex items-start gap-1.5">
+                      {approvedTemplates.length > 0 ? (
+                        <CheckCircle2 className="mt-0.5 size-3.5 shrink-0" />
+                      ) : (
+                        <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+                      )}
+                      Approved template available
+                    </span>
+                    <span className="flex items-start gap-1.5">
+                      {overview.contacts.optedIn > 0 ? (
+                        <CheckCircle2 className="mt-0.5 size-3.5 shrink-0" />
+                      ) : (
+                        <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+                      )}
+                      Opted-in customer available
+                    </span>
+                  </div>
+                  {connection.numberRegistered &&
+                  connection.paymentMethodConfirmedAt &&
+                  approvedTemplates.length > 0 &&
+                  overview.contacts.optedIn > 0 ? (
+                    <p className="mt-2">All checks passed. Meta will accept this template send.</p>
+                  ) : (
+                    <p className="mt-2">
+                      Complete the amber items above. Meta rejects sends when the number is not registered,
+                      billing is missing, the template is not approved, or the customer has not opted in.
+                      {connection.displayPhoneNumber?.startsWith("+1 555") ? (
+                        <span className="mt-1 block">
+                          This looks like a Meta test number. Also add the customer as a verified test
+                          recipient in Meta App Dashboard → WhatsApp → API Setup, or add Meta billing.
+                        </span>
+                      ) : null}
+                    </p>
+                  )}
+                </div>
+
                 {approvedTemplates.length === 0 ? (
                   <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
                     <p className="font-medium">No approved templates yet.</p>

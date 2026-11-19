@@ -678,8 +678,17 @@ export async function createBusinessTemplate(
       components: built.components,
     });
   } catch (err: any) {
+    const metaDetail = [
+      err?.code != null ? `code ${err.code}` : null,
+      err?.subcode != null ? `subcode ${err.subcode}` : null,
+      err?.fbtraceId ? `trace ${err.fbtraceId}` : null,
+    ]
+      .filter(Boolean)
+      .join(", ");
     throw new WhatsAppServiceError(
-      `Meta rejected the template request: ${err?.message || "unknown error"}`,
+      `Meta rejected the template request: ${err?.message || "unknown error"}${
+        metaDetail ? ` (${metaDetail})` : ""
+      }`,
       502,
       "TEMPLATE_CREATE_FAILED",
     );
@@ -764,8 +773,17 @@ export async function updateBusinessTemplate(
       components: built.components,
     });
   } catch (err: any) {
+    const metaDetail = [
+      err?.code != null ? `code ${err.code}` : null,
+      err?.subcode != null ? `subcode ${err.subcode}` : null,
+      err?.fbtraceId ? `trace ${err.fbtraceId}` : null,
+    ]
+      .filter(Boolean)
+      .join(", ");
     throw new WhatsAppServiceError(
-      `Meta rejected the template edit: ${err?.message || "unknown error"}`,
+      `Meta rejected the template edit: ${err?.message || "unknown error"}${
+        metaDetail ? ` (${metaDetail})` : ""
+      }`,
       502,
       "TEMPLATE_UPDATE_FAILED",
     );

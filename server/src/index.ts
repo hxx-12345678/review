@@ -447,7 +447,11 @@ app.use(sanitizeInput);
 app.use(apiLimiter);
 
 app.get("/api/health", (_req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString() });
+  res.json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    commit: process.env.RENDER_GIT_COMMIT || null,
+  });
 });
 
 app.use("/api/auth", authRoutes);
